@@ -96,6 +96,63 @@ body {
 }
 
 /* ============================================
+   3D CARD FLIP & HOLOGRAPHIC UTILITIES
+   ============================================ */
+
+.perspective-1000 {
+  perspective: 1000px;
+}
+
+.perspective-1200 {
+  perspective: 1200px;
+}
+
+.preserve-3d {
+  transform-style: preserve-3d;
+}
+
+.backface-hidden {
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.rotate-y-180 {
+  transform: rotateY(180deg);
+}
+
+@keyframes holographic-shine {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.animate-holo-shimmer {
+  background-size: 200% 200%;
+  animation: holographic-shine 6s ease infinite;
+}
+
+@keyframes pulse-subtle {
+  0%, 100% {
+    opacity: 0.4;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.05);
+  }
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* ============================================
    MOTION — prefers-reduced-motion
    ============================================ */
 
@@ -109,3 +166,4 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
