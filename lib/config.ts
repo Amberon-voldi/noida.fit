@@ -23,7 +23,7 @@ export const NAV_LINKS = [
   { label: "Communities", href: "/communities" },
   { label: "Events", href: "/events" },
   { label: "Places", href: "/places" },
-  { label: "Stories", href: "/stories" },
+  { label: "Fitness ID", href: "/fitness-id" },
 ] as const;
 
 export const SITE_CONFIG = {
