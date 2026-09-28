@@ -102,6 +102,7 @@ export function FitnessCard({
           style={{
             boxShadow:
               "0 25px 55px -12px rgba(0, 0, 0, 0.9), 0 0 30px rgba(157, 220, 46, 0.14)",
+            willChange: "transform",
           }}
         >
           {/* ====================================================
@@ -112,6 +113,7 @@ export function FitnessCard({
             style={{
               background:
                 "linear-gradient(135deg, #181d2c 0%, #0d1019 45%, #131722 100%)",
+              transform: "translateZ(1px)",
             }}
           >
             {/* Holographic Sheen Overlay */}
@@ -236,10 +238,11 @@ export function FitnessCard({
               CARD BACK
              ==================================================== */}
           <div
-            className="absolute inset-0 w-full h-full rounded-2xl sm:rounded-3xl overflow-hidden backface-hidden rotate-y-180 p-5 sm:p-6 lg:p-7 flex flex-col justify-between border border-border-strong/80"
+            className="absolute inset-0 w-full h-full rounded-2xl sm:rounded-3xl overflow-hidden backface-hidden p-5 sm:p-6 lg:p-7 flex flex-col justify-between border border-border-strong/80"
             style={{
               background:
                 "linear-gradient(135deg, #11151f 0%, #080a0f 50%, #11141c 100%)",
+              transform: "rotateY(180deg) translateZ(1px)",
             }}
           >
             {/* Magnetic Stripe at Top */}
