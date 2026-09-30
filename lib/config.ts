@@ -20,10 +20,10 @@ export const CATEGORY_EMOJIS: Record<ActivityCategory, string> = {
 
 export const NAV_LINKS = [
   { label: "Discover", href: "/discover" },
+  { label: "Activities", href: "/activities" },
   { label: "Communities", href: "/communities" },
   { label: "Events", href: "/events" },
   { label: "Places", href: "/places" },
-  { label: "Fitness ID", href: "/fitness-id" },
 ] as const;
 
 export const SITE_CONFIG = {
@@ -33,14 +33,12 @@ export const SITE_CONFIG = {
     "The city-first fitness discovery and community platform for Noida & Greater Noida.",
   url: "https://noida.fit",
   instagram: "https://instagram.com/noida.fit",
-  activeCommunities: 12,
-  weeklyGatherings: 28,
-  activeMovers: "1,400+",
 } as const;
 
 export function formatDate(dateStr: string): string {
-  const date = new Date(dateStr + "T00:00:00");
+  const date = new Date(`${dateStr}T00:00:00+05:30`);
   return date.toLocaleDateString("en-IN", {
+    timeZone: "Asia/Kolkata",
     weekday: "short",
     month: "short",
     day: "numeric",

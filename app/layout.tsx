@@ -36,7 +36,7 @@ export const metadata: Metadata = {
   authors: [{ name: "NOIDA.FIT" }],
   creator: "NOIDA.FIT",
   publisher: "NOIDA.FIT",
-  metadataBase: new URL("https://noida.fit"),
+  metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://noida.fit"),
   alternates: {
     canonical: "/",
   },
@@ -50,7 +50,7 @@ export const metadata: Metadata = {
       "Find running clubs, group workouts, cycling rides, and fitness events in Noida & Greater Noida.",
     images: [
       {
-        url: "/og-image.png",
+        url: "/opengraph-image",
         width: 1200,
         height: 630,
         alt: "NOIDA.FIT — The Heartbeat of Noida Fitness",
@@ -62,7 +62,7 @@ export const metadata: Metadata = {
     title: "NOIDA.FIT — Discover Fitness Communities & Events in Noida",
     description:
       "Find running clubs, group workouts, cycling rides, and fitness events in Noida & Greater Noida.",
-    images: ["/og-image.png"],
+    images: ["/opengraph-image"],
   },
   robots: {
     index: true,

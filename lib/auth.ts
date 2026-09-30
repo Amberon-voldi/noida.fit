@@ -1,51 +1,32 @@
-import NextAuth from "next-auth";
-import Credentials from "next-auth/providers/credentials";
-import { getUserByEmail } from "@/lib/data";
+import "server-only";
 
-export const { handlers, signIn, signOut, auth } = NextAuth({
-  providers: [
-    Credentials({
-      name: "Email",
-      credentials: {
-        email: { label: "Email", type: "email" },
-        password: { label: "Password", type: "password" },
-      },
-      async authorize(credentials) {
-        if (!credentials?.email || !credentials?.password) return null;
+import { getCurrentAppwriteUser } from "@/lib/appwrite/server";
 
-        const user = getUserByEmail(credentials.email as string);
-        if (!user) return null;
+export interface AuthUser {
+  id: string;
+  name: string;
+  email: string;
+  image?: string;
+  labels?: string[];
+}
 
-        // V1: plain text comparison. In production, use bcrypt.
-        if (user.password !== credentials.password) return null;
+export interface AuthSession {
+  user: AuthUser;
+}
 
-        return {
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          image: user.avatarUrl ?? null,
-        };
-      },
-    }),
-  ],
-  pages: {
-    signIn: "/login",
-  },
-  callbacks: {
-    async jwt({ token, user }) {
-      if (user) {
-        token.id = user.id;
-      }
-      return token;
+/** Compatibility facade for pages that used the old NextAuth `auth()` call. */
+export async function auth(): Promise<AuthSession | null> {
+  const user = await getCurrentAppwriteUser();
+  if (!user) return null;
+
+  const prefs = user.prefs as Record<string, unknown> | undefined;
+  return {
+    user: {
+      id: user.$id,
+      name: user.name,
+      email: user.email,
+      ...(typeof prefs?.avatarUrl === "string" ? { image: prefs.avatarUrl } : {}),
+      labels: user.labels,
     },
-    async session({ session, token }) {
-      if (session.user && token.id) {
-        session.user.id = token.id as string;
-      }
-      return session;
-    },
-  },
-  session: {
-    strategy: "jwt",
-  },
-});
+  };
+}

@@ -1,48 +1,30 @@
+import { ListingImage } from "@/components/discovery/ListingImage";
 import Link from "next/link";
 import type { Community } from "@/types/community";
 import { CATEGORY_LABELS } from "@/lib/config";
 import { BaseCard } from "./BaseCard";
 import { CheckCircle2 } from "lucide-react";
 
-interface CommunityCardProps {
-  community: Community;
-}
+interface CommunityCardProps { community: Community; }
 
 export function CommunityCard({ community }: CommunityCardProps) {
-  const categoryLabel = CATEGORY_LABELS[community.category] ?? community.category;
-
+  const image = community.bannerUrl;
   return (
-    <BaseCard className="p-5 h-full">
-      <div className="flex items-start justify-between mb-4">
-        <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-semibold uppercase tracking-wider bg-[#9ddc2e]/10 text-[#9ddc2e] border border-[#9ddc2e]/20">
-          {categoryLabel}
-        </span>
-        {community.verified && (
-          <div className="flex items-center gap-1 text-[10px] font-mono text-[#9ddc2e] font-bold">
-            <CheckCircle2 className="w-3 h-3" />
-            <span>VERIFIED</span>
-          </div>
-        )}
-      </div>
-
-      <div className="flex flex-col gap-1 mb-4">
-        <h3 className="text-lg font-black text-white tracking-tight group-hover:text-[#9ddc2e] transition-colors line-clamp-1">
-          <Link href={`/community/${community.slug}`} className="focus-visible:outline-none">
-            <span className="absolute inset-0" aria-hidden="true" />
-            {community.name}
-          </Link>
-        </h3>
-        <p className="text-sm text-slate-400 line-clamp-2 leading-relaxed font-medium">
-          {community.tagline}
-        </p>
-      </div>
-
-      <div className="mt-auto pt-4 border-t border-white/5 flex items-center justify-between text-xs">
-        <span className="text-slate-500 flex items-center gap-1.5 truncate max-w-[140px] font-medium">
-          <span className="opacity-50">📍</span> {community.baseLocation}
-        </span>
-        <div className="px-2 py-1 rounded-md bg-white/5 border border-white/10 font-mono text-white/90 text-[11px] font-bold">
-          {community.membersCount.toLocaleString()}+ members
+    <BaseCard>
+      <Link href={`/community/${community.slug}`} aria-label={`View ${community.name}`} className="relative block aspect-[16/9] shrink-0 overflow-hidden border-b border-border-subtle bg-surface-elevated">
+        <ListingImage src={image} category={community.category} alt={community.name} sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw" />
+        <div className="absolute inset-x-3 top-3 flex items-start justify-between gap-2">
+          <span className="rounded-md bg-background/90 px-2 py-1 font-mono text-[11px] font-bold uppercase tracking-wide text-velocity">{CATEGORY_LABELS[community.category] ?? community.category}</span>
+          {community.verified && !community.demo && <span className="flex items-center gap-1 rounded-md bg-background/90 px-2 py-1 text-[11px] font-semibold text-indigo-300"><CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" /> Verified</span>}
+          {community.demo && <span className="rounded-md bg-background/90 px-2 py-1 text-[10px] font-semibold uppercase text-white">Demo</span>}
+        </div>
+      </Link>
+      <div className="flex flex-1 flex-col p-5">
+        <h3 className="text-lg font-bold leading-snug text-white group-hover:text-velocity-glow"><Link href={`/community/${community.slug}`} className="hover:text-velocity">{community.name}</Link></h3>
+        <p className="mt-2 line-clamp-2 text-sm leading-relaxed text-text-secondary">{community.tagline}</p>
+        <div className="mt-5 space-y-2 border-t border-border-subtle pt-4 text-xs text-text-secondary">
+          <p>{community.baseLocation}</p>
+          <p className="font-mono text-text-secondary">{community.meetingDays.join(" · ")}</p>
         </div>
       </div>
     </BaseCard>

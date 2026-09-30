@@ -28,6 +28,7 @@ export function Logo({ href = "/", size = "md", className = "" }: LogoProps) {
         alt="NOIDA.FIT"
         width={w}
         height={h}
+        style={{ width: w, height: "auto" }}
         priority
       />
     </Link>

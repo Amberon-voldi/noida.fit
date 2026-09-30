@@ -1,34 +1,14 @@
-"use client";
-
-import React from "react";
+import type { ReactNode } from "react";
 
 interface BaseCardProps {
-  children: React.ReactNode;
+  children: ReactNode;
   className?: string;
-  hoverEffect?: "glow" | "none";
 }
 
-export function BaseCard({
-  children,
-  className = "",
-  hoverEffect = "glow"
-}: BaseCardProps) {
+export function BaseCard({ children, className = "" }: BaseCardProps) {
   return (
-    <div className={`
-      relative group overflow-hidden rounded-2xl transition-all duration-300
-      bg-surface/80 border border-white/10 ring-1 ring-white/5
-      hover:border-[#9ddc2e]/50 hover:scale-[1.02]
-      hover:shadow-xl hover:shadow-[#9ddc2e]/10
-      ${className}
-    `}>
-      {/* Hover Glow Layer */}
-      {hoverEffect === "glow" && (
-        <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none bg-gradient-to-br from-[#9ddc2e]/10 via-transparent to-transparent" />
-      )}
-
-      <div className="relative z-10 h-full w-full">
-        {children}
-      </div>
-    </div>
+    <article className={`group relative flex h-full min-w-0 flex-col overflow-hidden rounded-xl border border-border-subtle bg-surface shadow-[var(--shadow-card)] transition-[border-color,background,transform,box-shadow] duration-200 hover:-translate-y-1 hover:border-border-strong hover:bg-surface-hover hover:shadow-[var(--shadow-card-hover)] ${className}`}>
+      {children}
+    </article>
   );
 }

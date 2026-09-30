@@ -1,48 +1,29 @@
 @import "tailwindcss";
 
-/* ============================================
-   NOIDA.FIT — Design System Token Foundation
-   Tailwind CSS v4 @theme Configuration
-   ============================================ */
-
 :root {
-  /* Surface Tokens */
   --background: #090a0f;
   --foreground: #f8fafc;
   --surface: #11141d;
   --surface-elevated: #191e2c;
   --surface-hover: #22293c;
-
-  /* Border Tokens */
   --border-subtle: #1e2436;
   --border-strong: #333c57;
-
-  /* Text Tokens */
   --text-primary: #f8fafc;
   --text-secondary: #94a3b8;
-  --text-muted: #64748b;
-
-  /* Brand Accent Tokens */
+  --text-muted: #94a3b8;
   --accent-velocity: #9ddc2e;
   --accent-velocity-glow: #b5f043;
   --accent-energy: #f97316;
-
-  /* Radius Tokens */
   --radius-sm: 4px;
   --radius-md: 8px;
   --radius-lg: 12px;
   --radius-xl: 16px;
   --radius-2xl: 24px;
-
-  /* Shadow Tokens */
-  --shadow-card: 0 4px 12px rgba(0, 0, 0, 0.35);
-  --shadow-card-hover: 0 12px 28px -6px rgba(0, 0, 0, 0.6);
-  --shadow-modal: 0 24px 48px -12px rgba(0, 0, 0, 0.85);
-  --shadow-glow: 0 0 20px -2px rgba(157, 220, 46, 0.4);
+  --shadow-card: 0 4px 12px rgba(0, 0, 0, .35);
+  --shadow-card-hover: 0 12px 28px -6px rgba(0, 0, 0, .6);
 }
 
 @theme inline {
-  /* Colors mapped from CSS variables */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-surface: var(--surface);
@@ -55,115 +36,77 @@
   --color-velocity: var(--accent-velocity);
   --color-velocity-glow: var(--accent-velocity-glow);
   --color-energy: var(--accent-energy);
-  /* Logo ring match */
-  --color-logo-ring: #9ddc2e;
-
-  /* Fonts */
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-/* ============================================
-   BASE RESET & GLOBAL STYLES
-   ============================================ */
-
-*,
-*::before,
-*::after {
-  box-sizing: border-box;
-}
-
-html {
-  scroll-behavior: smooth;
-}
-
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 5rem; color-scheme: dark; }
 body {
+  margin: 0;
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-geist-sans), system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
   line-height: 1.6;
 }
 
-/* Hide scrollbar for horizontal scroll elements */
-.no-scrollbar {
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-}
-.no-scrollbar::-webkit-scrollbar {
-  display: none;
-}
+main, section, article { min-width: 0; }
+h1, h2, h3, p { overflow-wrap: anywhere; }
+a { text-underline-offset: 3px; }
+article h3 > a { display: inline-flex; align-items: center; min-height: 44px; }
+button, input, select, summary { min-height: 44px; }
+button:not(:disabled), summary { cursor: pointer; }
+button:disabled { cursor: wait; opacity: .65; }
+input, select { font: inherit; }
+input::placeholder { color: var(--text-secondary); }
+summary::-webkit-details-marker { display: none; }
 
-/* ============================================
-   3D CARD FLIP & HOLOGRAPHIC UTILITIES
-   ============================================ */
-
-.perspective-1000 {
-  perspective: 1000px;
-}
-
-.perspective-1200 {
-  perspective: 1200px;
-}
-
-.preserve-3d {
-  transform-style: preserve-3d;
-}
-
-.backface-hidden {
-  backface-visibility: hidden;
-  -webkit-backface-visibility: hidden;
-}
-
-.rotate-y-180 {
-  transform: rotateY(180deg);
-}
-
-@keyframes holographic-shine {
-  0% {
-    background-position: 0% 50%;
+@layer components {
+  .button-primary {
+    @apply inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-lg bg-velocity px-4 text-sm font-bold text-slate-950 transition-colors hover:bg-velocity-glow;
   }
-  50% {
-    background-position: 100% 50%;
+  .button-secondary {
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-border-strong bg-surface px-4 text-sm font-semibold text-white transition-colors hover:bg-surface-hover;
   }
-  100% {
-    background-position: 0% 50%;
+  .eyebrow {
+    @apply font-mono text-xs font-semibold uppercase tracking-widest text-velocity;
+  }
+  .filter-label {
+    @apply flex min-w-0 flex-col gap-2 text-xs font-semibold text-text-secondary;
+  }
+  .filter-chip {
+    @apply inline-flex min-h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-lg border border-border-subtle bg-surface px-3 text-xs font-semibold text-text-secondary transition-colors hover:border-border-strong hover:text-white;
+  }
+  .filter-chip-active {
+    @apply border-velocity bg-velocity text-slate-950 hover:text-slate-950;
+  }
+  .site-footer {
+    padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));
+  }
+  @media (min-width: 1024px) {
+    .site-footer { padding-bottom: 0; }
   }
 }
+:focus-visible { outline: 2px solid var(--accent-velocity-glow); outline-offset: 3px; }
+.no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
 
-.animate-holo-shimmer {
-  background-size: 200% 200%;
-  animation: holographic-shine 6s ease infinite;
-}
+.fitness-card { perspective: 1200px; }
+.fitness-card-body { transform-style: preserve-3d; transition: transform 420ms cubic-bezier(.2,.7,.2,1); }
+.fitness-card-face { backface-visibility: hidden; -webkit-backface-visibility: hidden; }
 
 @keyframes pulse-subtle {
-  0%, 100% {
-    opacity: 0.4;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.8;
-    transform: scale(1.05);
-  }
+  0%, 100% { opacity: .55; }
+  50% { opacity: 1; }
 }
-
-.animate-pulse-subtle {
-  animation: pulse-subtle 4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-}
-
-/* ============================================
-   MOTION — prefers-reduced-motion
-   ============================================ */
+.animate-pulse-subtle { animation: pulse-subtle 2.4s ease-in-out infinite; }
 
 @media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
     animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
+    transition-duration: .01ms !important;
     scroll-behavior: auto !important;
   }
 }
-

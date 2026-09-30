@@ -1,0 +1,11 @@
+import Link from "next/link";
+
+export interface FilterOption { label: string; value: string; }
+
+export function FilterLinks({ label, options, current, basePath, query = {}, scroll = false }: { label: string; options: FilterOption[]; current?: string; basePath: string; query?: Record<string, string | undefined>; scroll?: boolean }) {
+  return <div className="flex flex-col gap-2"><span className="font-mono text-[10px] font-bold uppercase tracking-widest text-text-muted">{label}</span><div className={`flex gap-2 ${scroll ? "no-scrollbar overflow-x-auto pb-1" : "flex-wrap"}`} role="group" aria-label={label}>{options.map((option) => { const params = new URLSearchParams(); Object.entries(query).forEach(([key, value]) => { if (value && key !== label.toLowerCase()) params.set(key, value); }); if (option.value) params.set(label.toLowerCase(), option.value); const href = `${basePath}${params.toString() ? `?${params.toString()}` : ""}`; const active = (current ?? "") === option.value || (!current && !option.value); return <Link key={option.value || "all"} href={href} scroll={scroll} aria-current={active ? "page" : undefined} className={`inline-flex min-h-10 shrink-0 items-center rounded-md border px-3 text-xs font-semibold transition-colors ${active ? "border-velocity bg-velocity text-slate-950" : "border-border-subtle bg-surface-elevated text-text-secondary hover:border-border-strong hover:text-white"}`}>{option.label}</Link>; })}</div></div>;
+}
+
+export function EmptyState({ title, description, href = "/discover", label = "Reset filters" }: { title: string; description: string; href?: string; label?: string }) {
+  return <div className="rounded-2xl border border-dashed border-border-strong bg-surface/60 px-6 py-16 text-center"><div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full border border-border-strong text-xl text-velocity" aria-hidden="true">↗</div><h2 className="mt-4 text-xl font-bold text-white">{title}</h2><p className="mx-auto mt-2 max-w-md text-sm leading-relaxed text-text-secondary">{description}</p><Link href={href} className="mt-6 inline-flex min-h-11 items-center rounded-lg bg-velocity px-5 text-sm font-bold text-slate-950 hover:bg-velocity-glow">{label}</Link></div>;
+}

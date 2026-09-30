@@ -4,35 +4,35 @@ import Link from "next/link";
 export const metadata: Metadata = {
   title: "For Organizers",
   description:
-    "List your fitness community or event on NOIDA.FIT for free. Reach hundreds of active fitness seekers across Noida & Greater Noida.",
+    "Share your Noida fitness community or event for a directory listing review. Find out what details to include and how existing organizers access check-in tools.",
   alternates: { canonical: "/for-organizers" },
 };
 
 const STEPS = [
   {
     number: "01",
-    title: "Fill the form",
+    title: "Send the details",
     description:
-      "Share your community's name, activity type, meeting schedule, and location. Takes 5 minutes.",
+      "Email your community name, activity, meeting schedule, exact location and a contact link. The button below opens your email app; it is not an online submission form.",
   },
   {
     number: "02",
-    title: "We verify",
+    title: "Request a review",
     description:
-      "Our team manually reviews every submission for quality. Active communities get verified badges.",
+      "Include permission to publish your details and clarify costs, access rules and who is welcome. A request is not an automatic approval or verified badge.",
   },
   {
     number: "03",
-    title: "You're live",
+    title: "Keep details current",
     description:
-      "Your community page goes live within 48 hours. Discoverable by hundreds of Noida fitness seekers.",
+      "Once a listing is published, share its page with your group and send corrections when meeting times or locations change. No publishing deadline is guaranteed.",
   },
 ];
 
 const FAQS = [
   {
     q: "Is listing on NOIDA.FIT free?",
-    a: "Yes, completely free. NOIDA.FIT is a community platform, not a marketplace. We do not take any commission or listing fees.",
+    a: "There is no payment or checkout in the listing-request flow. Session fees, if any, are set by organizers and should be stated clearly in their listings.",
   },
   {
     q: "What kind of communities can list?",
@@ -40,15 +40,15 @@ const FAQS = [
   },
   {
     q: "Can I list individual events too?",
-    a: "Yes. If you organise a fitness event or race in Noida, you can submit it for listing under Events. It's free and reaches our entire audience.",
+    a: "You can send an event for review. Include the date, start and end times in IST, meeting point, capacity, price and host contact. Emailing a request does not immediately publish it.",
   },
   {
     q: "How do I get a Verified badge?",
-    a: "Verified badges are granted to communities that have been active for at least 3 months, have a consistent weekly schedule, and are manually reviewed by our team.",
+    a: "A listing request does not grant verification. Only a community explicitly marked verified has that status; demo groups are not verified partners.",
   },
   {
     q: "Can I update my listing?",
-    a: "Yes. Email us at hello@noida.fit and we'll update your page within 24 hours. A self-serve dashboard is on our product roadmap.",
+    a: "Email hello@noida.fit with the page URL and the correction. Self-serve listing editing is not available. Existing authorized organizers can use the check-in tool, which does not edit listing content.",
   },
 ];
 
@@ -71,9 +71,9 @@ export default function ForOrganizersPage() {
               <span className="text-velocity">we amplify.</span>
             </h1>
             <p className="mt-5 text-lg text-text-secondary leading-relaxed max-w-xl">
-              List your fitness community or event on NOIDA.FIT for free. Reach hundreds
-              of active fitness seekers across Noida and Greater Noida — no fees, no
-              friction.
+              Help people in Noida and Greater Noida find your group. Send your meeting
+              details for review, and make the first visit clearer for someone new.
+              Sample listings are not partnerships or confirmed sessions.
             </p>
             <div className="mt-8 flex flex-col sm:flex-row gap-4">
               <Link
@@ -81,7 +81,7 @@ export default function ForOrganizersPage() {
                 id="organizer-submit-cta"
                 className="inline-flex items-center justify-center gap-2 rounded-lg bg-velocity px-8 py-3.5 text-base font-bold text-slate-950 hover:bg-velocity-glow transition-colors"
               >
-                Submit Your Community
+                Email a listing request
               </Link>
               <a
                 href="#faq"
@@ -136,17 +136,17 @@ export default function ForOrganizersPage() {
               {
                 emoji: "🔍",
                 title: "Organic Discovery",
-                desc: "Listed in Noida fitness search results, category pages, and the weekly Discover feed.",
+                desc: "Published listings appear in directory search and activity pages with shareable links.",
               },
               {
                 emoji: "✓",
-                title: "Verified Badge",
-                desc: "Earn credibility and trust with a manually granted verification badge.",
+                title: "Clear first-visit details",
+                desc: "Share the pace, equipment, access rules and costs a newcomer needs to know.",
               },
               {
                 emoji: "📅",
                 title: "Events Listing",
-                desc: "Your community's events featured on the homepage, events page, and category feeds.",
+                desc: "Published sessions can be found by activity, date and sector. Homepage placement is not guaranteed.",
               },
             ].map((benefit) => (
               <div
@@ -197,13 +197,14 @@ export default function ForOrganizersPage() {
         {/* CTA */}
         <div className="text-center">
           <p className="text-2xl font-bold text-white mb-4">Ready to reach Noida fitness seekers?</p>
-          <p className="text-text-secondary mb-8">Send us an email and we&apos;ll have you live within 48 hours.</p>
+          <p className="text-text-secondary mb-8">Send the details for review. No automatic publication or response time is promised.</p>
           <Link
             href="mailto:hello@noida.fit?subject=List My Community on NOIDA.FIT"
             className="inline-flex items-center gap-2 rounded-lg bg-velocity px-8 py-3.5 text-base font-bold text-slate-950 hover:bg-velocity-glow transition-colors"
           >
             Email hello@noida.fit
           </Link>
+          <p className="mt-6 text-sm text-text-secondary">Already authorized to host an event? <Link href="/organizer" className="inline-flex min-h-11 items-center font-semibold text-velocity">Open organizer check-in →</Link></p>
         </div>
       </div>
     </div>

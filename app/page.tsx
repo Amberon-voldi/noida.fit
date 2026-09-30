@@ -1,409 +1,93 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Navbar } from "@/components/layout/Navbar";
-import { Footer } from "@/components/layout/Footer";
 import { EventCard } from "@/components/cards/EventCard";
 import { CommunityCard } from "@/components/cards/CommunityCard";
 import { PlaceCard } from "@/components/cards/PlaceCard";
-import { FitnessCard } from "@/components/cards/FitnessCard";
-import {
-  getFeaturedEvents,
-  getFeaturedCommunities,
-  getPlaces,
-  getUserBySlug,
-} from "@/lib/data";
+import { SearchForm } from "@/components/discovery/SearchForm";
+import { Navbar } from "@/components/layout/Navbar";
+import { Footer } from "@/components/layout/Footer";
+import { getDirectory } from "@/lib/data";
+import { filterDirectory, readFilters } from "@/components/discovery/filter";
+import { DemoNotice, ListingImage } from "@/components/discovery/ListingImage";
 
 export const metadata: Metadata = {
-  title: {
-    absolute: "NOIDA.FIT — Discover Fitness Communities, Events & Fitness ID in Noida",
-  },
-  description:
-    "Find running clubs, cycling rides, group workouts, and claim your verified Noida Fitness ID. 100% free community platform for Noida & Greater Noida.",
+  title: { absolute: "NOIDA.FIT — Discover Fitness Communities & Events in Noida" },
+  description: "Find running clubs, group rides, track sessions, and open workouts across Noida and Greater Noida. Discover your next place to show up.",
   alternates: { canonical: "/" },
 };
 
-export default function HomePage() {
-  const featuredEvents = getFeaturedEvents();
-  const featuredCommunities = getFeaturedCommunities();
-  const places = getPlaces().slice(0, 4);
-  const sampleMember = getUserBySlug("kabir-singh") || getUserBySlug("demo-user");
+export default async function HomePage() {
+  const directory = await getDirectory();
+  const { activities } = directory;
+  const events = filterDirectory(directory, readFilters({ date: "week", type: "events" })).events.slice(0, 4);
+  const weekend = filterDirectory(directory, readFilters({ date: "weekend", type: "events" })).events.slice(0, 3);
+  const communities = directory.communities.filter((item) => item.featured).slice(0, 3);
+  const featuredPlaces = directory.places.slice(0, 3);
+  const hasDemo = [...events, ...communities, ...featuredPlaces].some((item) => item.demo);
 
   return (
     <>
       <Navbar />
-
-      <main id="main-content" tabIndex={-1} className="overflow-x-hidden">
-
-        {/* ── HERO SECTION ─────────────────────────────────── */}
-        <section
-          className="relative isolate pt-16 pb-24 sm:pt-24 sm:pb-32 lg:pt-32 lg:pb-36 px-4 sm:px-6 lg:px-8 border-b border-border-subtle"
-          aria-labelledby="hero-heading"
-        >
-          {/* Ambient Lighting Orbs */}
-          <div
-            className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 -z-10 w-[600px] sm:w-[900px] h-[400px] bg-gradient-to-tr from-[#9ddc2e]/10 via-[#06b6d4]/5 to-transparent blur-[140px] pointer-events-none rounded-full"
-            aria-hidden="true"
-          />
-
-          <div className="mx-auto max-w-5xl text-center">
-            {/* Live Ticker Pill */}
-            <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-mono font-medium bg-white/[0.04] border border-white/10 text-white/90 mb-8 shadow-sm">
-              <span className="w-2 h-2 rounded-full bg-[#9ddc2e] animate-pulse" />
-              <span>28+ Group Sessions This Week</span>
-              <span className="text-white/20">·</span>
-              <span className="text-[#9ddc2e]">1,400+ Active Members</span>
-              <span className="text-white/20 hidden sm:inline">·</span>
-              <span className="text-[#94a3b8] hidden sm:inline">100% Free</span>
-            </div>
-
-            {/* Main Headline */}
-            <h1
-              id="hero-heading"
-              className="text-4xl sm:text-6xl lg:text-7xl font-black tracking-tight text-white leading-[1.04] mb-6"
-              style={{ letterSpacing: "-0.04em" }}
-            >
-              FIND YOUR PEOPLE.
-              <br />
-              <span className="text-transparent bg-clip-text bg-gradient-to-r from-white via-slate-100 to-[#9ddc2e]">
-                MOVE TOGETHER.
-              </span>
-              <br />
-              OWN NOIDA.
-            </h1>
-
-            {/* Subhead */}
-            <p className="text-base sm:text-xl text-text-secondary leading-relaxed mb-10 max-w-2xl mx-auto">
-              From 5 AM stadium intervals in Sector 21A to 100km Sunday centuries down the Expressway.
-              Discover authentic fitness tribes meeting across Noida every week.
-            </p>
-
-            {/* CTAs */}
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5 max-w-md mx-auto">
-              <Link
-                href="/events"
-                id="hero-cta-events"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl bg-[#9ddc2e] px-7 py-3.5 text-sm font-bold text-black hover:bg-[#b5f043] transition-all shadow-[0_0_20px_rgba(157,220,46,0.3)] active:scale-95"
-              >
-                <span>Find a Workout</span>
-                <span aria-hidden="true">→</span>
-              </Link>
-              <Link
-                href="/signup"
-                id="hero-cta-fitness-id"
-                className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-xl border border-border-strong bg-surface-elevated/80 px-7 py-3.5 text-sm font-semibold text-white hover:bg-surface-hover hover:border-white/30 transition-all active:scale-95"
-              >
-                <span>Claim Fitness ID</span>
-              </Link>
-            </div>
-
-            {/* Quick Turf Badges */}
-            <div className="mt-12 pt-8 border-t border-white/5 flex flex-wrap items-center justify-center gap-4 sm:gap-6 text-xs text-[#94a3b8]">
-              <span className="flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#9ddc2e]" />
-                Sector 21A Noida Stadium
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#9ddc2e]" />
-                Expressway Cycling Corridor
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#9ddc2e]" />
-                Biodiversity Park Trails
-              </span>
-              <span className="flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#9ddc2e]" />
-                All Paces Welcome
-              </span>
+      <main id="main-content" tabIndex={-1} className="flex-1">
+      <section className="border-b border-border-subtle bg-background px-4 pb-16 pt-14 sm:px-6 sm:pb-24 sm:pt-20 lg:px-8" aria-labelledby="hero-heading">
+        <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[1.1fr_.9fr] lg:items-end">
+          <div>
+            <p className="font-mono text-xs font-bold uppercase tracking-[.2em] text-velocity">THE CITY FITNESS DIRECTORY</p>
+            <h1 id="hero-heading" className="mt-4 max-w-4xl text-4xl font-black leading-[1.03] tracking-[-.045em] text-white sm:text-6xl lg:text-7xl">Your fitness scene.<br /><span className="text-velocity">All in one place.</span></h1>
+            <p className="mt-6 max-w-2xl text-base leading-relaxed text-text-secondary sm:text-lg">Discover runs, workouts, sports and communities across Noida and Greater Noida. Find something nearby, make a plan, and get moving.</p>
+            <SearchForm id="home-search" className="mt-8 max-w-2xl" action="/discover" placeholder="Search Sector 21A, running clubs, or weekend rides" />
+            <div className="mt-5 flex flex-wrap gap-3">
+              <Link href="/discover" className="inline-flex min-h-11 items-center rounded-lg bg-velocity px-5 text-sm font-bold text-slate-950 hover:bg-velocity-glow">Explore Noida Fitness <span className="ml-2" aria-hidden="true">→</span></Link>
+              <Link href="/communities" className="inline-flex min-h-11 items-center rounded-lg border border-border-strong px-5 text-sm font-semibold text-white hover:bg-surface-hover">Find your community</Link>
             </div>
           </div>
-        </section>
-
-        {/* ── INTERACTIVE FITNESS ID FEATURE SHOWCASE ──────── */}
-        {sampleMember && (
-          <section
-            className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 border-b border-border-subtle bg-gradient-to-b from-[#090a0f] via-[#0d101a] to-[#090a0f]"
-            aria-labelledby="fitness-id-feature-heading"
-          >
-            <div className="mx-auto max-w-7xl">
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-8 items-center">
-                
-                {/* Left Pitch */}
-                <div className="lg:col-span-6 space-y-6">
-                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono font-medium bg-[#9ddc2e]/10 text-[#9ddc2e] border border-[#9ddc2e]/20">
-                    <span className="w-2 h-2 rounded-full bg-[#9ddc2e] animate-pulse" />
-                    <span>YOUR OFFICIAL DIGITAL PASSPORT</span>
-                  </div>
-
-                  <h2
-                    id="fitness-id-feature-heading"
-                    className="text-3xl sm:text-4xl lg:text-5xl font-extrabold text-white tracking-tight leading-[1.1]"
-                    style={{ letterSpacing: "-0.03em" }}
-                  >
-                    One Fitness Card.
-                    <br />
-                    <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#9ddc2e] to-emerald-400">
-                      Every Noida Tribe.
-                    </span>
-                  </h2>
-
-                  <p className="text-base text-text-secondary leading-relaxed">
-                    Stop tracking workouts in 5 different WhatsApp groups. Your NOIDA.FIT ID gives you a single verified identity across all running clubs, cycling crews, and turf groups in the city.
-                  </p>
-
-                  {/* Feature Highlights */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-                    <div className="rounded-xl p-4 bg-surface/60 border border-border-subtle">
-                      <div className="text-xl mb-1">💳</div>
-                      <h3 className="text-sm font-bold text-white">Interactive Card</h3>
-                      <p className="text-xs text-[#94a3b8] mt-0.5">
-                        Physical card aesthetic with dynamic 3D flip, QR verification & NFC chip design.
-                      </p>
-                    </div>
-
-                    <div className="rounded-xl p-4 bg-surface/60 border border-border-subtle">
-                      <div className="text-xl mb-1">🔗</div>
-                      <h3 className="text-sm font-bold text-white">noida.fit/@handle</h3>
-                      <p className="text-xs text-[#94a3b8] mt-0.5">
-                        Claim your unique @handle URL to showcase badges, streak, and community milestones.
-                      </p>
-                    </div>
-
-                    <div className="rounded-xl p-4 bg-surface/60 border border-border-subtle">
-                      <div className="text-xl mb-1">🏅</div>
-                      <h3 className="text-sm font-bold text-white">Verified Badges</h3>
-                      <p className="text-xs text-[#94a3b8] mt-0.5">
-                        Earn &ldquo;Stadium Dawn Regular&rdquo; and &ldquo;Expressway Century&rdquo; at morning meetups.
-                      </p>
-                    </div>
-
-                    <div className="rounded-xl p-4 bg-surface/60 border border-border-subtle">
-                      <div className="text-xl mb-1">⚡</div>
-                      <h3 className="text-sm font-bold text-white">100% Free Forever</h3>
-                      <p className="text-xs text-[#94a3b8] mt-0.5">
-                        Built for the community. Zero subscription fees, zero lock-in.
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="pt-2 flex flex-wrap items-center gap-4">
-                    <Link
-                      href="/signup"
-                      className="inline-flex items-center gap-2 rounded-xl bg-[#9ddc2e] px-6 py-3 text-sm font-bold text-black hover:bg-[#b5f043] transition-colors"
-                    >
-                      <span>Get Your Free Fitness ID</span>
-                      <span aria-hidden="true">→</span>
-                    </Link>
-                    <Link
-                      href={`/@${sampleMember.slug}`}
-                      className="text-xs font-mono text-[#94a3b8] hover:text-white transition-colors"
-                    >
-                      Preview @{sampleMember.slug}&apos;s profile ↗
-                    </Link>
-                  </div>
-                </div>
-
-                {/* Right Interactive Card Preview */}
-                <div className="lg:col-span-6 flex flex-col items-center justify-center">
-                  <div className="relative p-6 sm:p-8 rounded-3xl bg-surface/40 border border-white/10 backdrop-blur-md w-full max-w-[560px]">
-                    <div className="text-center mb-4">
-                      <span className="text-[11px] font-mono uppercase tracking-widest text-[#9ddc2e] font-semibold">
-                        ⚡ LIVE INTERACTIVE DEMO · CLICK OR SWIPE TO FLIP
-                      </span>
-                    </div>
-
-                    {/* 3D Flipping Card */}
-                    <FitnessCard user={sampleMember} showControls={true} />
-
-                    <div className="mt-4 pt-3 border-t border-white/10 text-center">
-                      <p className="text-xs text-[#64748b]">
-                        Tap or click card to flip between front identity and verified stats on back.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-              </div>
+          <div className="rounded-2xl border border-border-subtle bg-surface p-5 sm:p-6">
+            <div className="relative mb-5 aspect-[16/9] overflow-hidden rounded-xl"><ListingImage category="running" alt="" sizes="(max-width: 1024px) 100vw, 500px" hero /></div>
+            <p className="font-mono text-xs uppercase tracking-widest text-text-secondary">A useful first step</p>
+            <h2 className="mt-3 text-2xl font-bold text-white">Choose the kind of movement that fits today.</h2>
+            <div className="mt-5 flex flex-wrap gap-2">
+              {activities.slice(0, 8).map((activity) => <Link key={activity.id} href={`/activities/${encodeURIComponent(activity.slug)}`} className="inline-flex min-h-11 items-center gap-1 rounded-md border border-border-subtle bg-surface-elevated px-3 py-2 text-sm text-text-secondary hover:border-velocity hover:text-white"><span aria-hidden="true">{activity.emoji}</span> {activity.name}</Link>)}
             </div>
-          </section>
-        )}
-
-        {/* ── PLATFORM STATS ───────────────────────────────── */}
-        <section className="border-b border-border-subtle bg-surface/30" aria-label="Platform statistics">
-          <div className="mx-auto max-w-7xl">
-            <dl className="grid grid-cols-2 sm:grid-cols-4 divide-x divide-border-subtle">
-              {[
-                { value: "12+", label: "Active Clubs", sub: "Running, cycling & HIIT" },
-                { value: "28+", label: "Weekly Sessions", sub: "Mornings & weekends" },
-                { value: "1,400+", label: "Active Members", sub: "Noida & Greater Noida" },
-                { value: "8+", label: "Training Venues", sub: "Tracks, corridors & parks" },
-              ].map((stat) => (
-                <div key={stat.label} className="py-8 px-6 text-center">
-                  <dt className="text-2xl sm:text-3xl font-black text-white font-mono">{stat.value}</dt>
-                  <dd className="mt-1 text-xs font-bold text-white">{stat.label}</dd>
-                  <dd className="text-[11px] text-[#64748b] mt-0.5">{stat.sub}</dd>
-                </div>
-              ))}
-            </dl>
+            <p className="mt-5 border-t border-border-subtle pt-4 text-xs leading-relaxed text-text-muted">No scores, no pressure. Just clear details on who meets, where, and when.</p>
           </div>
+        </div>
+      </section>
+
+      <div className="mx-auto max-w-7xl space-y-20 px-4 py-14 sm:px-6 sm:py-20 lg:px-8">
+        {hasDemo && <DemoNotice />}
+        <section aria-labelledby="week-heading">
+          <div className="mb-7 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"><div><p className="font-mono text-xs font-bold uppercase tracking-widest text-velocity">OPEN SESSIONS</p><h2 id="week-heading" className="mt-1 text-2xl font-bold tracking-tight text-white sm:text-3xl">The next seven days</h2><p className="mt-1 text-sm text-text-secondary">Compare start times, meeting points and costs. Demo sessions are clearly labelled.</p></div><Link href="/events" className="text-sm font-semibold text-velocity hover:text-velocity-glow">See the full calendar →</Link></div>
+          {events.length ? <div className="grid auto-cols-[85%] grid-flow-col gap-5 overflow-x-auto pb-4 sm:auto-cols-auto sm:grid-flow-row sm:grid-cols-2 lg:grid-cols-4">{events.map((event) => <EventCard key={event.id} event={event} />)}</div> : <EmptyHome message="New sessions are being added. Browse all communities to find a regular rhythm." href="/communities" label="Find a community" />}
         </section>
 
-        {/* ── UPCOMING EVENTS ──────────────────────────────── */}
-        <section className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 border-b border-border-subtle" aria-labelledby="events-heading">
-          <div className="mx-auto max-w-7xl">
-            <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-8 gap-4">
-              <div>
-                <span className="text-xs font-mono uppercase tracking-widest text-[#9ddc2e] font-semibold">
-                  COMMUNITY CALENDAR
-                </span>
-                <h2
-                  id="events-heading"
-                  className="mt-1 text-2xl sm:text-3xl font-extrabold text-white tracking-tight"
-                  style={{ letterSpacing: "-0.02em" }}
-                >
-                  Happening This Week
-                </h2>
-                <p className="text-sm text-text-secondary mt-1">
-                  Open community sessions. Free to join — simply show up in gear.
-                </p>
-              </div>
-              <Link
-                href="/events"
-                className="inline-flex items-center gap-1 text-sm font-semibold text-white hover:text-[#9ddc2e] transition-colors"
-              >
-                <span>View all 28 events</span>
-                <span aria-hidden="true">→</span>
-              </Link>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {featuredEvents.slice(0, 6).map((event) => (
-                <EventCard key={event.id} event={event} />
-              ))}
-            </div>
-          </div>
+        <section aria-labelledby="activities-heading">
+          <div className="mb-7 flex items-end justify-between gap-4"><div><p className="eyebrow">Start with what you love</p><h2 id="activities-heading" className="mt-1 text-2xl font-bold sm:text-3xl">Choose your next move</h2></div><Link href="/activities" className="text-sm font-semibold text-velocity">All activities →</Link></div>
+          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">{activities.slice(0,6).map(activity=><Link href={`/activities/${activity.slug}`} key={activity.id} className="group relative aspect-[4/5] overflow-hidden rounded-xl border border-border-subtle"><ListingImage category={activity.slug} alt={activity.name} sizes="(max-width:640px) 45vw, 200px"/><span className="absolute inset-0 bg-linear-to-t from-black/90 via-black/10 to-transparent"/><span className="absolute bottom-10 left-4 font-semibold text-white">{activity.name}</span></Link>)}</div>
         </section>
 
-        {/* ── ACTIVE COMMUNITIES ───────────────────────────── */}
-        <section className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 border-b border-border-subtle" aria-labelledby="communities-heading">
-          <div className="mx-auto max-w-7xl">
-            <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-8 gap-4">
-              <div>
-                <span className="text-xs font-mono uppercase tracking-widest text-[#9ddc2e] font-semibold">
-                  NOIDA TRIBES
-                </span>
-                <h2
-                  id="communities-heading"
-                  className="mt-1 text-2xl sm:text-3xl font-extrabold text-white tracking-tight"
-                  style={{ letterSpacing: "-0.02em" }}
-                >
-                  Featured Squads & Clubs
-                </h2>
-                <p className="text-sm text-text-secondary mt-1">
-                  Find a group that matches your pace, schedule, and neighborhood.
-                </p>
-              </div>
-              <Link
-                href="/communities"
-                className="inline-flex items-center gap-1 text-sm font-semibold text-white hover:text-[#9ddc2e] transition-colors"
-              >
-                <span>Browse all clubs</span>
-                <span aria-hidden="true">→</span>
-              </Link>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-              {featuredCommunities.slice(0, 3).map((community) => (
-                <CommunityCard key={community.id} community={community} />
-              ))}
-            </div>
-          </div>
+        <section aria-labelledby="community-heading">
+          <div className="mb-7 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"><div><p className="font-mono text-xs font-bold uppercase tracking-widest text-velocity">LOCAL GROUPS</p><h2 id="community-heading" className="mt-1 text-2xl font-bold tracking-tight text-white sm:text-3xl">Communities with a weekly rhythm</h2></div><Link href="/communities" className="text-sm font-semibold text-velocity hover:text-velocity-glow">Browse all communities →</Link></div>
+          {communities.length ? <div className="grid auto-cols-[85%] grid-flow-col gap-5 overflow-x-auto pb-4 md:auto-cols-auto md:grid-flow-row md:grid-cols-3">{communities.map((community) => <CommunityCard key={community.id} community={community} />)}</div> : <EmptyHome message="No featured communities yet. Start with the full directory." href="/communities" label="Browse communities" />}
         </section>
 
-        {/* ── VENUES / PLACES ──────────────────────────────── */}
-        <section className="py-20 sm:py-28 px-4 sm:px-6 lg:px-8 border-b border-border-subtle" aria-labelledby="places-heading">
-          <div className="mx-auto max-w-7xl">
-            <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-8 gap-4">
-              <div>
-                <span className="text-xs font-mono uppercase tracking-widest text-[#9ddc2e] font-semibold">
-                  TRAINING GROUNDS
-                </span>
-                <h2
-                  id="places-heading"
-                  className="mt-1 text-2xl sm:text-3xl font-extrabold text-white tracking-tight"
-                  style={{ letterSpacing: "-0.02em" }}
-                >
-                  Where Noida Trains
-                </h2>
-                <p className="text-sm text-text-secondary mt-1">
-                  Top tracks, synthetic turf, and asphalt corridors vetted by the community.
-                </p>
-              </div>
-              <Link
-                href="/places"
-                className="inline-flex items-center gap-1 text-sm font-semibold text-white hover:text-[#9ddc2e] transition-colors"
-              >
-                <span>Explore all 8 venues</span>
-                <span aria-hidden="true">→</span>
-              </Link>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-              {places.map((place) => (
-                <PlaceCard key={place.id} place={place} />
-              ))}
-            </div>
-          </div>
+        <section aria-labelledby="places-heading">
+          <div className="mb-7 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"><div><p className="font-mono text-xs font-bold uppercase tracking-widest text-velocity">WHERE TO MEET</p><h2 id="places-heading" className="mt-1 text-2xl font-bold tracking-tight text-white sm:text-3xl">Training grounds across the city</h2></div><Link href="/places" className="text-sm font-semibold text-velocity hover:text-velocity-glow">Explore places →</Link></div>
+          {featuredPlaces.length ? <div className="grid auto-cols-[85%] grid-flow-col gap-5 overflow-x-auto pb-4 md:auto-cols-auto md:grid-flow-row md:grid-cols-3">{featuredPlaces.map((place) => <PlaceCard key={place.id} place={place} />)}</div> : <EmptyHome message="Venue details are on the way." href="/discover" label="Explore the directory" />}
         </section>
 
-        {/* ── ORGANIZER CALLOUT ────────────────────────────── */}
-        <section className="py-20 sm:py-24 px-4 sm:px-6 lg:px-8" aria-labelledby="organizers-heading">
-          <div className="mx-auto max-w-7xl">
-            <div className="relative rounded-3xl overflow-hidden border border-white/10 bg-gradient-to-r from-surface-elevated via-surface to-surface-elevated p-8 sm:p-14">
-              <div
-                className="absolute top-0 right-0 -z-10 w-[350px] h-[350px] bg-[#9ddc2e]/10 blur-[100px] pointer-events-none rounded-full"
-                aria-hidden="true"
-              />
-
-              <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8">
-                <div className="max-w-xl">
-                  <span className="text-xs font-mono uppercase tracking-widest text-[#9ddc2e] font-semibold">
-                    FOR COMMUNITY LEADERS
-                  </span>
-                  <h2
-                    id="organizers-heading"
-                    className="mt-1 text-2xl sm:text-3xl font-black text-white"
-                    style={{ letterSpacing: "-0.02em" }}
-                  >
-                    You organize. We amplify.
-                  </h2>
-                  <p className="mt-3 text-sm sm:text-base text-text-secondary leading-relaxed">
-                    Lead a running club, cycling peloton, or weekend fitness meetup in Noida? List your squad on NOIDA.FIT for free and connect with hundreds of active local fitness enthusiasts every week.
-                  </p>
-                </div>
-
-                <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3.5 flex-shrink-0">
-                  <Link
-                    href="/for-organizers"
-                    id="organizers-cta"
-                    className="inline-flex items-center justify-center rounded-xl bg-[#9ddc2e] px-7 py-3.5 text-sm font-bold text-black hover:bg-[#b5f043] transition-colors"
-                  >
-                    List Your Community
-                  </Link>
-                  <Link
-                    href="/about"
-                    className="inline-flex items-center justify-center rounded-xl border border-white/20 px-6 py-3.5 text-sm font-semibold text-white hover:bg-white/5 transition-colors"
-                  >
-                    Read Our Manifesto
-                  </Link>
-                </div>
-              </div>
-            </div>
-          </div>
+        <section aria-labelledby="weekend-heading">
+          <div className="mb-7 flex flex-wrap items-end justify-between gap-3"><div><p className="eyebrow">Make room for movement</p><h2 id="weekend-heading" className="mt-1 text-2xl font-bold sm:text-3xl">Your weekend, sorted</h2></div><Link href="/events?date=weekend" className="text-sm font-semibold text-velocity">This weekend →</Link></div>
+          {weekend.length ? <div className="grid auto-cols-[85%] grid-flow-col gap-5 overflow-x-auto pb-4 md:auto-cols-auto md:grid-flow-row md:grid-cols-3">{weekend.map(event=><EventCard key={event.id} event={event}/>)}</div> : <EmptyHome message="No weekend sessions listed yet. Explore another day or find a regular group." href="/events" label="Browse events"/>}
         </section>
 
+        <section className="border-t border-border-subtle pt-12" aria-labelledby="organizer-heading"><div className="flex flex-col gap-6 rounded-2xl border border-border-subtle bg-surface p-7 sm:flex-row sm:items-center sm:justify-between sm:p-10"><div className="max-w-2xl"><p className="font-mono text-xs font-bold uppercase tracking-widest text-velocity">FOR ORGANIZERS</p><h2 id="organizer-heading" className="mt-2 text-2xl font-bold text-white">Your group already meets. Help others find it.</h2><p className="mt-2 text-sm leading-relaxed text-text-secondary">Send the details of your regular runs, rides, classes, or games for a listing review.</p></div><Link href="/for-organizers" className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg bg-velocity px-5 text-sm font-bold text-slate-950 hover:bg-velocity-glow">For organizers</Link></div></section>
+      </div>
       </main>
-
       <Footer />
     </>
   );
+}
+
+function EmptyHome({ message, href, label }: { message: string; href: string; label: string }) {
+  return <div className="rounded-xl border border-dashed border-border-strong px-6 py-10 text-center"><p className="text-sm text-text-secondary">{message}</p><Link href={href} className="mt-4 inline-flex min-h-11 items-center rounded-lg border border-velocity px-4 text-sm font-semibold text-velocity hover:bg-velocity/10">{label}</Link></div>;
 }

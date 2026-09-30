@@ -1,255 +1,107 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { auth } from "@/lib/auth";
-import { getUserById, getCommunityBySlug } from "@/lib/data";
+import { getCurrentAppwriteUser } from "@/lib/appwrite/server";
+import { ensureProfileForUser, profileSettings, toFitnessProfile } from "@/lib/appwrite/profiles";
+import { getAccountParticipation } from "@/lib/participation";
+import { getCommunities, getEvents, getPlaces } from "@/lib/data";
 import { FitnessCard } from "@/components/cards/FitnessCard";
+import { ActivitySummary } from "@/components/profile/ActivitySummary";
 import { ProfileActions } from "@/components/profile/ProfileActions";
+import { SettingsForm } from "@/components/profile/SettingsForm";
 import { SignOutButton } from "@/components/auth/SignOutButton";
+import { integrations } from "@/lib/integrations";
+import { SaveButton } from "@/components/participation/SaveButton";
+import { FollowButton } from "@/components/participation/FollowButton";
 
 export const metadata: Metadata = {
-  title: "My Account & Fitness ID — NOIDA.FIT",
-  description: "View and manage your NOIDA.FIT account, digital Fitness ID card, badges, and community memberships.",
-  alternates: { canonical: "/account" },
+  title: "My account — NOIDA.FIT",
+  robots: { index: false, follow: false },
 };
 
+const panel = "rounded-xl border border-border-subtle bg-surface p-5";
+function dateLabel(value: string) {
+  return new Date(value).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kolkata" });
+}
+
 export default async function AccountPage() {
-  const session = await auth();
+  const user = await getCurrentAppwriteUser();
+  if (!user) redirect("/login?callbackUrl=/account");
 
-  if (!session?.user?.id) {
-    redirect("/login?callbackUrl=/account");
-  }
-
-  const user = getUserById(session.user.id);
-  if (!user) {
-    redirect("/login");
-  }
-
-  const memberCommunities = user.communityMemberships
-    .map((slug) => getCommunityBySlug(slug))
-    .filter(Boolean);
-
-  const handle = user.handle || `@${user.slug.replace(/^@/, "")}`;
-  const memberSince = new Date(user.joinedAt).toLocaleDateString("en-IN", {
-    month: "long",
-    year: "numeric",
+  const [stored, participation, events, communities, places] = await Promise.all([
+    ensureProfileForUser(user), getAccountParticipation(user.$id), getEvents(), getCommunities(), getPlaces(),
+  ]);
+  const profile = toFitnessProfile(stored, participation);
+  const eventsById = new Map(events.map((event) => [event.id, event]));
+  const communitiesById = new Map(communities.map((community) => [community.id, community]));
+  const placesById = new Map(places.map((place) => [place.id, place]));
+  const rsvps = participation.rsvps.filter((item) => {
+    const event = eventsById.get(item.eventId);
+    return item.status === "confirmed" && (!event || Date.parse(event.endsAt || `${event.date}T23:59:59+05:30`) > Date.now());
   });
+  const canOrganize = user.labels.includes("admin") || events.some(event => event.organizerUserId === user.$id);
+  const memberships = participation.memberships.filter((item) => item.status === "active");
+  const history = participation.participations.map((item) => ({
+    key: `participation-${item.id}`, title: item.title, occurredAt: item.occurredAt, status: item.status,
+    event: item.eventId ? eventsById.get(item.eventId) : undefined,
+  }));
+  const recordedEvents = new Set(participation.participations.filter((item) => item.status === "verified").map((item) => item.eventId));
+  for (const checkin of participation.checkins) {
+    if (!recordedEvents.has(checkin.eventId)) history.push({
+      key: `checkin-${checkin.id}`, title: eventsById.get(checkin.eventId)?.title || "Event check-in",
+      occurredAt: checkin.timestamp, status: "verified", event: eventsById.get(checkin.eventId),
+    });
+  }
+  history.sort((a, b) => Date.parse(b.occurredAt) - Date.parse(a.occurredAt));
 
   return (
-    <div className="min-h-full pb-24 overflow-x-hidden">
-      {/* Account Hero Banner */}
-      <div className="relative isolate pt-8 sm:pt-12 pb-14 sm:pb-16 px-4 sm:px-6 lg:px-8 border-b border-border-subtle bg-gradient-to-b from-[#0f1422] via-[#090a0f] to-[#090a0f]">
-        {/* Glow backdrop */}
-        <div
-          className="absolute top-10 left-1/2 -translate-x-1/2 -z-10 w-[600px] h-[300px] bg-gradient-to-tr from-[#9ddc2e]/15 to-[#06b6d4]/10 blur-[110px] pointer-events-none rounded-full"
-          aria-hidden="true"
-        />
-
-        <div className="mx-auto max-w-4xl text-center">
-          {/* Prominent Fitness Card Display */}
-          <div className="mb-6 flex justify-center">
-            <FitnessCard user={user} showControls={true} />
-          </div>
-
-          {/* Share & Copy Action Toolbar */}
-          <div className="mt-4">
-            <ProfileActions handle={handle} name={user.name} />
-          </div>
-
-          <div className="mt-4">
-            <p className="text-xs text-[#64748b]">
-              Your public profile link:{" "}
-              <Link
-                href={`/${handle}`}
-                className="font-mono text-white hover:text-[#9ddc2e] transition-colors underline decoration-[#9ddc2e]/50 underline-offset-4"
-              >
-                noida.fit/{handle}
-              </Link>
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Account Details & Settings Bento */}
-      <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 pt-10 space-y-10">
-        
-        {/* Account Credentials & Info Card */}
-        <section aria-labelledby="account-details-heading">
-          <h2
-            id="account-details-heading"
-            className="text-lg font-bold text-white mb-4 flex items-center justify-between"
-          >
-            <span>Account Details</span>
-            <span className="text-xs font-mono text-[#9ddc2e] bg-[#9ddc2e]/10 px-2.5 py-0.5 rounded-full border border-[#9ddc2e]/20">
-              ACTIVE
-            </span>
-          </h2>
-
-          <div className="rounded-2xl bg-surface/80 border border-border-subtle p-6 space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <p className="text-xs font-mono text-[#64748b] uppercase">Full Name</p>
-                <p className="text-sm font-semibold text-white mt-0.5">{user.name}</p>
-              </div>
-
-              <div>
-                <p className="text-xs font-mono text-[#64748b] uppercase">Email Address</p>
-                <p className="text-sm font-mono text-white mt-0.5">{user.email}</p>
-              </div>
-
-              <div>
-                <p className="text-xs font-mono text-[#64748b] uppercase">Fitness ID Serial</p>
-                <p className="text-sm font-mono font-bold text-[#9ddc2e] mt-0.5">
-                  {user.cardNumber || `NF-2025-${user.id.slice(-4)}`}
-                </p>
-              </div>
-
-              <div>
-                <p className="text-xs font-mono text-[#64748b] uppercase">Community Handle</p>
-                <p className="text-sm font-mono text-white mt-0.5">{handle}</p>
-              </div>
-
-              <div>
-                <p className="text-xs font-mono text-[#64748b] uppercase">Home Turf / Sector</p>
-                <p className="text-sm text-[#cbd5e1] mt-0.5">
-                  {user.turfSector || "Noida Sector 21A"}
-                </p>
-              </div>
-
-              <div>
-                <p className="text-xs font-mono text-[#64748b] uppercase">Membership Tier</p>
-                <p className="text-sm font-semibold text-white mt-0.5">
-                  {user.tier || "VERIFIED MEMBER"}
-                </p>
-              </div>
-            </div>
-
-            {user.bio && (
-              <div className="pt-3 border-t border-border-subtle/60">
-                <p className="text-xs font-mono text-[#64748b] uppercase">Bio</p>
-                <p className="text-xs sm:text-sm text-[#94a3b8] mt-1">{user.bio}</p>
-              </div>
-            )}
-          </div>
+    <div className="mx-auto max-w-5xl space-y-10 px-4 py-8 sm:px-6 sm:py-12">
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div><h1 className="text-3xl font-bold text-white">Your account</h1><p className="mt-2 text-sm text-text-secondary">Your plans, communities and real participation in Noida.</p></div>
+        <div className="flex items-center gap-4">{canOrganize && <Link href="/organizer" className="text-sm text-velocity underline">Organizer check-in</Link>}<SignOutButton /></div>
+      </header>
+      <div className="grid items-start gap-8 lg:grid-cols-2">
+        <section aria-label="Your Fitness ID" className="space-y-5">
+          <FitnessCard user={profile} />
+          {profile.visibility === "public" ? <><ProfileActions handle={profile.handle} name={profile.name} /><p className="text-center text-sm"><Link href={`/@${profile.slug}`} className="text-velocity underline">View public profile</Link></p></>
+            : <p className="text-sm text-text-secondary">Your profile is private. Only you can see it. Choose what to share in <a href="#settings" className="text-white underline">profile settings</a>.</p>}
         </section>
-
-        {/* Activity Stats Summary */}
-        <section aria-label="Activity Stats Summary">
-          <h2 className="text-lg font-bold text-white mb-4">Activity Summary</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div className="rounded-2xl bg-surface/80 border border-border-subtle p-5 text-center">
-              <p className="text-2xl sm:text-3xl font-black text-white font-mono">
-                {user.stats.eventsAttended}
-              </p>
-              <p className="text-xs font-semibold text-[#94a3b8] mt-1">Events Attended</p>
-              <p className="text-[10px] text-[#64748b] mt-0.5">Sessions verified</p>
-            </div>
-
-            <div className="rounded-2xl bg-surface/80 border border-border-subtle p-5 text-center">
-              <p className="text-2xl sm:text-3xl font-black text-orange-400 font-mono">
-                {user.stats.streakWeeks}w 🔥
-              </p>
-              <p className="text-xs font-semibold text-[#94a3b8] mt-1">Current Streak</p>
-              <p className="text-[10px] text-[#64748b] mt-0.5">Weeks consistent</p>
-            </div>
-
-            <div className="rounded-2xl bg-surface/80 border border-border-subtle p-5 text-center">
-              <p className="text-2xl sm:text-3xl font-black text-white font-mono">
-                {user.stats.communitiesJoined}
-              </p>
-              <p className="text-xs font-semibold text-[#94a3b8] mt-1">My Squads</p>
-              <p className="text-[10px] text-[#64748b] mt-0.5">Clubs joined</p>
-            </div>
-
-            <div className="rounded-2xl bg-surface/80 border border-border-subtle p-5 text-center">
-              <p className="text-2xl sm:text-3xl font-black text-white font-mono">
-                {user.badges.length}
-              </p>
-              <p className="text-xs font-semibold text-[#94a3b8] mt-1">Badges Earned</p>
-              <p className="text-[10px] text-[#64748b] mt-0.5">Milestones logged</p>
-            </div>
-          </div>
+        <section aria-labelledby="activity-summary" className="space-y-4">
+          <h2 id="activity-summary" className="text-lg font-semibold text-white">Your activity</h2>
+          <ActivitySummary stats={profile.stats} />
+          <p className="text-xs leading-relaxed text-text-secondary">Attendance and streaks count organizer-verified records only, not RSVPs. A streak is consecutive active weeks, Monday–Sunday in India; last week’s streak stays while this week is in progress.</p>
+          <dl className={`${panel} space-y-4 text-sm`}><div><dt className="text-text-secondary">Account email · never public</dt><dd className="mt-1 break-all text-white">{user.email}</dd></div><div><dt className="text-text-secondary">Member since</dt><dd className="mt-1 text-white">{dateLabel(profile.joinedAt)}</dd></div></dl>
         </section>
-
-        {/* Badges Section */}
-        {user.badges.length > 0 && (
-          <section aria-labelledby="my-badges-heading">
-            <h2 id="my-badges-heading" className="text-lg font-bold text-white mb-4">
-              Earned Badges ({user.badges.length})
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
-              {user.badges.map((badge) => (
-                <div
-                  key={badge.id}
-                  className="rounded-2xl bg-surface/70 border border-border-subtle p-4 flex items-start gap-4"
-                >
-                  <span className="text-3xl flex-shrink-0 p-2 rounded-xl bg-surface-elevated border border-white/5">
-                    {badge.icon}
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <p className="text-sm font-bold text-white">{badge.name}</p>
-                    <p className="text-xs text-[#94a3b8] mt-0.5">{badge.description}</p>
-                    <p className="text-[10px] font-mono text-[#64748b] mt-1">
-                      Earned {new Date(badge.earnedAt).toLocaleDateString("en-IN", { month: "short", year: "numeric" })}
-                    </p>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* My Communities */}
-        {memberCommunities.length > 0 && (
-          <section aria-labelledby="my-communities-heading">
-            <h2 id="my-communities-heading" className="text-lg font-bold text-white mb-4">
-              My Communities ({memberCommunities.length})
-            </h2>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {memberCommunities.map((community) => community && (
-                <Link
-                  key={community.slug}
-                  href={`/community/${community.slug}`}
-                  className="group rounded-2xl bg-surface/70 border border-border-subtle p-5 hover:border-[#9ddc2e]/40 transition-all flex flex-col justify-between"
-                >
-                  <div>
-                    <span className="text-xs font-mono uppercase tracking-wider text-[#9ddc2e] font-semibold">
-                      {community.category}
-                    </span>
-                    <h3 className="text-base font-bold text-white group-hover:text-[#9ddc2e] transition-colors mt-1">
-                      {community.name}
-                    </h3>
-                    <p className="text-xs text-[#94a3b8] mt-1 line-clamp-2">
-                      {community.tagline}
-                    </p>
-                  </div>
-                  <div className="mt-4 pt-3 border-t border-border-subtle/60 flex items-center justify-between text-xs text-[#64748b]">
-                    <span>📍 {community.baseLocation}</span>
-                    <span>View squad →</span>
-                  </div>
-                </Link>
-              ))}
-            </div>
-          </section>
-        )}
-
-        {/* Account Actions & Sign Out */}
-        <div className="pt-6 border-t border-border-subtle flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-xs text-[#64748b]">
-            Logged in as <span className="text-white font-mono">{user.email}</span>
-          </p>
-          <div className="flex items-center gap-3">
-            <Link
-              href={`/${handle}`}
-              className="text-xs font-semibold text-[#94a3b8] hover:text-white px-3 py-1.5 rounded-lg border border-white/10 hover:border-white/20 transition-colors"
-            >
-              View Public Card ↗
-            </Link>
-            <SignOutButton />
-          </div>
-        </div>
-
       </div>
+      <section aria-labelledby="rsvps" className="space-y-4">
+        <h2 id="rsvps" className="text-lg font-semibold text-white">Upcoming RSVPs</h2>
+        {rsvps.length ? <ul className="grid gap-3 sm:grid-cols-2">{rsvps.map((rsvp) => {
+          const event = eventsById.get(rsvp.eventId);
+          return <li key={rsvp.id} className={panel}>{event ? <><Link href={`/event/${event.slug}`} className="font-semibold text-white hover:text-velocity">{event.title}</Link><p className="mt-2 text-sm text-text-secondary">{dateLabel(event.startsAt || `${event.date}T00:00:00+05:30`)} · {event.startTime} · {event.venueName}</p><p className="mt-2 text-xs text-text-secondary">Confirmed RSVP, not proof of attendance · manage on the event page</p></> : <p className="text-sm text-text-secondary">This RSVP’s event is no longer publicly available.</p>}</li>;
+        })}</ul> : <p className={`${panel} text-sm text-text-secondary`}>No RSVPs yet. <Link href="/events" className="text-white underline">Find an event</Link> to join.</p>}
+      </section>
+      <div className="grid gap-8 lg:grid-cols-2">
+        <section aria-labelledby="saved" className="space-y-4">
+          <h2 id="saved" className="text-lg font-semibold text-white">Saved plans</h2>
+          {participation.savedItems.length ? <ul className="space-y-3">{participation.savedItems.map((saved) => {
+            const item = saved.itemType === "event" ? eventsById.get(saved.itemId) : saved.itemType === "community" ? communitiesById.get(saved.itemId) : placesById.get(saved.itemId);
+            return <li key={saved.id} className={panel}>{item ? <><p className="mb-1 text-xs capitalize text-text-secondary">{saved.itemType}</p><Link href={`/${saved.itemType}/${item.slug}`} className="text-sm font-semibold text-white hover:text-velocity">{"title" in item ? item.title : item.name}</Link></> : <p className="text-sm text-text-secondary">This saved {saved.itemType} is no longer publicly available.</p>}<div className="mt-3"><SaveButton itemType={saved.itemType} itemId={saved.itemId}/></div></li>;
+          })}</ul> : <p className={`${panel} text-sm text-text-secondary`}>Save an event, place or community to find it here. Your saved plans stay private.</p>}
+        </section>
+        <section aria-labelledby="following" className="space-y-4">
+          <h2 id="following" className="text-lg font-semibold text-white">Communities you follow</h2>
+          {memberships.length ? <ul className="space-y-3">{memberships.map((membership) => {
+            const community = communitiesById.get(membership.communityId);
+            return <li key={membership.id} className={panel}>{community ? <><Link href={`/community/${community.slug}`} className="text-sm font-semibold text-white hover:text-velocity">{community.name}</Link><p className="mt-1 text-xs text-text-secondary">{community.baseLocation}</p></> : <p className="text-sm text-text-secondary">This community is no longer publicly available.</p>}<div className="mt-3"><FollowButton communityId={membership.communityId}/></div></li>;
+          })}</ul> : <p className={`${panel} text-sm text-text-secondary`}>No communities followed yet. <Link href="/communities" className="text-white underline">Find your people.</Link></p>}
+        </section>
+      </div>
+      <section id="activity" aria-labelledby="participation" className="space-y-4 scroll-mt-24">
+        <h2 id="participation" className="text-lg font-semibold text-white">Participation history · private</h2>
+        {history.length ? <ul className="space-y-3">{history.map((item) => <li key={item.key} className={`${panel} flex flex-wrap justify-between gap-3`}><div>{item.event ? <Link href={`/event/${item.event.slug}`} className="text-sm font-semibold text-white hover:text-velocity">{item.title}</Link> : <p className="text-sm font-semibold text-white">{item.title}</p>}<p className="mt-1 text-xs text-text-secondary">{dateLabel(item.occurredAt)}</p></div><p className="text-xs text-text-secondary">{({ verified: "Organizer verified", connected: "Connected service", self_reported: "Self-reported · not verified", pending: "Pending verification" })[item.status]}</p></li>)}</ul> : <p className={`${panel} text-sm text-text-secondary`}>No participation recorded yet. An organizer check-in at an event will appear here.</p>}
+      </section>
+      <section aria-labelledby="settings" className="space-y-4"><h2 id="settings" className="scroll-mt-24 text-lg font-semibold text-white">Profile settings</h2><SettingsForm settings={profileSettings(stored)} /></section>
+      <section aria-labelledby="integrations" className="space-y-4"><h2 id="integrations" className="text-lg font-semibold text-white">Connected services</h2><div className="grid gap-3 sm:grid-cols-2">{integrations.map((integration) => <div key={integration.id} className={panel}><h3 className="text-sm font-semibold text-white">{integration.name}</h3><p className="mt-1 text-sm text-text-secondary">{integration.message}</p></div>)}</div></section>
     </div>
   );
 }

@@ -2,27 +2,41 @@
   "name": "noida.fit",
   "version": "0.1.0",
   "private": true,
+  "engines": { "node": ">=22.0.0" },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "typecheck": "next typegen && tsc --noEmit",
+    "test": "node --conditions=react-server --import tsx --test tests/*.test.ts",
+    "test:e2e": "playwright test",
+    "appwrite:setup": "tsx scripts/setup-appwrite.ts",
+    "appwrite:seed": "tsx scripts/seed-appwrite.ts",
+    "appwrite:verify": "tsx scripts/verify-appwrite.ts",
+    "content": "tsx scripts/content.ts",
+    "security:client": "tsx scripts/check-client-secrets.ts"
   },
   "dependencies": {
     "lucide-react": "^1.48.0",
-    "next": "16.3.4",
-    "next-auth": "^5.0.0-beta.32",
+    "next": "16.3.8",
+    "node-appwrite": "20.0.0",
+    "qrcode.react": "^4.2.0",
     "react": "19.2.8",
-    "react-dom": "19.2.8"
+    "react-dom": "19.2.8",
+    "server-only": "^0.0.1",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
-    "eslint-config-next": "16.3.4",
+    "eslint-config-next": "16.3.8",
     "tailwindcss": "^4",
+    "tsx": "^4.23.15",
     "typescript": "^5"
   }
 }

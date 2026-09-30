@@ -1,29 +1,34 @@
-export interface Badge {
-  id: string;
-  name: string;
-  description: string;
-  earnedAt: string;
-  icon: string;
-}
-
+/** Browser-safe Fitness ID. No auth user id, email, credentials, or private history. */
 export interface FitnessProfile {
+  /** Random public Fitness ID, never the Appwrite account id. */
   id: string;
   name: string;
-  email: string;
-  password: string; // hashed in production; plain for V1 seed demo
   slug: string;
-  handle?: string; // e.g. @kabir-singh
-  cardNumber?: string; // e.g. NF-2025-0841
-  tier?: string; // e.g. "VERIFIED MEMBER" | "FOUNDING MEMBER"
-  turfSector?: string; // e.g. "Sector 21A & Expressway"
+  handle: string;
+  cardNumber: string;
   joinedAt: string;
   bio?: string;
   avatarUrl?: string;
-  communityMemberships: string[]; // community slugs
-  badges: Badge[];
+  city: string;
+  visibility: "public" | "private";
+  showActivity: boolean;
+  showCommunities: boolean;
+  communityMemberships: string[];
   stats: {
-    eventsAttended: number;
-    communitiesJoined: number;
-    streakWeeks: number;
+    verifiedActivities?: number | null;
+    eventsAttended: number | null;
+    communitiesJoined: number | null;
+    streakWeeks: number | null;
   };
+}
+
+export interface ProfileSettings {
+  username: string;
+  displayName: string;
+  bio: string;
+  city: string;
+  visibility: "public" | "private";
+  showActivity: boolean;
+  showCommunities: boolean;
+  notifications: boolean;
 }

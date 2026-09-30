@@ -5,6 +5,7 @@ export interface Event {
   title: string;
   slug: string;
   category: ActivityCategory;
+  activityId?: string;
   communitySlug: string;
   communityName: string;
   communityCrestUrl?: string;
@@ -12,6 +13,8 @@ export interface Event {
   venueName: string;
   sector: string;
   date: string; // ISO "YYYY-MM-DD"
+  startsAt?: string;
+  endsAt?: string;
   startTime: string; // "05:45 AM"
   endTime: string;
   price: string; // "FREE" or "₹200"
@@ -23,5 +26,11 @@ export interface Event {
   whatToBring?: string[];
   featured: boolean;
   attendeesCount: number;
+  capacity?: number;
   coverImageUrl?: string;
+  imageUrl?: string;
+  organizerUserId?: string;
+  status?: "published" | "cancelled" | "draft";
+  demo?: boolean;
+  tags?: string[];
 }

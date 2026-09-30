@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 
 export const metadata: Metadata = {
   title: "Stories",
@@ -30,25 +31,16 @@ export default function StoriesPage() {
 
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-20">
         <div className="flex flex-col items-center justify-center text-center py-12">
-          <span className="text-6xl mb-6">📖</span>
+          <span className="text-5xl mb-6" aria-hidden="true">📖</span>
           <h2 className="text-2xl font-bold text-white mb-3">Stories launching soon</h2>
           <p className="text-text-secondary max-w-md leading-relaxed">
-            We&apos;re working with community captains and runners across Noida to write stories
-            that actually deserve to be read. Subscribe to know when the first ones go live.
+            No stories have been published yet. This space is for local profiles, route
+            notes, and first-hand community stories — not invented spotlights. There is
+            no newsletter signup available right now.
           </p>
-          <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center w-full max-w-sm">
-            <input
-              type="email"
-              placeholder="your@email.com"
-              aria-label="Email address to subscribe to stories"
-              className="flex-1 rounded-lg border border-border-strong bg-surface px-4 py-2.5 text-sm text-white placeholder:text-text-muted focus:outline-none focus:ring-2 focus:ring-velocity focus:border-transparent"
-            />
-            <button
-              type="submit"
-              className="inline-flex items-center justify-center rounded-lg bg-velocity px-5 py-2.5 text-sm font-bold text-slate-950 hover:bg-velocity-glow transition-colors"
-            >
-              Notify Me
-            </button>
+          <div className="mt-8 flex flex-wrap justify-center gap-3">
+            <Link href="/communities" className="button-primary">Browse communities</Link>
+            <Link href="/about#contact-heading" className="button-secondary">Suggest a story</Link>
           </div>
         </div>
       </div>

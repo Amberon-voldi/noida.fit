@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { getProfileUrl } from "@/components/profile/links";
 
 interface ProfileActionsProps {
   handle: string;
@@ -8,104 +9,42 @@ interface ProfileActionsProps {
 }
 
 export function ProfileActions({ handle, name }: ProfileActionsProps) {
-  const [copied, setCopied] = useState(false);
-
+  const [message, setMessage] = useState("");
+  const [manualCopy, setManualCopy] = useState(false);
   const cleanHandle = handle.startsWith("@") ? handle : `@${handle}`;
-  const shareUrl = typeof window !== "undefined"
-    ? `${window.location.origin}/${cleanHandle}`
-    : `https://noida.fit/${cleanHandle}`;
+  const shareUrl = getProfileUrl(cleanHandle);
 
-  const handleCopyLink = async () => {
+  async function copyLink() {
     try {
-      if (navigator.clipboard) {
-        await navigator.clipboard.writeText(shareUrl);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2500);
-      }
+      if (!navigator.clipboard) throw new Error("Clipboard unavailable");
+      await navigator.clipboard.writeText(shareUrl);
+      setManualCopy(false);
+      setMessage("Profile link copied.");
     } catch {
-      // Fallback
+      setManualCopy(true);
+      setMessage("Select and copy your profile link below.");
     }
-  };
+  }
 
-  const handleNativeShare = async () => {
-    if (typeof navigator !== "undefined" && navigator.share) {
-      try {
-        await navigator.share({
-          title: `${name} (${cleanHandle}) — NOIDA.FIT Fitness ID`,
-          text: `Check out ${name}'s verified fitness card and profile on NOIDA.FIT`,
-          url: shareUrl,
-        });
-      } catch {
-        // User cancelled or not supported
-      }
-    } else {
-      handleCopyLink();
+  async function share() {
+    if (!navigator.share) return copyLink();
+    try {
+      await navigator.share({ title: `${name} (${cleanHandle}) — NOIDA.FIT`, text: `${name}’s public Fitness ID on NOIDA.FIT`, url: shareUrl });
+      setMessage("Profile shared.");
+    } catch (error) {
+      if (error instanceof Error && error.name === "AbortError") return;
+      await copyLink();
     }
-  };
+  }
 
   return (
-    <div className="flex flex-wrap items-center justify-center gap-3">
-      <button
-        type="button"
-        onClick={handleCopyLink}
-        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold text-white bg-surface-elevated hover:bg-surface-hover border border-border-strong transition-all shadow-sm active:scale-95"
-      >
-        {copied ? (
-          <>
-            <svg
-              className="w-4 h-4 text-[#9ddc2e]"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <polyline points="20 6 9 17 4 12" />
-            </svg>
-            <span className="text-[#9ddc2e]">Link Copied!</span>
-          </>
-        ) : (
-          <>
-            <svg
-              className="w-4 h-4 text-text-muted"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <rect width="14" height="14" x="8" y="8" rx="2" ry="2" />
-              <path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2" />
-            </svg>
-            <span>Copy {cleanHandle} Link</span>
-          </>
-        )}
-      </button>
-
-      <button
-        type="button"
-        onClick={handleNativeShare}
-        className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold text-black bg-[#9ddc2e] hover:bg-[#b5f043] transition-all shadow-sm active:scale-95"
-      >
-        <svg
-          className="w-4 h-4"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2.5"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        >
-          <circle cx="18" cy="5" r="3" />
-          <circle cx="6" cy="12" r="3" />
-          <circle cx="18" cy="19" r="3" />
-          <line x1="8.59" x2="15.42" y1="13.51" y2="17.49" />
-          <line x1="15.41" x2="8.59" y1="6.51" y2="10.49" />
-        </svg>
-        <span>Share Passport</span>
-      </button>
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-center justify-center gap-3">
+        <button type="button" onClick={copyLink} className="min-h-11 rounded-lg border border-border-strong bg-surface-elevated px-4 py-2 text-sm font-semibold text-white hover:bg-surface-hover">Copy profile link</button>
+        <button type="button" onClick={share} className="min-h-11 rounded-lg bg-velocity px-4 py-2 text-sm font-bold text-background hover:bg-velocity-glow">Share Fitness ID</button>
+      </div>
+      <p role="status" aria-live="polite" className="text-sm text-text-secondary">{message}</p>
+      {manualCopy && <label className="mx-auto block max-w-lg text-left text-sm text-text-secondary">Profile link<input readOnly value={shareUrl} onFocus={(event) => event.currentTarget.select()} className="mt-1 min-h-11 w-full rounded-lg border border-border-strong bg-surface px-3 text-white" /></label>}
     </div>
   );
 }

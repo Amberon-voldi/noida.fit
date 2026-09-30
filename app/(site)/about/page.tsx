@@ -37,9 +37,9 @@ export default function AboutPage() {
           <div className="space-y-4 text-text-secondary leading-relaxed">
             <p>
               NOIDA.FIT exists for one reason: to make the fitness communities of Noida
-              visible, discoverable, and alive. There is no Noida equivalent to the
-              curated outdoor fitness culture you find in Bangalore or Mumbai. That gap
-              is what this platform closes.
+              easier to find. Clear activity, sector and schedule information helps
+              newcomers understand where a group meets and what to expect before
+              their first visit.
             </p>
             <p>
               We are not a gym aggregator. We are not a fitness tracker. We are a
@@ -58,8 +58,8 @@ export default function AboutPage() {
           <blockquote className="border-l-2 border-velocity pl-6 mb-6">
             <p className="text-xl font-semibold text-white italic leading-relaxed">
               &ldquo;In Noida, people don&apos;t train despite the noise and chaos — they train together,
-              in the early morning calm of a stadium track, on the expressway before traffic
-              wakes up, in a park that smells like wet earth and chai.&rdquo;
+              in the early morning calm of a stadium track, on permitted local routes,
+              in a park that smells like wet earth and chai.&rdquo;
             </p>
           </blockquote>
           <div className="space-y-4 text-text-secondary leading-relaxed">
@@ -103,12 +103,17 @@ export default function AboutPage() {
           </p>
         </section>
 
+        <section aria-labelledby="demo-heading">
+          <h2 id="demo-heading" className="mb-4 text-2xl font-bold">A note about the demo directory</h2>
+          <p className="leading-relaxed text-text-secondary">Sample groups, venues and sessions are labelled Demo. They show how discovery works, not confirmed gatherings, business partnerships or verified attendance. Do not travel or pay based on a demo listing. Saves, follows and RSVPs use your signed-in account, including when you try them on a demo.</p>
+        </section>
+
         {/* Contact */}
         <section aria-labelledby="contact-heading">
           <h2 id="contact-heading" className="text-2xl font-bold text-white mb-5">Get in Touch</h2>
           <p className="text-text-secondary leading-relaxed mb-6">
             For listing requests, corrections, or just to say you love what we&apos;re building
-            — drop us an email. We read everything.
+            — send an email with the relevant page link and details.
           </p>
           <div className="flex flex-col sm:flex-row gap-4">
             <Link

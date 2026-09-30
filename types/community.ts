@@ -25,6 +25,7 @@ export interface Community {
   name: string;
   slug: string;
   category: ActivityCategory;
+  activityId?: string;
   tagline: string;
   description: string;
   baseLocation: string;
@@ -43,4 +44,7 @@ export interface Community {
     strava?: string;
     website?: string;
   };
+  status?: "published" | "cancelled" | "draft";
+  demo?: boolean;
+  tags?: string[];
 }
