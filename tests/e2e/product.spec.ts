@@ -52,12 +52,20 @@ test.afterAll(async()=>{
 
 test("discovery is usable at mobile and desktop widths with a real backend",async({page})=>{
   const errors:string[]=[];page.on("pageerror",e=>errors.push(e.name));
-  for(const width of [390,1440]){
+  for(const width of [320,390,768,1440]){
     await page.setViewportSize({width,height:900});
     for(const path of ["/","/discover?q=running","/activities","/places","/communities","/events"]){
       const response=await page.goto(path);
       expect(response?.status()).toBe(200);
       await expect(page.locator("h1")).toBeVisible();
+      const bottomNav = page.getByRole("navigation", {name:"Quick navigation"});
+      if (width < 1024) {
+        await expect(bottomNav).toBeVisible();
+        expect((await bottomNav.boundingBox())!.width).toBe(width);
+        await expect(bottomNav.getByRole("link")).toHaveCount(5);
+      } else {
+        await expect(bottomNav).toBeHidden();
+      }
       expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
     }
   }
@@ -69,6 +77,12 @@ test("discovery is usable at mobile and desktop widths with a real backend",asyn
   await expect(page.getByRole("button",{name:"Open navigation menu"})).toBeFocused();
   await page.goto("/activities/running");await expect(page.locator("h1")).toContainText(/running/i);
   await page.goto("/discover?q=zzzznomatch123");await expect(page.getByText(/no .*match|nothing.*yet|no .*found/i).first()).toBeVisible();
+  await page.goto("/login");
+  const bottomNav = page.getByRole("navigation", {name:"Quick navigation"});
+  await expect(bottomNav).toBeVisible();
+  await expect(bottomNav.getByRole("link", {name:"Account"})).toHaveAttribute("aria-current", "page");
+  await bottomNav.getByRole("link", {name:"Home", exact:true}).click();
+  await expect(page).toHaveURL(`${origin}/`);
   expect(errors).toEqual([]);
 });
 

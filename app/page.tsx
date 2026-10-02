@@ -30,7 +30,7 @@ export default async function HomePage() {
       <Navbar />
       <main id="main-content" tabIndex={-1} className="flex-1">
       <section className="border-b border-border-subtle bg-background px-4 pb-16 pt-14 sm:px-6 sm:pb-24 sm:pt-20 lg:px-8" aria-labelledby="hero-heading">
-        <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[1.1fr_.9fr] lg:items-end">
+        <div className="mx-auto grid max-w-7xl grid-cols-1 gap-10 lg:grid-cols-[1.1fr_.9fr] lg:items-end">
           <div>
             <p className="font-mono text-xs font-bold uppercase tracking-[.2em] text-velocity">THE CITY FITNESS DIRECTORY</p>
             <h1 id="hero-heading" className="mt-4 max-w-4xl text-4xl font-black leading-[1.03] tracking-[-.045em] text-white sm:text-6xl lg:text-7xl">Your fitness scene.<br /><span className="text-velocity">All in one place.</span></h1>

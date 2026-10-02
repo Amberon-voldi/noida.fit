@@ -51,6 +51,12 @@ body {
   line-height: 1.6;
 }
 
+@media (max-width: 1023px) {
+  /* Reserve space on every screen, including auth and error pages. */
+  body { padding-bottom: calc(4.5rem + env(safe-area-inset-bottom)); }
+  html { scroll-padding-bottom: calc(5rem + env(safe-area-inset-bottom)); }
+}
+
 main, section, article { min-width: 0; }
 h1, h2, h3, p { overflow-wrap: anywhere; }
 a { text-underline-offset: 3px; }
@@ -61,6 +67,9 @@ button:disabled { cursor: wait; opacity: .65; }
 input, select { font: inherit; }
 input::placeholder { color: var(--text-secondary); }
 summary::-webkit-details-marker { display: none; }
+@media (max-width: 1023px) {
+  input, select, textarea { font-size: 16px; }
+}
 
 @layer components {
   .button-primary {
@@ -80,12 +89,6 @@ summary::-webkit-details-marker { display: none; }
   }
   .filter-chip-active {
     @apply border-velocity bg-velocity text-slate-950 hover:text-slate-950;
-  }
-  .site-footer {
-    padding-bottom: calc(4.5rem + env(safe-area-inset-bottom));
-  }
-  @media (min-width: 1024px) {
-    .site-footer { padding-bottom: 0; }
   }
 }
 :focus-visible { outline: 2px solid var(--accent-velocity-glow); outline-offset: 3px; }

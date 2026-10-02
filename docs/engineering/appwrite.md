@@ -18,6 +18,14 @@ Use separate least-privilege keys for setup and runtime where operationally poss
 
 Check the scopes supported by the deployed Appwrite version. Do not print full errors, CLI debug output, project/key lists or auth session responses. Those can contain credentials. The local CLI target config is ignored rather than committed with a fixed project ID.
 
+## Netlify deployment
+
+Use Netlify's Next.js runtime (not a static export), build command `npm run build`, publish directory `.next`, and Node 22+. Directory queries call Next.js `connection()` before accessing Appwrite so they run per request, not during prerendering.
+
+Set the variables in `.env.example` in Netlify for the correct deploy context and **Functions/runtime** scope, as well as Builds where needed. Local ignored `.env` files are not deployed. In particular, `APPWRITE_KEY` must be an unexpired server API key from the same Appwrite project with `documents.read`, `documents.write` and `sessions.write` scopes. Never expose it as a `NEXT_PUBLIC_*` variable. Set `NEXT_PUBLIC_SITE_URL` to the actual HTTPS site origin and redeploy after environment changes.
+
+A runtime `401 user_unauthorized` means the project/key/scopes need correction; deferring prerendering does not repair credentials. Do not make private collections public to work around it. The SDK's `1.8.0` versus `1.8.0-RC2` warning is separate from authentication failure.
+
 ## Provision, seed, verify
 
 ```sh

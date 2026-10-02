@@ -4,7 +4,7 @@ import Link from "next/link";
 import { getCurrentAppwriteUser } from "@/lib/appwrite/server";
 import { ensureProfileForUser, profileSettings, toFitnessProfile } from "@/lib/appwrite/profiles";
 import { getAccountParticipation } from "@/lib/participation";
-import { getCommunities, getEvents, getPlaces } from "@/lib/data";
+import { getCommunities, getEvents, getPlaces, getUpcomingEvents } from "@/lib/data";
 import { FitnessCard } from "@/components/cards/FitnessCard";
 import { ActivitySummary } from "@/components/profile/ActivitySummary";
 import { ProfileActions } from "@/components/profile/ProfileActions";
@@ -28,17 +28,15 @@ export default async function AccountPage() {
   const user = await getCurrentAppwriteUser();
   if (!user) redirect("/login?callbackUrl=/account");
 
-  const [stored, participation, events, communities, places] = await Promise.all([
-    ensureProfileForUser(user), getAccountParticipation(user.$id), getEvents(), getCommunities(), getPlaces(),
+  const [stored, participation, events, upcomingEvents, communities, places] = await Promise.all([
+    ensureProfileForUser(user), getAccountParticipation(user.$id), getEvents(), getUpcomingEvents(), getCommunities(), getPlaces(),
   ]);
   const profile = toFitnessProfile(stored, participation);
   const eventsById = new Map(events.map((event) => [event.id, event]));
   const communitiesById = new Map(communities.map((community) => [community.id, community]));
   const placesById = new Map(places.map((place) => [place.id, place]));
-  const rsvps = participation.rsvps.filter((item) => {
-    const event = eventsById.get(item.eventId);
-    return item.status === "confirmed" && (!event || Date.parse(event.endsAt || `${event.date}T23:59:59+05:30`) > Date.now());
-  });
+  const upcomingEventIds = new Set(upcomingEvents.map((event) => event.id));
+  const rsvps = participation.rsvps.filter((item) => item.status === "confirmed" && upcomingEventIds.has(item.eventId));
   const canOrganize = user.labels.includes("admin") || events.some(event => event.organizerUserId === user.$id);
   const memberships = participation.memberships.filter((item) => item.status === "active");
   const history = participation.participations.map((item) => ({

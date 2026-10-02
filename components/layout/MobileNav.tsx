@@ -4,17 +4,10 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { CalendarDays, Compass, House, UserRound, Menu, Search, Users, X } from "lucide-react";
+import { Menu, Search, X } from "lucide-react";
 import { NAV_LINKS } from "@/lib/config";
 
 const subscribe = () => () => {};
-const QUICK_LINKS = [
-  { href: "/", label: "Home", icon: House, prefixes: ["/"] },
-  { href: "/discover", label: "Discover", icon: Compass, prefixes: ["/discover", "/search", "/activities"] },
-  { href: "/events", label: "Events", icon: CalendarDays, prefixes: ["/events", "/event/"] },
-  { href: "/communities", label: "Groups", icon: Users, prefixes: ["/communities", "/community/"] },
-  { href: "/account", label: "Account", icon: UserRound, prefixes: ["/account", "/fitness-id", "/login", "/signup"] },
-];
 
 export function MobileNav({ signedIn = false }: { signedIn?: boolean }) {
   const [open, setOpen] = useState(false);
@@ -62,12 +55,6 @@ export function MobileNav({ signedIn = false }: { signedIn?: boolean }) {
       </div>
       {mounted && createPortal(
         <>
-          <nav className="fixed inset-x-0 bottom-0 z-[490] grid grid-cols-5 border-t border-border-subtle bg-background/95 px-2 pb-[env(safe-area-inset-bottom)] pt-2 backdrop-blur-md lg:hidden" aria-label="Quick navigation">
-            {QUICK_LINKS.map(({ href, label, icon: Icon, prefixes }) => {
-              const active = prefixes.some((prefix) => prefix === "/" ? pathname === "/" : pathname.startsWith(prefix));
-              return <Link key={href} href={href} aria-current={active ? "page" : undefined} className={`flex min-h-14 flex-col items-center justify-center gap-1 rounded-lg text-[11px] font-semibold ${active ? "bg-surface text-velocity" : "text-text-secondary hover:bg-surface-hover hover:text-white"}`}><Icon className="h-5 w-5" aria-hidden="true" />{label}</Link>;
-            })}
-          </nav>
           <dialog ref={dialogRef} id="mobile-nav-panel" aria-label="Navigation menu" onCancel={close} onClose={close} onClick={(event) => { if (event.target === event.currentTarget) close(); }} className="fixed inset-0 m-0 h-dvh max-h-none w-full max-w-none border-0 bg-transparent p-0 text-foreground backdrop:bg-black/70 lg:hidden">
             <div className="ml-auto flex h-full w-80 max-w-[90vw] flex-col border-l border-border-subtle bg-surface">
               <div className="flex items-center justify-between border-b border-border-subtle p-4"><h2 className="text-lg font-bold">Explore NOIDA.FIT</h2><button type="button" autoFocus aria-label="Close navigation menu" onClick={close} className="flex h-11 w-11 items-center justify-center rounded-lg text-text-secondary hover:bg-surface-hover hover:text-white"><X className="h-5 w-5" aria-hidden="true" /></button></div>
