@@ -24,6 +24,8 @@ Use Netlify's Next.js runtime (not a static export), build command `npm run buil
 
 Set the variables in `.env.example` in Netlify for the correct deploy context and **Functions/runtime** scope, as well as Builds where needed. Local ignored `.env` files are not deployed. In particular, `APPWRITE_KEY` must be an unexpired server API key from the same Appwrite project with `documents.read`, `documents.write` and `sessions.write` scopes. Never expose it as a `NEXT_PUBLIC_*` variable. Set `NEXT_PUBLIC_SITE_URL` to the actual HTTPS site origin and redeploy after environment changes.
 
+Production Turbopack disk caching is disabled in `next.config.ts` because its `.sst` files can retain build-time environment secrets. `npm run build` first removes stale compiler caches from `.next/cache/turbopack` and `.netlify/.next/cache/turbopack`. After deploying this fix, use Netlify's **clear cache and deploy** option once to discard older remote caches. Keep Netlify secret scanning enabled: do not omit `APPWRITE_KEY` or disable the scan. Prefer **Functions-only** scope for `APPWRITE_KEY` and `APPWRITE_CHECKIN_SECRET`; the Next.js build does not need those secrets. A cache match alone does not prove the key was served publicly; rotate it if exposure cannot be ruled out.
+
 A runtime `401 user_unauthorized` means the project/key/scopes need correction; deferring prerendering does not repair credentials. Do not make private collections public to work around it. The SDK's `1.8.0` versus `1.8.0-RC2` warning is separate from authentication failure.
 
 ## Provision, seed, verify
