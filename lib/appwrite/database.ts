@@ -3,6 +3,7 @@ import "server-only";
 import { AppwriteException, ID, Permission, Query, Role } from "node-appwrite";
 import type { Models } from "node-appwrite";
 import { getAdminServices, getAppwriteDatabaseConfig } from "@/lib/appwrite/server";
+import { reportAppwriteFailure } from "@/lib/appwrite/errors";
 
 export type AppwriteData = Record<string, unknown>;
 export type AppwriteDocument<T extends object> = T & Models.Document;
@@ -45,6 +46,15 @@ export async function listAppwriteDocuments<T extends object = AppwriteData>(
   collectionId: string,
   queries: string[] = [],
 ): Promise<AppwriteDocument<T>[]> {
+  try {
+    return await listDocuments<T>(collectionId, queries);
+  } catch (error) {
+    reportAppwriteFailure("database.list", error);
+    throw error;
+  }
+}
+
+async function listDocuments<T extends object>(collectionId: string, queries: string[]): Promise<AppwriteDocument<T>[]> {
   const { databases } = getAdminServices();
   const { databaseId } = getAppwriteDatabaseConfig();
   if (queries.some((query) => queryMethod(query) === "limit")) {

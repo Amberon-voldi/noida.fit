@@ -28,6 +28,17 @@ Production Turbopack disk caching is disabled in `next.config.ts` because its `.
 
 A runtime `401 user_unauthorized` means the project/key/scopes need correction; deferring prerendering does not repair credentials. Do not make private collections public to work around it. The SDK's `1.8.0` versus `1.8.0-RC2` warning is separate from authentication failure.
 
+### Runtime failures after a successful deploy
+
+React error #441 is a redacted Server Component error, not its underlying cause. If directory pages fail, open Netlify **Logs → Functions** for the Next.js server handler and request `/events` again. Look for `[Appwrite] Operation failed`; this records only operation/status/allowlisted error type, never credentials or SDK responses.
+
+- `general_unauthorized_scope` / `user_unauthorized`: check the server key's project, validity and `documents.read`, `documents.write`, `sessions.write` scopes.
+- `project_not_found` / `project_unknown`: check endpoint and project ID match the key.
+- `database_not_found` / `collection_not_found`: check IDs and provisioned schema for this environment.
+- Status `0` / `unknown`: inspect adjacent server errors for missing environment variables or connectivity failures; redact secrets before sharing logs.
+
+Set every variable for the **Production deploy context** and **Functions runtime**, then redeploy. The build succeeding does not test runtime credentials. Login returns `401 INVALID_CREDENTIALS` only for Appwrite's explicit `user_invalid_credentials`; infrastructure/permission failures return `503 LOGIN_UNAVAILABLE` instead of blaming the password.
+
 ## Provision, seed, verify
 
 ```sh

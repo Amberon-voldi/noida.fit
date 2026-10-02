@@ -56,6 +56,8 @@ function fakeAppwrite() {
   const calls: Array<{ path: string; method: string; body: Record<string, unknown>; session: string | null }> = [];
   let failFitnessId = false;
   let unavailableSession = false;
+  let sessionError: { status: number; type: string } | undefined;
+  let documentError: { status: number; type: string } | undefined;
   let raceUsername: string | undefined;
   const user = { $id: "private-auth-user", $createdAt: "2026-09-01T00:00:00.000Z", name: "Noida Runner", email: "runner@example.test", prefs: {}, labels: [] };
   transport = async (input, init) => {
@@ -66,7 +68,7 @@ function fakeAppwrite() {
     const body = init?.body ? JSON.parse(String(init.body)) as Record<string, unknown> : {};
     const headers = new Headers(init?.headers);
     calls.push({ path, method, body, session: headers.get("x-appwrite-session") });
-    const failure = (status: number) => Response.json({ message: "Private Appwrite diagnostic must never be forwarded", code: status, type: "test_failure" }, { status });
+    const failure = (status: number, type = "test_failure") => Response.json({ message: "Private Appwrite diagnostic must never be forwarded", code: status, type }, { status });
     if (path === "/account" && method === "POST") return Response.json(user, { status: 201 });
     if (path === "/account" && method === "GET") {
       assert.equal(headers.get("x-appwrite-session"), "server-only-session-secret");
@@ -74,12 +76,14 @@ function fakeAppwrite() {
     }
     if (path === "/account/sessions/email" && method === "POST") {
       if (unavailableSession) return failure(503);
+      if (sessionError) return failure(sessionError.status, sessionError.type);
       assert.equal(headers.get("x-appwrite-key"), "test-key-not-real");
       return Response.json({ $id: "test-session", secret: "server-only-session-secret", expire: "2027-01-01T00:00:00.000Z" }, { status: 201 });
     }
     if (path === "/account/sessions/current" && method === "DELETE") return new Response(null, { status: 204 });
     const documentPath = /^\/databases\/identity-test-db\/collections\/([^/]+)\/documents(?:\/([^/]+))?$/.exec(path);
     assert.ok(documentPath, `Unexpected test endpoint: ${method} ${path}`);
+    if (documentError) return failure(documentError.status, documentError.type);
     const [, collection, id] = documentPath;
     if (method === "GET" && id) {
       const row = rows.get(`${collection}/${id}`);
@@ -116,7 +120,7 @@ function fakeAppwrite() {
     }
     throw new Error(`Unexpected mutation: ${method} ${path}`);
   };
-  return { rows, calls, user, setFitnessFailure: (value: boolean) => { failFitnessId = value; }, setSessionFailure: (value: boolean) => { unavailableSession = value; }, raceForUsername: (value: string) => { raceUsername = value; } };
+  return { rows, calls, user, setFitnessFailure: (value: boolean) => { failFitnessId = value; }, setSessionFailure: (value: boolean) => { unavailableSession = value; }, raceForUsername: (value: string) => { raceUsername = value; }, setSessionError: (status: number, type: string) => { sessionError = { status, type }; }, setDocumentError: (status: number, type: string) => { documentError = { status, type }; } };
 }
 
 test("usernames normalize and enforce bounded handle syntax", () => {
@@ -294,6 +298,50 @@ test("auth mutation rejects cross-origin and oversized bodies without an Appwrit
   }));
   assert.equal(oversized.status, 413);
   assert.equal(backend.calls.length, 0);
+});
+
+test("login distinguishes invalid credentials from Appwrite permission failures", async (t) => {
+  t.mock.method(console, "error", () => undefined);
+  const { POST } = await import("../app/api/auth/login/route");
+  for (const [stage, type, expectedStatus, expectedCode] of [
+    ["session", "user_invalid_credentials", 401, "INVALID_CREDENTIALS"],
+    ["session", "general_unauthorized_scope", 503, "LOGIN_UNAVAILABLE"],
+    ["document", "user_unauthorized", 503, "LOGIN_UNAVAILABLE"],
+  ] as const) {
+    const backend = fakeAppwrite();
+    if (stage === "session") backend.setSessionError(401, type);
+    else backend.setDocumentError(401, type);
+    const response = await POST(new NextRequest("https://noida.fit/api/auth/login", {
+      method: "POST", headers: { Origin: "https://noida.fit", "content-type": "application/json" },
+      body: JSON.stringify({ email: "runner@example.test", password: "password123" }),
+    }));
+    assert.equal(response.status, expectedStatus, `${stage}: ${type}`);
+    const body = await response.json();
+    assert.equal(body.code, expectedCode);
+    assert.doesNotMatch(JSON.stringify(body), /Private Appwrite|test-key|server-only-session/);
+    assert.equal(response.headers.get("set-cookie"), null);
+    if (stage === "document") assert.ok(backend.calls.some(call => call.path === "/account/sessions/current" && call.method === "DELETE"));
+  }
+});
+
+test("Appwrite diagnostics expose only safe metadata, never backend payloads", async (t) => {
+  const { AppwriteException } = await import("node-appwrite");
+  const { isInvalidCredentials, reportAppwriteFailure } = await import("../lib/appwrite/errors");
+  const logged: unknown[][] = [];
+  t.mock.method(console, "error", (...args: unknown[]) => { logged.push(args); });
+  const denied = new AppwriteException("private-message", 401, "user_unauthorized", "private-response");
+  reportAppwriteFailure("database.list", denied);
+  reportAppwriteFailure("auth.login", new AppwriteException("private-message", 401, "private-type", "private-response"));
+  reportAppwriteFailure("auth.login", new Error("private-config"));
+  assert.deepEqual(logged.map(args => args[1]), [
+    { operation: "database.list", status: 401, type: "user_unauthorized" },
+    { operation: "auth.login", status: 401, type: "unknown" },
+    { operation: "auth.login", status: 0, type: "unknown" },
+  ]);
+  assert.doesNotMatch(JSON.stringify(logged), /private-/);
+  assert.equal(isInvalidCredentials(denied), false);
+  assert.equal(isInvalidCredentials(new AppwriteException("missing", 404, "collection_not_found")), false);
+  assert.equal(isInvalidCredentials(new AppwriteException("invalid", 401, "user_invalid_credentials")), true);
 });
 
 test("proxy rewrites canonical handles and preserves protected-route callbacks without backend calls", () => {
