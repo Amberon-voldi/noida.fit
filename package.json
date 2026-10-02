@@ -7,6 +7,7 @@
     "dev": "next dev",
     "prebuild": "node scripts/clear-build-cache.mjs",
     "build": "next build",
+    "postbuild": "npm run security:client",
     "start": "next start",
     "lint": "eslint",
     "typecheck": "next typegen && tsc --noEmit",
@@ -15,6 +16,7 @@
     "appwrite:setup": "tsx scripts/setup-appwrite.ts",
     "appwrite:seed": "tsx scripts/seed-appwrite.ts",
     "appwrite:verify": "tsx scripts/verify-appwrite.ts",
+    "appwrite:permissions": "tsx scripts/sync-appwrite-permissions.ts",
     "content": "tsx scripts/content.ts",
     "security:client": "tsx scripts/check-client-secrets.ts"
   },

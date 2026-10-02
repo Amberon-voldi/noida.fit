@@ -44,6 +44,8 @@ Set every variable for the **Production deploy context** and **Functions runtime
 ```sh
 npm run appwrite:setup
 npm run appwrite:seed       # development/staging only
+npm run appwrite:permissions            # preview ACL-only repairs
+npm run appwrite:permissions -- --apply # apply public/owner-only policy to existing records
 npm run appwrite:verify
 ```
 
@@ -51,7 +53,9 @@ Setup inspects each configured ID before creating anything. A same-named databas
 
 Seed uses deterministic IDs, upserting only demo content and refusing to overwrite non-demo records. Unknown IDs remain untouched. **26 activities, 12 fictional communities, 18 places and 24 events** include free/paid, future/past, morning/evening sessions across Noida and Greater Noida. Dates are resolved in Asia/Kolkata at seed time. Re-running seed refreshes demo dates, not production data. It creates no auth users, public credentials or attendance metrics.
 
-`appwrite:verify` checks schema/index readiness, document security, public/private ACLs, anonymous access, and event activity/community/place references. Avoid changing schema permissions manually after provisioning.
+`appwrite:permissions` validates record ownership before applying any changes, clears collection-wide grants, enables document security, and reconciles document ACLs without rewriting data. Published listings get `read(any)` (guests and signed-in members); drafts get no public access; private records get owner-only read access. No direct client writes are granted.
+
+`appwrite:verify` checks schema/index readiness, document security, every record's exact ACL, anonymous access to exactly the published public records, and event activity/community/place references. Avoid changing schema permissions manually after provisioning.
 
 ## Schema
 
@@ -113,7 +117,7 @@ Use Appwrite Console for user labels and operational inspection. Only trusted ad
 
 `npm test` covers deterministic auth/ownership/privacy, discovery/calendar boundaries and signed-token behavior. `npm run test:e2e` exercises the live backend via browser and HTTP, including concurrent capacity, profile privacy revocation, direct-client ACL denial, session restoration and logout. Test fixtures are created with random IDs and cleaned; use staging.
 
-`npm run security:client` scans built browser artifacts for configured secret values without printing them. Run it after `npm run build`.
+`npm run security:client` scans built browser artifacts and `public/` for configured secret values and server-credential references without printing values. It runs automatically after `npm run build`, including on Netlify. All application Appwrite SDK modules are guarded by `server-only`; client components use same-origin Next.js endpoints and never attach an Appwrite API key.
 
 Before launch:
 
