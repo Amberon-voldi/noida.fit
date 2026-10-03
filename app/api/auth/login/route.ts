@@ -20,6 +20,7 @@ export async function POST(request: NextRequest) {
     return response;
   } catch (error) {
     if (error instanceof HttpError || error instanceof ZodError) return jsonError(error);
+    jsonError(error);
     const invalid = isInvalidCredentials(error);
     if (!invalid) reportAppwriteFailure("auth.login", error);
     return jsonError(new HttpError(invalid ? 401 : 503, invalid ? "INVALID_CREDENTIALS" : "LOGIN_UNAVAILABLE",
