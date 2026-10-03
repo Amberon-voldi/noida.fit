@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
+import { ArrowUpRight, Bookmark, CalendarDays, CheckCircle2, History, Link2, Mail, MapPin, ShieldCheck, UsersRound } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { getCurrentAppwriteUser } from "@/lib/appwrite/server";
 import { ensureProfileForUser, profileSettings, toFitnessProfile } from "@/lib/appwrite/profiles";
 import { getAccountParticipation } from "@/lib/participation";
@@ -20,9 +22,30 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-const panel = "rounded-xl border border-border-subtle bg-surface p-5";
 function dateLabel(value: string) {
   return new Date(value).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric", timeZone: "Asia/Kolkata" });
+}
+
+interface AccountSectionHeadingProps {
+  headingId: string;
+  eyebrow: string;
+  title: string;
+  description: string;
+  icon: LucideIcon;
+  count?: number;
+}
+
+function AccountSectionHeading({ headingId, eyebrow, title, description, icon: Icon, count }: AccountSectionHeadingProps) {
+  return (
+    <header className="account-panel-heading">
+      <span className="account-section-icon" aria-hidden="true"><Icon className="h-4 w-4" /></span>
+      <div className="min-w-0 flex-1">
+        <p className="eyebrow">{eyebrow}</p>
+        <div className="mt-1 flex items-center gap-2"><h3 id={headingId} className="min-w-0 text-base font-bold text-white">{title}</h3>{count !== undefined && <span className="account-count" aria-label={`${count} items`}>{count}</span>}</div>
+        <p className="mt-1 text-xs leading-relaxed text-text-secondary">{description}</p>
+      </div>
+    </header>
+  );
 }
 
 export default async function AccountPage() {
@@ -52,57 +75,93 @@ export default async function AccountPage() {
     });
   }
   history.sort((a, b) => Date.parse(b.occurredAt) - Date.parse(a.occurredAt));
+  const firstName = profile.name.trim().split(/\s+/)[0] || "there";
 
   return (
-    <div className="mx-auto max-w-5xl space-y-10 px-4 pb-8 pt-4 sm:px-6 sm:pb-12 md:pt-12">
-      <header className="flex flex-wrap items-start justify-between gap-4">
-        <div><h1 className="text-2xl font-bold text-white md:text-3xl">Your account</h1><p className="mt-2 hidden text-sm text-text-secondary md:block">Your plans, communities and real participation in Noida.</p></div>
-        {canOrganize && <Link href="/organizer" className="text-sm text-velocity underline">Organizer check-in</Link>}
+    <div className="account-page mx-auto max-w-6xl px-4 pb-10 pt-5 sm:px-6 sm:pb-16 lg:px-8">
+      <header className="account-header">
+        <div className="min-w-0">
+          <p className="eyebrow">MEMBER SPACE</p>
+          <h1 className="mt-2 text-3xl font-black tracking-tight text-white sm:text-4xl">Good to see you, {firstName}.</h1>
+          <p className="mt-2 max-w-xl text-sm leading-relaxed text-text-secondary sm:text-base">Your Fitness ID, plans, communities and verified progress — all in one place.</p>
+        </div>
+        {canOrganize && <Link href="/organizer" aria-label="Organizer tools" className="button-secondary account-organizer-link"><ShieldCheck className="h-4 w-4 text-velocity" aria-hidden="true" /><span className="account-organizer-label">Organizer tools</span><ArrowUpRight className="h-4 w-4" aria-hidden="true" /></Link>}
       </header>
-      <div className="grid items-start gap-8 lg:grid-cols-2">
-        <section aria-label="Your Fitness ID" className="space-y-5">
-          <FitnessCard user={profile} />
-          {profile.visibility === "public" ? <><ProfileActions handle={profile.handle} name={profile.name} /><p className="text-center text-sm"><Link href={`/@${profile.slug}`} className="text-velocity underline">View public profile</Link></p></>
-            : <p className="text-sm text-text-secondary">Your profile is private. Only you can see it. Choose what to share in <a href="#settings" className="text-white underline">profile settings</a>.</p>}
+
+      <nav className="account-jump-nav" aria-label="Account sections">
+        <a href="#overview" className="account-jump-link">Overview</a>
+        <a href="#plans" className="account-jump-link">Your plans</a>
+        <a href="#activity" className="account-jump-link">History</a>
+        <a href="#settings" className="account-jump-link">Settings</a>
+        <a href="#integrations" className="account-jump-link">Services</a>
+      </nav>
+
+      <section id="overview" className="account-overview-grid scroll-mt-28" aria-label="Account overview">
+        <section className="account-panel account-id-panel" aria-labelledby="fitness-id-heading">
+          <div className="account-panel-topline"><div><p className="eyebrow">YOUR ID</p><h2 id="fitness-id-heading" className="mt-1 text-xl font-bold text-white">Fitness ID</h2></div><span className={`account-status ${profile.visibility === "public" ? "account-status-public" : "account-status-private"}`}>{profile.visibility === "public" ? "Public" : "Private"}</span></div>
+          <p className="mt-2 max-w-md text-sm leading-relaxed text-text-secondary">Your shareable identity for the local fitness scene.</p>
+          <FitnessCard user={profile} className="account-fitness-card mt-5" />
+          {profile.visibility === "public" ? <div className="mt-4"><ProfileActions handle={profile.handle} name={profile.name} /><p className="mt-2 text-center text-xs"><Link href={`/@${profile.slug}`} className="text-velocity underline underline-offset-4">View public profile</Link></p></div>
+            : <p className="account-private-note mt-4"><ShieldCheck className="h-4 w-4 shrink-0 text-text-secondary" aria-hidden="true" />Only you can see this profile. Open <a href="#settings" className="text-white underline underline-offset-4">profile settings</a> to choose what to share.</p>}
         </section>
-        <section aria-labelledby="activity-summary" className="space-y-4">
-          <h2 id="activity-summary" className="text-lg font-semibold text-white">Your activity</h2>
-          <ActivitySummary stats={profile.stats} />
-          <p className="text-xs leading-relaxed text-text-secondary">Attendance and streaks count organizer-verified records only, not RSVPs. A streak is consecutive active weeks, Monday–Sunday in India; last week’s streak stays while this week is in progress.</p>
-          <dl className={`${panel} space-y-4 text-sm`}><div><dt className="text-text-secondary">Account email · never public</dt><dd className="mt-1 break-all text-white">{user.email}</dd></div><div><dt className="text-text-secondary">Member since</dt><dd className="mt-1 text-white">{dateLabel(profile.joinedAt)}</dd></div></dl>
-        </section>
-      </div>
-      <section aria-labelledby="rsvps" className="space-y-4">
-        <h2 id="rsvps" className="text-lg font-semibold text-white">Upcoming RSVPs</h2>
-        {rsvps.length ? <ul className="grid gap-3 sm:grid-cols-2">{rsvps.map((rsvp) => {
-          const event = eventsById.get(rsvp.eventId);
-          return <li key={rsvp.id} className={panel}>{event ? <><Link href={`/event/${event.slug}`} className="font-semibold text-white hover:text-velocity">{event.title}</Link><p className="mt-2 text-sm text-text-secondary">{dateLabel(event.startsAt || `${event.date}T00:00:00+05:30`)} · {event.startTime} · {event.venueName}</p><p className="mt-2 text-xs text-text-secondary">Confirmed RSVP, not proof of attendance · manage on the event page</p></> : <p className="text-sm text-text-secondary">This RSVP’s event is no longer publicly available.</p>}</li>;
-        })}</ul> : <p className={`${panel} text-sm text-text-secondary`}>No RSVPs yet. <Link href="/events" className="text-white underline">Find an event</Link> to join.</p>}
+
+        <div className="account-overview-side">
+          <section className="account-panel account-activity-panel" aria-labelledby="activity-summary">
+            <AccountSectionHeading headingId="activity-summary" eyebrow="AT A GLANCE" title="Your activity" description="Verified records only — RSVPs do not count as attendance." icon={CheckCircle2} />
+            <div className="mt-5"><ActivitySummary stats={profile.stats} /></div>
+            <p className="account-help-note mt-4">A streak is consecutive active weeks, Monday–Sunday in India. Last week’s streak stays while this week is in progress.</p>
+          </section>
+          <dl className="account-meta-card">
+            <div><dt><Mail className="h-3.5 w-3.5" aria-hidden="true" />Account email <span>(private)</span></dt><dd>{user.email}</dd></div>
+            <div><dt><CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />Member since</dt><dd>{dateLabel(profile.joinedAt)}</dd></div>
+          </dl>
+        </div>
       </section>
-      <div className="grid gap-8 lg:grid-cols-2">
-        <section aria-labelledby="saved" className="space-y-4">
-          <h2 id="saved" className="text-lg font-semibold text-white">Saved plans</h2>
-          {participation.savedItems.length ? <ul className="space-y-3">{participation.savedItems.map((saved) => {
-            const item = saved.itemType === "event" ? eventsById.get(saved.itemId) : saved.itemType === "community" ? communitiesById.get(saved.itemId) : placesById.get(saved.itemId);
-            return <li key={saved.id} className={panel}>{item ? <><p className="mb-1 text-xs capitalize text-text-secondary">{saved.itemType}</p><Link href={`/${saved.itemType}/${item.slug}`} className="text-sm font-semibold text-white hover:text-velocity">{"title" in item ? item.title : item.name}</Link></> : <p className="text-sm text-text-secondary">This saved {saved.itemType} is no longer publicly available.</p>}<div className="mt-3"><SaveButton itemType={saved.itemType} itemId={saved.itemId}/></div></li>;
-          })}</ul> : <p className={`${panel} text-sm text-text-secondary`}>Save an event, place or community to find it here. Your saved plans stay private.</p>}
-        </section>
-        <section aria-labelledby="following" className="space-y-4">
-          <h2 id="following" className="text-lg font-semibold text-white">Communities you follow</h2>
-          {memberships.length ? <ul className="space-y-3">{memberships.map((membership) => {
-            const community = communitiesById.get(membership.communityId);
-            return <li key={membership.id} className={panel}>{community ? <><Link href={`/community/${community.slug}`} className="text-sm font-semibold text-white hover:text-velocity">{community.name}</Link><p className="mt-1 text-xs text-text-secondary">{community.baseLocation}</p></> : <p className="text-sm text-text-secondary">This community is no longer publicly available.</p>}<div className="mt-3"><FollowButton communityId={membership.communityId}/></div></li>;
-          })}</ul> : <p className={`${panel} text-sm text-text-secondary`}>No communities followed yet. <Link href="/communities" className="text-white underline">Find your people.</Link></p>}
-        </section>
-      </div>
-      <MobileAccountSection sectionId="activity" headingId="participation" title="Participation history · private">
-        {history.length ? <ul className="space-y-3">{history.map((item) => <li key={item.key} className={`${panel} flex flex-wrap justify-between gap-3`}><div>{item.event ? <Link href={`/event/${item.event.slug}`} className="text-sm font-semibold text-white hover:text-velocity">{item.title}</Link> : <p className="text-sm font-semibold text-white">{item.title}</p>}<p className="mt-1 text-xs text-text-secondary">{dateLabel(item.occurredAt)}</p></div><p className="text-xs text-text-secondary">{({ verified: "Organizer verified", connected: "Connected service", self_reported: "Self-reported · not verified", pending: "Pending verification" })[item.status]}</p></li>)}</ul> : <p className={`${panel} text-sm text-text-secondary`}>No participation recorded yet. An organizer check-in at an event will appear here.</p>}
-      </MobileAccountSection>
-      <MobileAccountSection headingId="settings" title="Profile settings"><SettingsForm settings={profileSettings(stored)} /></MobileAccountSection>
-      <MobileAccountSection headingId="integrations" title="Connected services"><div className="grid gap-3 sm:grid-cols-2">{integrations.map((integration) => <div key={integration.id} className={panel}><h3 className="text-sm font-semibold text-white">{integration.name}</h3><p className="mt-1 text-sm text-text-secondary">{integration.message}</p></div>)}</div></MobileAccountSection>
-      <div className="flex justify-center border-t border-border-subtle pt-6 sm:justify-start">
-        <SignOutButton />
-      </div>
+
+      <section id="plans" className="account-block scroll-mt-28" aria-labelledby="plans-heading">
+        <div className="account-section-header"><div><p className="eyebrow">KEEP MOVING</p><h2 id="plans-heading" className="mt-1 text-2xl font-bold tracking-tight text-white sm:text-3xl">Your plans</h2></div><p className="max-w-sm text-sm leading-relaxed text-text-secondary">Everything you have saved, joined or already committed to.</p></div>
+        <div className="account-plans-grid">
+          <section id="rsvps" className="account-panel account-plan-panel scroll-mt-28" aria-labelledby="rsvps-heading">
+            <AccountSectionHeading headingId="rsvps-heading" eyebrow="UP NEXT" title="Upcoming RSVPs" description="Confirmed plans waiting for you." icon={CalendarDays} count={rsvps.length} />
+            {rsvps.length ? <ul className="account-list mt-5">{rsvps.map((rsvp) => {
+              const event = eventsById.get(rsvp.eventId);
+              return <li key={rsvp.id} className="account-list-item">
+                {event ? <div className="account-list-content"><Link href={`/event/${event.slug}`} className="account-list-title">{event.title}</Link><p className="account-list-meta"><CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />{dateLabel(event.startsAt || `${event.date}T00:00:00+05:30`)} · {event.startTime}</p><p className="account-list-meta"><MapPin className="h-3.5 w-3.5" aria-hidden="true" />{event.venueName}</p><p className="account-list-note">Confirmed RSVP, not proof of attendance.</p></div> : <p className="account-list-note">This RSVP’s event is no longer publicly available.</p>}
+                {event && <Link href={`/event/${event.slug}`} className="account-list-action">Manage<ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" /></Link>}
+              </li>;
+            })}</ul> : <div className="account-empty-state mt-5"><CalendarDays className="h-5 w-5 text-text-secondary" aria-hidden="true" /><p>No RSVPs yet.</p><Link href="/events" className="text-velocity underline underline-offset-4">Find an event</Link></div>}
+          </section>
+
+          <section id="saved" className="account-panel account-plan-panel scroll-mt-28" aria-labelledby="saved-heading">
+            <AccountSectionHeading headingId="saved-heading" eyebrow="YOUR SHORTLIST" title="Saved plans" description="Private bookmarks for later." icon={Bookmark} count={participation.savedItems.length} />
+            {participation.savedItems.length ? <ul className="account-list mt-5">{participation.savedItems.map((saved) => {
+              const item = saved.itemType === "event" ? eventsById.get(saved.itemId) : saved.itemType === "community" ? communitiesById.get(saved.itemId) : placesById.get(saved.itemId);
+              return <li key={saved.id} className="account-list-item"><div className="account-list-content"><span className="account-item-label">{saved.itemType}</span>{item ? <Link href={`/${saved.itemType}/${item.slug}`} className="account-list-title">{"title" in item ? item.title : item.name}</Link> : <p className="account-list-note">This saved {saved.itemType} is no longer publicly available.</p>}</div><SaveButton itemType={saved.itemType} itemId={saved.itemId} compact /></li>;
+            })}</ul> : <div className="account-empty-state mt-5"><Bookmark className="h-5 w-5 text-text-secondary" aria-hidden="true" /><p>Nothing saved yet.</p><Link href="/discover" className="text-velocity underline underline-offset-4">Explore the directory</Link></div>}
+          </section>
+
+          <section id="following" className="account-panel account-plan-panel scroll-mt-28" aria-labelledby="following-heading">
+            <AccountSectionHeading headingId="following-heading" eyebrow="YOUR PEOPLE" title="Communities you follow" description="Groups you want to hear from." icon={UsersRound} count={memberships.length} />
+            {memberships.length ? <ul className="account-list mt-5">{memberships.map((membership) => {
+              const community = communitiesById.get(membership.communityId);
+              return <li key={membership.id} className="account-list-item"><div className="account-list-content">{community ? <Link href={`/community/${community.slug}`} className="account-list-title">{community.name}</Link> : <p className="account-list-note">This community is no longer publicly available.</p>}{community && <p className="account-list-meta"><MapPin className="h-3.5 w-3.5" aria-hidden="true" />{community.baseLocation}</p>}</div><FollowButton communityId={membership.communityId} compact /></li>;
+            })}</ul> : <div className="account-empty-state mt-5"><UsersRound className="h-5 w-5 text-text-secondary" aria-hidden="true" /><p>No communities followed yet.</p><Link href="/communities" className="text-velocity underline underline-offset-4">Find your people</Link></div>}
+          </section>
+        </div>
+      </section>
+
+      <section id="account-controls" className="account-block scroll-mt-28" aria-labelledby="account-controls-heading">
+        <div className="account-section-header"><div><p className="eyebrow">CONTROL CENTRE</p><h2 id="account-controls-heading" className="mt-1 text-2xl font-bold tracking-tight text-white sm:text-3xl">Account &amp; privacy</h2></div><p className="max-w-sm text-sm leading-relaxed text-text-secondary">Review your participation, profile visibility and connected services when you need them.</p></div>
+        <div className="account-tools-grid">
+          <MobileAccountSection sectionId="activity" headingId="participation" title="Participation history · private" description="Organizer-verified check-ins and activity records.">
+            {history.length ? <ul className="account-list">{history.map((item) => <li key={item.key} className="account-list-item"><div className="account-list-content">{item.event ? <Link href={`/event/${item.event.slug}`} className="account-list-title">{item.title}</Link> : <p className="account-list-title">{item.title}</p>}<p className="account-list-meta"><History className="h-3.5 w-3.5" aria-hidden="true" />{dateLabel(item.occurredAt)}</p></div><span className="account-verification-status">{({ verified: "Organizer verified", connected: "Connected service", self_reported: "Self-reported · not verified", pending: "Pending verification" })[item.status]}</span></li>)}</ul> : <div className="account-empty-state"><History className="h-5 w-5 text-text-secondary" aria-hidden="true" /><p>No participation recorded yet.</p><span className="account-list-note">An organizer check-in will appear here.</span></div>}
+          </MobileAccountSection>
+          <MobileAccountSection headingId="settings" title="Profile settings" description="Personal details, privacy and update preferences."><SettingsForm settings={profileSettings(stored)} className="account-settings-form" /></MobileAccountSection>
+          <MobileAccountSection headingId="integrations" title="Connected services" description="See what is available to connect today."><div className="account-service-grid">{integrations.map((integration) => <div key={integration.id} className="account-service-card"><div className="account-service-icon"><Link2 className="h-4 w-4" aria-hidden="true" /></div><div><h3 className="text-sm font-semibold text-white">{integration.name}</h3><p className="mt-1 text-sm leading-relaxed text-text-secondary">{integration.message}</p></div></div>)}</div></MobileAccountSection>
+        </div>
+      </section>
+
+      <footer className="account-footer"><p className="text-xs text-text-secondary">Ready to leave? Your private plans stay protected.</p><SignOutButton /></footer>
     </div>
   );
 }

@@ -10,8 +10,8 @@ export function ActivitySummary({ stats }: { stats: FitnessProfile["stats"] }) {
 
   if (!metrics.length) return null;
   return (
-    <dl className="grid grid-cols-2 gap-3">
-      {metrics.map(({ label, value }) => <div key={label} className="rounded-xl border border-border-subtle bg-surface p-4 text-center"><dd className="text-2xl font-bold text-white">{value}</dd><dt className="mt-1 text-xs text-text-secondary">{label}</dt></div>)}
+    <dl className="account-stat-grid">
+      {metrics.map(({ label, value }) => <div key={label} className="account-stat"><dd className="text-2xl font-bold leading-none text-white">{value}</dd><dt className="mt-2 text-[11px] leading-snug text-text-secondary">{label}</dt></div>)}
     </dl>
   );
 }

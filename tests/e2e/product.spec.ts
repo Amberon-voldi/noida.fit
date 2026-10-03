@@ -188,7 +188,21 @@ test("signup → save/follow/RSVP → organizer check-in → private/public Fitn
     const pair=await Promise.all([mutation(ctx,"/api/participation/rsvp",{eventId:event.id}),mutation(ctx,"/api/participation/rsvp",{eventId:event.id})]);
     expect(pair.map(r=>r.status())).toEqual([200,200]);
     expect((await ctx.post("/api/participation/saved",{data:{itemType:"event",itemId:event.id},headers:{origin:"https://cross-origin.invalid"}})).status()).toBe(403);
-    await page.goto("/account");await expect(page.getByText("Verification session — temporary test").first()).toBeVisible();
+    for (const width of [1440, 390]) {
+      await page.setViewportSize({width, height: 900});
+      await page.goto("/account");
+      await expect(page.getByRole("heading", {name:"Fitness ID", exact:true})).toBeVisible();
+      await expect(page.getByRole("heading", {name:"Your plans", exact:true})).toBeVisible();
+      await expect(page.getByRole("heading", {name:"Account & privacy", exact:true})).toBeVisible();
+      await expect(page.getByRole("navigation", {name:"Account sections"}).getByRole("link")).toHaveCount(5);
+      expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
+      await page.getByRole("link", {name:"Settings", exact:true}).click();
+      await expect(page.getByRole("heading", {name:"Profile settings", exact:true})).toBeVisible();
+      await expect(page.getByLabel("Display name", {exact:true})).toBeVisible();
+    }
+    await page.setViewportSize({width: 1280, height: 900});
+    await page.goto("/account");
+    await expect(page.getByText("Verification session — temporary test").first()).toBeVisible();
     await page.getByRole("button",{name:/flip fitness id/i}).click();
     await expect(page.getByText(/enable public sharing/i)).toBeVisible();
     const second=await testAccount();const third=await testAccount();

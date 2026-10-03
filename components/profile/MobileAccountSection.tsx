@@ -6,11 +6,13 @@ import { ChevronDown } from "lucide-react";
 interface MobileAccountSectionProps {
   headingId: string;
   title: string;
+  description?: string;
   sectionId?: string;
   children: ReactNode;
 }
 
-export function MobileAccountSection({ headingId, title, sectionId, children }: MobileAccountSectionProps) {
+/** Account disclosure used at every breakpoint so secondary controls do not compete with the main plans. */
+export function MobileAccountSection({ headingId, title, description, sectionId, children }: MobileAccountSectionProps) {
   const [open, setOpen] = useState(false);
   const headingRef = useRef<HTMLHeadingElement>(null);
   const buttonRef = useRef<HTMLButtonElement>(null);
@@ -26,8 +28,7 @@ export function MobileAccountSection({ headingId, title, sectionId, children }: 
       // Wait for the panel to expand before scrolling, including near the page bottom.
       frame = requestAnimationFrame(() => {
         headingRef.current?.scrollIntoView({ block: "start" });
-        const button = buttonRef.current;
-        if (button && getComputedStyle(button).display !== "none") button.focus({ preventScroll: true });
+        buttonRef.current?.focus({ preventScroll: true });
       });
     }
 
@@ -57,22 +58,24 @@ export function MobileAccountSection({ headingId, title, sectionId, children }: 
   }, [headingId, sectionId]);
 
   return (
-    <section id={sectionId} aria-labelledby={headingId} className={`scroll-mt-24 ${open ? "space-y-4" : "md:space-y-4"}`}>
-      <h2 ref={headingRef} id={headingId} className="scroll-mt-24 text-lg font-semibold text-white">
-        <span className="hidden md:inline">{title}</span>
+    <section id={sectionId} aria-labelledby={headingId} className={`account-disclosure scroll-mt-28 ${open ? "account-disclosure-open" : ""}`}>
+      <h2 ref={headingRef} id={headingId} className="account-disclosure-heading">
         <button
           ref={buttonRef}
           type="button"
           aria-expanded={open}
           aria-controls={contentId}
-          onClick={() => setOpen(!open)}
-          className="flex min-h-11 w-full items-center justify-between gap-3 rounded-lg border border-border-subtle bg-surface px-4 py-2 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-velocity md:hidden"
+          onClick={() => setOpen(value => !value)}
+          className="account-disclosure-trigger"
         >
-          {title}
-          <ChevronDown size={18} aria-hidden="true" className={`shrink-0 transition-transform duration-200 motion-reduce:transition-none ${open ? "rotate-180" : ""}`} />
+          <span className="min-w-0">
+            <span className="block text-base font-bold text-white">{title}</span>
+            {description && <span className="mt-1 block text-xs font-normal leading-relaxed text-text-secondary">{description}</span>}
+          </span>
+          <ChevronDown size={18} aria-hidden="true" className={`shrink-0 text-text-secondary transition-transform duration-200 motion-reduce:transition-none ${open ? "rotate-180 text-velocity" : ""}`} />
         </button>
       </h2>
-      <div id={contentId} className={open ? "account-section-enter block" : "hidden md:block"}>{children}</div>
+      <div id={contentId} hidden={!open} className="account-disclosure-content">{children}</div>
     </section>
   );
 }

@@ -7,11 +7,12 @@ import { profileSettingsSchema, USERNAME_PATTERN } from "@/components/auth/valid
 
 interface SettingsFormProps {
   settings: ProfileSettings;
+  className?: string;
 }
 
 const inputClass = "mt-1 min-h-11 w-full rounded-lg border border-border-strong bg-surface px-3 py-2 text-sm text-white";
 
-export function SettingsForm({ settings }: SettingsFormProps) {
+export function SettingsForm({ settings, className = "" }: SettingsFormProps) {
   const router = useRouter();
   const [form, setForm] = useState<ProfileSettings>(settings);
   const [message, setMessage] = useState("");
@@ -51,7 +52,7 @@ export function SettingsForm({ settings }: SettingsFormProps) {
   }
 
   return (
-    <form onSubmit={submit} aria-busy={saving} className="space-y-5 rounded-xl border border-border-subtle bg-surface p-5">
+    <form onSubmit={submit} aria-busy={saving} className={`space-y-5 rounded-xl border border-border-subtle bg-surface p-5 ${className}`}>
       <fieldset disabled={saving} className="space-y-4">
         <legend className="sr-only">Profile details</legend>
         <div><label htmlFor="settings-username" className="text-sm text-text-secondary">Username</label><input id="settings-username" name="username" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value.toLowerCase() })} minLength={3} maxLength={40} pattern={USERNAME_PATTERN} aria-describedby="settings-username-help" required className={inputClass} /><p id="settings-username-help" className="mt-1 text-xs text-text-secondary">3–40 characters. Start and end with a letter or number. Changing it also changes your public link.</p></div>
