@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { safeCallbackUrl } from "@/components/auth/validation";
+import { AuthSubmitButton, type AuthSubmitStatus } from "./AuthSubmitButton";
 
 const inputClass = "mt-1 min-h-11 w-full rounded-lg border border-border-strong bg-surface px-3 py-2 text-sm text-white";
 
@@ -12,13 +13,14 @@ export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState<AuthSubmitStatus>("idle");
+  const loading = status !== "idle";
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (loading) return;
     setError("");
-    setLoading(true);
+    setStatus("submitting");
     try {
       const response = await fetch("/api/auth/login", {
         method: "POST",
@@ -28,15 +30,17 @@ export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
       const data = await response.json() as { error?: string; redirectTo?: string };
       if (!response.ok) {
         setError(data.error || "Invalid email or password.");
+        setStatus("idle");
         return;
       }
+      // replace() starts navigation but doesn't await it. Stay busy until this form unmounts.
+      setStatus("redirecting");
       window.dispatchEvent(new Event("noidafit:session"));
       router.replace(safeCallbackUrl(data.redirectTo));
       router.refresh();
     } catch {
       setError("Unable to sign in right now. Please try again.");
-    } finally {
-      setLoading(false);
+      setStatus("idle");
     }
   }
 
@@ -54,7 +58,7 @@ export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
           <label htmlFor="password" className="text-sm text-text-secondary">Password</label>
           <input id="password" name="password" type="password" required minLength={8} maxLength={256} autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} className={inputClass} />
         </div>
-        <button type="submit" disabled={loading} className="min-h-11 w-full rounded-lg bg-velocity px-4 py-3 text-sm font-bold text-background disabled:opacity-50">{loading ? "Signing in…" : "Sign in"}</button>
+        <AuthSubmitButton status={status} label="Sign in" submittingLabel="Signing in…" />
       </form>
       <p className="mt-6 text-center text-sm text-text-secondary">New here? <Link href={`/signup?callbackUrl=${encodeURIComponent(callbackUrl)}`} className="text-white underline hover:text-velocity">Create your Fitness ID</Link></p>
       <p className="mt-4 text-center text-sm"><Link href="/discover" className="text-text-secondary underline">Keep exploring without an account</Link></p>

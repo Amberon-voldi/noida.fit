@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { safeCallbackUrl, signupSchema, USERNAME_PATTERN } from "@/components/auth/validation";
+import { AuthSubmitButton, type AuthSubmitStatus } from "./AuthSubmitButton";
 
 const inputClass = "mt-1 min-h-11 w-full rounded-lg border border-border-strong bg-surface px-3 py-2 text-sm text-white";
 
@@ -11,7 +12,8 @@ export function SignupForm({ callbackUrl }: { callbackUrl: string }) {
   const router = useRouter();
   const [form, setForm] = useState({ name: "", username: "", email: "", password: "" });
   const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
+  const [status, setStatus] = useState<AuthSubmitStatus>("idle");
+  const loading = status !== "idle";
 
   function update(field: keyof typeof form, value: string) {
     setForm((current) => ({ ...current, [field]: value }));
@@ -25,7 +27,7 @@ export function SignupForm({ callbackUrl }: { callbackUrl: string }) {
       setError("Check your details. Your username must start and end with a letter or number. Your password needs at least 8 characters, a letter and a number.");
       return;
     }
-    setLoading(true);
+    setStatus("submitting");
     try {
       const response = await fetch("/api/auth/signup", {
         method: "POST",
@@ -35,15 +37,17 @@ export function SignupForm({ callbackUrl }: { callbackUrl: string }) {
       const data = await response.json() as { error?: string; redirectTo?: string };
       if (!response.ok) {
         setError(data.error || "Unable to create your account.");
+        setStatus("idle");
         return;
       }
+      // Keep the spinner through the route transition, not just the API request.
+      setStatus("redirecting");
       window.dispatchEvent(new Event("noidafit:session"));
       router.replace(safeCallbackUrl(data.redirectTo));
       router.refresh();
     } catch {
       setError("Unable to create your account right now. Please try again.");
-    } finally {
-      setLoading(false);
+      setStatus("idle");
     }
   }
 
@@ -71,7 +75,7 @@ export function SignupForm({ callbackUrl }: { callbackUrl: string }) {
           <input id="signup-password" name="password" type="password" required minLength={8} maxLength={256} aria-describedby="password-help" autoComplete="new-password" value={form.password} onChange={(e) => update("password", e.target.value)} className={inputClass} />
           <p id="password-help" className="mt-1 text-xs text-text-secondary">At least 8 characters, including a letter and number.</p>
         </div>
-        <button type="submit" disabled={loading} className="min-h-11 w-full rounded-lg bg-velocity px-4 py-3 text-sm font-bold text-background disabled:opacity-50">{loading ? "Creating…" : "Create Fitness ID"}</button>
+        <AuthSubmitButton status={status} label="Create Fitness ID" submittingLabel="Creating your Fitness ID…" />
       </form>
       <p className="mt-6 text-center text-sm text-text-secondary">Already registered? <Link href={`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`} className="text-white underline hover:text-velocity">Sign in</Link></p>
       <p className="mt-4 text-center text-sm"><Link href="/discover" className="text-text-secondary underline">Keep exploring without an account</Link></p>
