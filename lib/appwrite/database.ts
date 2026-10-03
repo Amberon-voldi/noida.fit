@@ -3,7 +3,7 @@ import "server-only";
 import { AppwriteException, ID, Permission, Query, Role } from "node-appwrite";
 import type { Models } from "node-appwrite";
 import { getAdminServices, getAppwriteDatabaseConfig } from "@/lib/appwrite/server";
-import { reportAppwriteFailure } from "@/lib/appwrite/errors";
+import { traceAppwriteOperation } from "@/lib/appwrite/errors";
 import { appwriteCollections } from "@/lib/appwrite/config";
 
 export type AppwriteData = Record<string, unknown>;
@@ -42,13 +42,14 @@ function queryMethod(query: string): string {
   return parsed.method;
 }
 
-function logCollectionRead(collectionId: string): void {
+function logCollectionRead(collectionId: string): string {
   const configured = Object.entries(appwriteCollections).find(([, id]) => id && id === collectionId);
   // Server console only: never include credentials, queries, row IDs or row data.
   console.info("[Appwrite] Reading collection", {
     name: configured?.[0] ?? "unconfigured",
     id: configured?.[1] ?? "(unset)",
   });
+  return configured?.[0] ?? "unconfigured";
 }
 
 /** Auto-paginate unbounded queries. An explicit Query.limit is honored as a bounded read. */
@@ -56,13 +57,8 @@ export async function listAppwriteDocuments<T extends object = AppwriteData>(
   collectionId: string,
   queries: string[] = [],
 ): Promise<AppwriteDocument<T>[]> {
-  logCollectionRead(collectionId);
-  try {
-    return await listDocuments<T>(collectionId, queries);
-  } catch (error) {
-    reportAppwriteFailure("database.list", error);
-    throw error;
-  }
+  const collection = logCollectionRead(collectionId);
+  return traceAppwriteOperation("database.list", () => listDocuments<T>(collectionId, queries), { collection });
 }
 
 async function listDocuments<T extends object>(collectionId: string, queries: string[]): Promise<AppwriteDocument<T>[]> {
@@ -91,15 +87,17 @@ export async function getAppwriteDocument<T extends object = AppwriteData>(
   collectionId: string,
   documentId: string,
 ): Promise<AppwriteDocument<T> | null> {
-  logCollectionRead(collectionId);
-  const { databases } = getAdminServices();
-  const { databaseId } = getAppwriteDatabaseConfig();
-  try {
-    return await databases.getDocument<T & Models.Document>({ databaseId, collectionId, documentId });
-  } catch (error) {
-    if (error instanceof AppwriteException && error.code === 404) return null;
-    throw error;
-  }
+  const collection = logCollectionRead(collectionId);
+  return traceAppwriteOperation("database.get", async () => {
+    const { databases } = getAdminServices();
+    const { databaseId } = getAppwriteDatabaseConfig();
+    try {
+      return await databases.getDocument<T & Models.Document>({ databaseId, collectionId, documentId });
+    } catch (error) {
+      if (error instanceof AppwriteException && error.code === 404) return null;
+      throw error;
+    }
+  }, { collection });
 }
 
 export async function createAppwriteDocument<T extends object = AppwriteData>(

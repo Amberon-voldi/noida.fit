@@ -1,6 +1,8 @@
 import "server-only";
 
 import { ID } from "node-appwrite";
+import { randomUUID } from "node:crypto";
+import { traceAppwriteOperation } from "@/lib/appwrite/errors";
 import { APPWRITE_SESSION_COOKIE } from "@/lib/appwrite/config";
 import { getAdminServices, getSessionServices } from "@/lib/appwrite/server";
 import { assertUsernameAvailable, ensureProfileForUser } from "@/lib/appwrite/profiles";
@@ -29,10 +31,11 @@ async function openSession(email: string, password: string) {
 }
 
 export async function createEmailSession(email: string, password: string) {
-  const session = await openSession(email, password);
+  const context = { traceId: randomUUID() };
+  const session = await traceAppwriteOperation("auth.session.create", () => openSession(email, password), context);
   try {
-    const user = await getSessionServices(session.secret).account.get();
-    await ensureProfileForUser(user);
+    const user = await traceAppwriteOperation("auth.session.read", () => getSessionServices(session.secret).account.get(), context);
+    await traceAppwriteOperation("auth.profile.ensure", () => ensureProfileForUser(user), context);
     return { session };
   } catch (error) {
     await deleteCurrentSession(session.secret).catch(() => undefined);

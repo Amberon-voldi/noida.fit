@@ -38,7 +38,14 @@ Page data reads log `[Appwrite] Reading collection` with the collection name and
 
 ### Runtime failures after a successful deploy
 
-React error #441 is a redacted Server Component error, not its underlying cause. If directory pages fail, open Netlify **Logs → Functions** for the Next.js server handler and request `/events` again. Look for `[Appwrite] Operation failed`; this records only operation/status/allowlisted error type, never credentials or SDK responses.
+React error #441 is a redacted Server Component error, not its underlying cause. After deploying the diagnostics, open Netlify **Logs → Functions** for the Next.js server handler (usually `___netlify-server-handler`), request `/events`, and try signing in once. Filter for `[Appwrite]`:
+
+- **Server configuration**: logged once per server instance (and if configuration diagnostics change). Shows endpoint origin, public project/database IDs, missing setting names, API-key presence/whitespace/quote booleans, and signing-secret/site-URL presence. It never prints the key or a key fingerprint. `apiKeyPresent: true` does not mean the key is valid.
+- **Reading collection**: shows the configured collection alias and ID; `(unset)` means its public variable was absent at build time.
+- **Operation started/completed/failed**: generated `traceId`, operation, collection alias where relevant, and elapsed milliseconds. Login's `auth.session.create`, `auth.session.read`, and `auth.profile.ensure` share a trace ID so a session problem can be distinguished from a profile/database problem. Independent database reads have their own IDs.
+- Failures include only numeric status, an allowlisted Appwrite type and, when available, an allowlisted network error code (`ENOTFOUND`, `ETIMEDOUT`, etc.). Passwords, emails, sessions, request bodies, query values, row contents, raw SDK messages and stacks are not sent to these diagnostic logs.
+
+These are **server logs**, not browser DevTools logs or build-only logs. No extra debug environment variable is needed. Existing Next.js error reporting may separately emit its own server error; do not share unredacted credentials from any other logger.
 
 - `general_unauthorized_scope` / `user_unauthorized`: check the server key's project, validity and `documents.read`, `documents.write`, `sessions.write` scopes.
 - `project_not_found` / `project_unknown`: check endpoint and project ID match the key.

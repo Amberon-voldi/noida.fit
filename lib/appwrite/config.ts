@@ -23,6 +23,29 @@ export const appwriteCollections = {
   participations: process.env.NEXT_PUBLIC_APPWRITE_COLLECTION_PARTICIPATIONS ?? "",
 } as const;
 
+let lastDiagnosticSnapshot: string | undefined;
+
+function logConfiguration(apiKey: string | undefined, databaseId: string | undefined, missing: string[]): void {
+  let endpointOrigin = "(missing or invalid)";
+  try { endpointOrigin = new URL(endpoint ?? "").origin; } catch { /* Never log a raw URL with credentials/query parameters. */ }
+  const snapshot = {
+    endpointOrigin,
+    projectId: projectId || "(unset)",
+    databaseId: databaseId || "(unset)",
+    apiKeyPresent: Boolean(apiKey?.trim()),
+    apiKeyHasWhitespace: Boolean(apiKey && /\s/.test(apiKey)),
+    apiKeyLooksQuoted: Boolean(apiKey && /^["']|["']$/.test(apiKey.trim())),
+    checkinSecretPresent: Boolean(process.env.APPWRITE_CHECKIN_SECRET),
+    siteUrlConfigured: Boolean(process.env.NEXT_PUBLIC_SITE_URL),
+    missing,
+  };
+  const serialized = JSON.stringify(snapshot);
+  if (serialized !== lastDiagnosticSnapshot) {
+    console.info("[Appwrite] Server configuration", snapshot);
+    lastDiagnosticSnapshot = serialized;
+  }
+}
+
 export function hasPublicAppwriteConfig(): boolean {
   return Boolean(endpoint && projectId);
 }
@@ -58,6 +81,7 @@ export function requireAppwriteServerConfig(): {
   ].filter((value): value is string => Boolean(value));
 
   const missingCollections = Object.entries(appwriteCollections).filter(([, value]) => !value).map(([key]) => `collection:${key}`);
+  logConfiguration(apiKey, databaseId, [...missing, ...missingCollections]);
   if (missing.length > 0 || missingCollections.length > 0) {
     throw new Error(`Missing Appwrite server configuration: ${[...missing, ...missingCollections].join(", ")}`);
   }

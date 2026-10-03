@@ -58,6 +58,7 @@ function fakeAppwrite() {
   let unavailableSession = false;
   let sessionError: { status: number; type: string } | undefined;
   let documentError: { status: number; type: string } | undefined;
+  let accountError = false;
   let raceUsername: string | undefined;
   const user = { $id: "private-auth-user", $createdAt: "2026-09-01T00:00:00.000Z", name: "Noida Runner", email: "runner@example.test", prefs: {}, labels: [] };
   transport = async (input, init) => {
@@ -71,6 +72,7 @@ function fakeAppwrite() {
     const failure = (status: number, type = "test_failure") => Response.json({ message: "Private Appwrite diagnostic must never be forwarded", code: status, type }, { status });
     if (path === "/account" && method === "POST") return Response.json(user, { status: 201 });
     if (path === "/account" && method === "GET") {
+      if (accountError) return failure(401, "user_session_not_found");
       assert.equal(headers.get("x-appwrite-session"), "server-only-session-secret");
       return Response.json(user);
     }
@@ -120,7 +122,7 @@ function fakeAppwrite() {
     }
     throw new Error(`Unexpected mutation: ${method} ${path}`);
   };
-  return { rows, calls, user, setFitnessFailure: (value: boolean) => { failFitnessId = value; }, setSessionFailure: (value: boolean) => { unavailableSession = value; }, raceForUsername: (value: string) => { raceUsername = value; }, setSessionError: (status: number, type: string) => { sessionError = { status, type }; }, setDocumentError: (status: number, type: string) => { documentError = { status, type }; } };
+  return { rows, calls, user, setFitnessFailure: (value: boolean) => { failFitnessId = value; }, setSessionFailure: (value: boolean) => { unavailableSession = value; }, raceForUsername: (value: string) => { raceUsername = value; }, setSessionError: (status: number, type: string) => { sessionError = { status, type }; }, setDocumentError: (status: number, type: string) => { documentError = { status, type }; }, setAccountError: () => { accountError = true; } };
 }
 
 test("runtime and CLI configuration use the same public resource variables while the key stays private", async () => {
@@ -134,6 +136,33 @@ test("runtime and CLI configuration use the same public resource variables while
   assert.equal(scripts.getScriptConfig().apiKey, config.apiKey);
 });
 
+test("configuration logs flag missing or malformed credentials without revealing values", async (t) => {
+  const { requireAppwriteServerConfig } = await import("../lib/appwrite/config");
+  const logged: unknown[][] = [];
+  t.mock.method(console, "info", (...args: unknown[]) => { logged.push(args); });
+  const previous = process.env.APPWRITE_KEY;
+  try {
+    process.env.APPWRITE_KEY = ' "private-diagnostic-key" ';
+    requireAppwriteServerConfig();
+    requireAppwriteServerConfig();
+    assert.equal(logged.length, 1, "unchanged configuration is not logged on every read");
+    const malformed = logged[0][1] as Record<string, unknown>;
+    assert.equal(malformed.apiKeyPresent, true);
+    assert.equal(malformed.apiKeyHasWhitespace, true);
+    assert.equal(malformed.apiKeyLooksQuoted, true);
+    delete process.env.APPWRITE_KEY;
+    assert.throws(requireAppwriteServerConfig, /Missing Appwrite server configuration/);
+    const missing = logged[1][1] as Record<string, unknown>;
+    assert.equal(missing.apiKeyPresent, false);
+    assert.deepEqual(missing.missing, ["APPWRITE_KEY"]);
+    assert.doesNotMatch(JSON.stringify(logged), /private-diagnostic-key|test-key-not-real/);
+  } finally {
+    if (previous === undefined) delete process.env.APPWRITE_KEY;
+    else process.env.APPWRITE_KEY = previous;
+    requireAppwriteServerConfig();
+  }
+});
+
 test("collection reads log configured collection names and IDs without secrets or row data", async (t) => {
   fakeAppwrite();
   const logged: unknown[][] = [];
@@ -141,10 +170,16 @@ test("collection reads log configured collection names and IDs without secrets o
   const db = await import("../lib/appwrite/database");
   await db.listAppwriteDocuments("profiles", [db.Query.equal("username", "private-query-value"), db.Query.limit(1)]);
   await db.getAppwriteDocument("fitness_ids", "private-row-id");
-  assert.deepEqual(logged, [
+  assert.deepEqual(logged.filter(args => args[0] === "[Appwrite] Reading collection"), [
     ["[Appwrite] Reading collection", { name: "profiles", id: "profiles" }],
     ["[Appwrite] Reading collection", { name: "fitnessIds", id: "fitness_ids" }],
   ]);
+  const operations = logged.filter(args => args[0] === "[Appwrite] Operation completed").map(args => args[1] as Record<string, unknown>);
+  assert.deepEqual(operations.map(entry => entry.operation), ["database.list", "database.get"]);
+  for (const entry of operations) {
+    assert.equal(typeof entry.traceId, "string");
+    assert.ok(Number(entry.durationMs) >= 0);
+  }
   assert.doesNotMatch(JSON.stringify(logged), /test-key|private-query|private-row|server-only-session/);
 });
 
@@ -349,6 +384,34 @@ test("login distinguishes invalid credentials from Appwrite permission failures"
   }
 });
 
+test("login diagnostics identify the failing stage and correlate successful stages without user data", async (t) => {
+  const logged: unknown[][] = [];
+  t.mock.method(console, "info", (...args: unknown[]) => { logged.push(args); });
+  t.mock.method(console, "error", (...args: unknown[]) => { logged.push(args); });
+  for (const stage of ["auth.session.create", "auth.session.read", "auth.profile.ensure", "success"]) {
+    logged.length = 0;
+    const backend = fakeAppwrite();
+    if (stage === "auth.session.create") backend.setSessionError(401, "user_unauthorized");
+    if (stage === "auth.session.read") backend.setAccountError();
+    if (stage === "auth.profile.ensure") backend.setDocumentError(401, "user_unauthorized");
+    if (stage === "success") await identity.createEmailSession("runner@example.test", "password123");
+    else await assert.rejects(identity.createEmailSession("runner@example.test", "password123"));
+    const authEntries = logged.map(args => ({ label: args[0], details: args[1] as Record<string, unknown> }))
+      .filter(entry => String(entry.details.operation).startsWith("auth."));
+    assert.equal(new Set(authEntries.map(entry => entry.details.traceId)).size, 1);
+    const failed = authEntries.filter(entry => entry.label === "[Appwrite] Operation failed");
+    if (stage === "success") {
+      assert.equal(failed.length, 0);
+      assert.equal(authEntries.filter(entry => entry.label === "[Appwrite] Operation completed").length, 3);
+    } else {
+      assert.equal(failed.length, 1);
+      assert.equal(failed[0].details.operation, stage);
+      assert.equal(failed[0].details.status, 401);
+    }
+    assert.doesNotMatch(JSON.stringify(logged), /runner@example|password123|test-key-not-real|server-only-session-secret|private-auth-user|Private Appwrite/);
+  }
+});
+
 test("Appwrite diagnostics expose only safe metadata, never backend payloads", async (t) => {
   const { AppwriteException } = await import("node-appwrite");
   const { isInvalidCredentials, reportAppwriteFailure } = await import("../lib/appwrite/errors");
@@ -358,10 +421,12 @@ test("Appwrite diagnostics expose only safe metadata, never backend payloads", a
   reportAppwriteFailure("database.list", denied);
   reportAppwriteFailure("auth.login", new AppwriteException("private-message", 401, "private-type", "private-response"));
   reportAppwriteFailure("auth.login", new Error("private-config"));
+  reportAppwriteFailure("database.list", new Error("private-network-url", { cause: { code: "ENOTFOUND", message: "private-dns-info" } }));
   assert.deepEqual(logged.map(args => args[1]), [
     { operation: "database.list", status: 401, type: "user_unauthorized" },
     { operation: "auth.login", status: 401, type: "unknown" },
     { operation: "auth.login", status: 0, type: "unknown" },
+    { operation: "database.list", status: 0, type: "unknown", networkCode: "ENOTFOUND" },
   ]);
   assert.doesNotMatch(JSON.stringify(logged), /private-/);
   assert.equal(isInvalidCredentials(denied), false);
