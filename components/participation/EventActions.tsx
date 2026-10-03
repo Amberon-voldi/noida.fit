@@ -91,17 +91,11 @@ export function EventActions(props: EventActionsProps) {
   }
 
   const buttonClass = props.compact
-    ? "inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-[11px] font-semibold text-text-secondary transition-colors hover:border-white/25 hover:text-white"
-    : "inline-flex min-h-10 items-center justify-center gap-2 rounded-xl border border-border-strong bg-surface-elevated px-3.5 py-2 text-xs font-semibold text-white transition-colors hover:border-white/30 hover:bg-surface-hover";
+    ? "motion-press inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-[11px] font-semibold text-text-secondary transition-colors hover:border-white/25 hover:text-white"
+    : "motion-press inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-border-strong bg-surface-elevated px-3.5 py-2 text-xs font-semibold text-white transition-colors hover:border-white/30 hover:bg-surface-hover";
 
   return (
     <div className={props.compact ? "relative flex flex-wrap items-center gap-2" : "relative space-y-3"}>
-      {!props.compact && (
-        <div className="flex items-center gap-2 text-[11px] font-mono uppercase tracking-wider text-text-muted">
-          <span className="h-1.5 w-1.5 rounded-full bg-velocity" aria-hidden="true" />
-          Your participation, your way
-        </div>
-      )}
       <div className={props.compact ? "flex flex-wrap items-center gap-2" : "grid grid-cols-2 gap-2"}>
         <SaveButton itemType="event" itemId={props.eventId} compact={props.compact} />
         <button

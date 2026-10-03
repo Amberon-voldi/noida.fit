@@ -72,7 +72,10 @@ test("discovery is usable at mobile and desktop widths with a real backend",asyn
   await page.setViewportSize({width:390,height:844});
   await page.goto("/");
   await page.getByRole("button",{name:"Open navigation menu"}).click();
-  await expect(page.getByRole("dialog",{name:"Navigation menu"})).toBeVisible();
+  const menu = page.getByRole("dialog",{name:"Navigation menu"});
+  await expect(menu).toBeVisible();
+  await expect(menu.getByRole("link", {name:"Events", exact:true})).toHaveCount(0);
+  await expect(menu.getByRole("link", {name:"All activities", exact:true})).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("button",{name:"Open navigation menu"})).toBeFocused();
   await page.goto("/activities/running");await expect(page.locator("h1")).toContainText(/running/i);
@@ -84,6 +87,57 @@ test("discovery is usable at mobile and desktop widths with a real backend",asyn
   await bottomNav.getByRole("link", {name:"Home", exact:true}).click();
   await expect(page).toHaveURL(`${origin}/`);
   expect(errors).toEqual([]);
+});
+
+test("mobile filter sheet preserves search, submits filters, and respects reduced motion", async ({page}) => {
+  await page.setViewportSize({width:320,height:740});
+  await page.goto("/discover?type=events&q=running");
+  const filters = page.getByRole("button", {name:/^Filters/});
+  await expect(page.locator("#filter-type")).toHaveCount(0);
+  await filters.click();
+  const sheet = page.getByRole("dialog", {name:"Refine your search"});
+  await expect(sheet).toBeVisible();
+  expect(await sheet.evaluate(node => node.contains(document.activeElement))).toBe(true);
+  await page.keyboard.press("Tab");
+  expect(await sheet.evaluate(node => node.contains(document.activeElement))).toBe(true);
+  await sheet.getByRole("combobox", {name:"Activity",exact:true}).selectOption("running");
+  await sheet.getByRole("combobox", {name:"Cost",exact:true}).selectOption("free");
+  await sheet.getByRole("combobox", {name:"Date · events only",exact:true}).selectOption("weekend");
+  await page.getByLabel("Sector / neighbourhood").fill("Sector 21A");
+  await page.keyboard.press("Escape");
+  await expect(filters).toBeFocused();
+  await filters.click();
+  await expect(sheet.getByRole("combobox", {name:"Cost",exact:true})).toHaveValue("free");
+  await page.getByRole("button", {name:"Apply filters",exact:true}).click();
+  await page.waitForURL(url => url.searchParams.get("price") === "free" && url.searchParams.get("date") === "weekend");
+  const params = new URL(page.url()).searchParams;
+  expect(params.get("q")).toBe("running");
+  expect(params.get("type")).toBe("events");
+  expect(params.get("activity")).toBe("running");
+  expect(params.get("sector")).toBe("Sector 21A");
+  await expect(sheet).toBeHidden();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await filters.click();
+  await sheet.getByRole("link", {name:"Reset",exact:true}).click();
+  await page.waitForURL(url => !url.search);
+  const dock = page.getByRole("navigation", {name:"Quick navigation"});
+  await dock.getByRole("link", {name:"Events",exact:true}).click();
+  await expect(dock.getByRole("link", {name:"Events",exact:true})).toHaveAttribute("aria-current","page");
+  expect(await dock.locator(".mobile-dock-inner").evaluate(node => getComputedStyle(node).getPropertyValue("--active-tab").trim())).toBe("2");
+  for (const link of await dock.getByRole("link").all()) {
+    const box = (await link.boundingBox())!;
+    expect(box.width).toBeGreaterThanOrEqual(44);
+    expect(box.height).toBeGreaterThanOrEqual(44);
+  }
+  await page.emulateMedia({reducedMotion:"reduce"});
+  await page.goto("/");
+  await expect(page.locator("h1")).toBeVisible();
+  expect(await page.locator("h1").evaluate(node => getComputedStyle(node).animationName)).toBe("none");
+  expect(await dock.locator(".mobile-dock-indicator").evaluate(node => parseFloat(getComputedStyle(node).transitionDuration))).toBeLessThan(0.01);
+  await page.goto("/discover");
+  await page.getByRole("button", {name:/^Filters/}).click();
+  await expect(sheet).toBeVisible();
+  expect(await sheet.locator(".filter-dialog-panel").evaluate(node => getComputedStyle(node).animationName)).toBe("none");
 });
 
 test("signup → save/follow/RSVP → organizer check-in → private/public Fitness ID → logout",async({page})=>{

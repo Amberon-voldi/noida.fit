@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import type { CSSProperties } from "react";
 import { usePathname } from "next/navigation";
 import { CalendarDays, Compass, House, UserRound, Users } from "lucide-react";
 
@@ -14,18 +15,22 @@ const LINKS = [
 
 export function MobileBottomNav() {
   const pathname = usePathname();
+  const activeIndex = LINKS.findIndex(({ prefixes }) => prefixes.some(prefix => pathname === prefix || (prefix !== "/" && pathname.startsWith(`${prefix}/`))));
 
   return (
-    <nav aria-label="Quick navigation" className="fixed inset-x-0 bottom-0 z-[490] grid grid-cols-5 border-t border-border-subtle bg-background/95 px-2 pb-[env(safe-area-inset-bottom)] pt-2 backdrop-blur-md lg:hidden">
-      {LINKS.map(({ href, label, icon: Icon, prefixes }) => {
-        const active = prefixes.some((prefix) => pathname === prefix || (prefix !== "/" && pathname.startsWith(`${prefix}/`)));
+    <nav aria-label="Quick navigation" className="mobile-dock lg:hidden">
+      <div className="mobile-dock-inner" style={{ "--active-tab": Math.max(activeIndex, 0) } as CSSProperties}>
+      <span className="mobile-dock-indicator" aria-hidden="true" style={{ opacity: activeIndex < 0 ? 0 : 1 }} />
+      {LINKS.map(({ href, label, icon: Icon }, index) => {
+        const active = index === activeIndex;
         return (
-          <Link key={href} href={href} aria-current={active ? "page" : undefined} className={`flex min-h-14 min-w-0 flex-col items-center justify-center gap-1 rounded-lg text-[11px] font-semibold ${active ? "bg-surface text-velocity" : "text-text-secondary hover:bg-surface-hover hover:text-white"}`}>
-            <Icon className="h-5 w-5" aria-hidden="true" />
+          <Link key={href} href={href} aria-current={active ? "page" : undefined} className={`mobile-dock-link ${active ? "text-velocity" : "text-text-secondary hover:text-white"}`}>
+            <Icon className="mobile-dock-icon h-5 w-5" aria-hidden="true" />
             {label}
           </Link>
         );
       })}
+      </div>
     </nav>
   );
 }

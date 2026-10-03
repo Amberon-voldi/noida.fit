@@ -40,7 +40,7 @@ export function Footer() {
   return (
     <footer className="site-footer mt-auto border-t border-border-subtle">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="py-12 grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-5 py-8 sm:grid-cols-2 sm:gap-10 sm:py-12 lg:grid-cols-4">
           <div className="flex flex-col gap-4">
             <Logo size="sm" />
             <p className="max-w-xs text-sm leading-relaxed text-text-secondary">
@@ -58,7 +58,7 @@ export function Footer() {
           </div>
 
           {FOOTER_COLUMNS.map((col) => (
-            <div key={col.heading}>
+            <div key={col.heading} className="hidden sm:block">
               <h2 className="mb-3 text-sm font-semibold text-white">{col.heading}</h2>
               <ul>
                 {col.links.map((link) => (
@@ -73,6 +73,11 @@ export function Footer() {
           ))}
         </div>
 
+        <nav className="mb-4 flex flex-wrap gap-x-5 sm:hidden" aria-label="About the platform">
+          <Link href="/about" className="inline-flex min-h-11 items-center text-sm text-text-secondary">About</Link>
+          <Link href="/for-organizers" className="inline-flex min-h-11 items-center text-sm text-text-secondary">For organizers</Link>
+          <Link href="/stories" className="inline-flex min-h-11 items-center text-sm text-text-secondary">Stories</Link>
+        </nav>
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border-subtle py-6 text-xs text-text-secondary">
           <p>&copy; {new Date().getFullYear()} NOIDA.FIT · Noida &amp; Greater Noida</p>
           <Link href="/about#contact-heading" className="inline-flex min-h-11 items-center hover:text-white">Suggest a listing or correction →</Link>

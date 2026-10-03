@@ -22,7 +22,7 @@ export function ListingImage({ src, category = "outdoor", alt, sizes, hero = fal
   return (
     <>
       <Image src={source} alt={editorial ? "" : alt} fill sizes={sizes} className="object-cover" {...(hero ? { preload: true } : {})} />
-      {editorial && <span className="absolute bottom-2 right-2 rounded bg-background/85 px-2 py-1 text-[10px] text-white/85">Illustrative photo · Unsplash</span>}
+      {editorial && <span className="absolute bottom-2 right-2 z-10 rounded bg-background/85 px-2 py-1 text-[10px] text-white/85">Illustrative photo · Unsplash</span>}
     </>
   );
 }
@@ -31,7 +31,7 @@ export function DemoNotice({ className = "", detail = false }: { className?: str
   return (
     <div className={`rounded-lg border border-border-strong bg-surface px-4 py-3 text-xs leading-relaxed text-text-secondary ${className}`}>
       <span className="font-semibold text-white">Demo directory. </span>
-      {detail ? "This is a sample listing, not a confirmed gathering or partnership. Do not travel or pay based on these details." : "Sample groups and schedules are labelled Demo. They are not confirmed gatherings or partnerships; do not travel or pay based on them."}
+      {detail ? "This is a sample listing, not a confirmed gathering or partnership. Do not travel or pay based on these details." : "Sample listings, not confirmed sessions or partnerships. Don’t travel or pay based on these details."}
     </div>
   );
 }

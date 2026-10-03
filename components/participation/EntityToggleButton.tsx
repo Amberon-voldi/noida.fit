@@ -38,7 +38,7 @@ export function EntityToggleButton({ itemId, itemType, action, compact = false }
 
   return <span className="relative inline-flex flex-col items-start gap-1">
     <button type="button" onClick={toggle} disabled={pending || !state.loaded} aria-pressed={selected}
-      aria-label={`${label} ${itemType}`} className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border px-3 text-xs font-semibold transition-colors disabled:opacity-60 ${compact ? "min-w-11" : "min-w-24"} ${selected ? "border-velocity/40 bg-velocity/10 text-velocity" : "border-border-strong bg-surface-elevated text-foreground hover:border-velocity/60"}`}>
+      aria-label={`${label} ${itemType}`} className={`motion-press inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border px-3 text-xs font-semibold transition-colors disabled:opacity-60 ${compact ? "min-w-11" : "min-w-24"} ${selected ? "border-velocity/40 bg-velocity/10 text-velocity" : "border-border-strong bg-surface-elevated text-foreground hover:border-velocity/60"}`}>
       {pending ? <LoaderCircle size={15} className="animate-spin" aria-hidden="true"/> : selected ? <Check size={15} aria-hidden="true"/> : action === "saved" ? <Bookmark size={15} aria-hidden="true"/> : <UserPlus size={15} aria-hidden="true"/>}
       {label}
     </button>

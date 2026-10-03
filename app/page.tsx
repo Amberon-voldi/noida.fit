@@ -1,11 +1,14 @@
 import type { Metadata } from "next";
+import type { ReactNode } from "react";
 import Link from "next/link";
+import { ArrowUpRight, CalendarDays, MapPin } from "lucide-react";
 import { EventCard } from "@/components/cards/EventCard";
 import { CommunityCard } from "@/components/cards/CommunityCard";
 import { PlaceCard } from "@/components/cards/PlaceCard";
 import { SearchForm } from "@/components/discovery/SearchForm";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
+import { Reveal } from "@/components/ui/Reveal";
 import { getDirectory } from "@/lib/data";
 import { filterDirectory, readFilters } from "@/components/discovery/filter";
 import { DemoNotice, ListingImage } from "@/components/discovery/ListingImage";
@@ -29,65 +32,75 @@ export default async function HomePage() {
     <>
       <Navbar />
       <main id="main-content" tabIndex={-1} className="flex-1">
-      <section className="border-b border-border-subtle bg-background px-4 pb-16 pt-14 sm:px-6 sm:pb-24 sm:pt-20 lg:px-8" aria-labelledby="hero-heading">
-        <div className="mx-auto grid max-w-7xl grid-cols-1 gap-10 lg:grid-cols-[1.1fr_.9fr] lg:items-end">
-          <div>
-            <p className="font-mono text-xs font-bold uppercase tracking-[.2em] text-velocity">THE CITY FITNESS DIRECTORY</p>
-            <h1 id="hero-heading" className="mt-4 max-w-4xl text-4xl font-black leading-[1.03] tracking-[-.045em] text-white sm:text-6xl lg:text-7xl">Your fitness scene.<br /><span className="text-velocity">All in one place.</span></h1>
-            <p className="mt-6 max-w-2xl text-base leading-relaxed text-text-secondary sm:text-lg">Discover runs, workouts, sports and communities across Noida and Greater Noida. Find something nearby, make a plan, and get moving.</p>
-            <SearchForm id="home-search" className="mt-8 max-w-2xl" action="/discover" placeholder="Search Sector 21A, running clubs, or weekend rides" />
-            <div className="mt-5 flex flex-wrap gap-3">
-              <Link href="/discover" className="inline-flex min-h-11 items-center rounded-lg bg-velocity px-5 text-sm font-bold text-slate-950 hover:bg-velocity-glow">Explore Noida Fitness <span className="ml-2" aria-hidden="true">→</span></Link>
-              <Link href="/communities" className="inline-flex min-h-11 items-center rounded-lg border border-border-strong px-5 text-sm font-semibold text-white hover:bg-surface-hover">Find your community</Link>
+        <section className="home-hero border-b border-border-subtle pb-8 pt-8 sm:py-16" aria-labelledby="hero-heading">
+          <div className="mx-auto grid max-w-7xl grid-cols-1 gap-10 px-4 sm:px-6 lg:grid-cols-[1.1fr_.9fr] lg:items-center lg:px-8">
+            <div className="hero-stagger min-w-0">
+              <p className="eyebrow inline-flex items-center gap-2"><MapPin className="h-3.5 w-3.5" aria-hidden="true" />Noida &amp; Greater Noida</p>
+              <h1 id="hero-heading" className="mt-4 text-[clamp(2rem,9.3vw,4.5rem)] font-black leading-[1.05] tracking-[-.045em] text-white">Your fitness scene.<br /><span className="text-velocity">All in one place.</span></h1>
+              <p className="mt-4 max-w-xl text-sm leading-relaxed text-text-secondary sm:mt-6 sm:text-lg">Find a run, a workout, or your people. Good things happen when you show up.</p>
+              <SearchForm id="home-search" className="mt-6 max-w-2xl" action="/discover" placeholder="Try running, yoga, Sector 50…" />
+              <nav className="no-scrollbar mt-3 flex gap-2 overflow-x-auto pb-1" aria-label="Quick plans">
+                <Link href="/events?date=today" className="filter-chip"><CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />Today</Link>
+                <Link href="/events?date=weekend" className="filter-chip">This weekend <span aria-hidden="true">↗</span></Link>
+                <Link href="/events?price=free" className="filter-chip">Free sessions</Link>
+              </nav>
+            </div>
+            <div className="hero-enter relative hidden overflow-hidden rounded-2xl border border-border-subtle lg:block">
+              <div className="relative aspect-[4/3]"><ListingImage category="running" alt="" sizes="500px" hero /></div>
+              <div className="pointer-events-none absolute inset-0 bg-linear-to-t from-background via-transparent to-transparent" />
+              <div className="absolute bottom-12 left-6 right-6"><p className="eyebrow">A little movement. A good crowd.</p><p className="mt-2 max-w-xs text-3xl font-bold leading-tight text-white">The best part?<br />You don’t go alone.</p></div>
             </div>
           </div>
-          <div className="rounded-2xl border border-border-subtle bg-surface p-5 sm:p-6">
-            <div className="relative mb-5 aspect-[16/9] overflow-hidden rounded-xl"><ListingImage category="running" alt="" sizes="(max-width: 1024px) 100vw, 500px" hero /></div>
-            <p className="font-mono text-xs uppercase tracking-widest text-text-secondary">A useful first step</p>
-            <h2 className="mt-3 text-2xl font-bold text-white">Choose the kind of movement that fits today.</h2>
-            <div className="mt-5 flex flex-wrap gap-2">
-              {activities.slice(0, 8).map((activity) => <Link key={activity.id} href={`/activities/${encodeURIComponent(activity.slug)}`} className="inline-flex min-h-11 items-center gap-1 rounded-md border border-border-subtle bg-surface-elevated px-3 py-2 text-sm text-text-secondary hover:border-velocity hover:text-white"><span aria-hidden="true">{activity.emoji}</span> {activity.name}</Link>)}
+        </section>
+
+        <div className="mx-auto max-w-7xl space-y-10 px-4 py-6 sm:space-y-16 sm:px-6 sm:py-12 lg:px-8">
+          {hasDemo && <DemoNotice />}
+          <HomeSection id="week" eyebrow="Make a plan" title="The next seven days" href="/events" linkLabel="All events">
+            {events.length ? <div className="mobile-rail grid auto-cols-[88%] grid-flow-col gap-4 overflow-x-auto pb-4 sm:auto-cols-auto sm:grid-flow-row sm:grid-cols-2 lg:grid-cols-4">{events.map(event => <EventCard key={event.id} event={event} />)}</div> : <EmptyHome message="New sessions are being added. Find a community with a regular rhythm." href="/communities" label="Find a community" />}
+          </HomeSection>
+
+          <HomeSection id="activities" eyebrow="Find your thing" title="Choose your next move" href="/activities" linkLabel="All activities">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-6">
+              {activities.slice(0, 6).map(activity => <Link href={`/activities/${activity.slug}`} key={activity.id} className="motion-card motion-photo group relative aspect-[4/3] overflow-hidden rounded-xl border border-border-subtle sm:aspect-[4/5]">
+                <ListingImage category={activity.slug} alt="" sizes="(max-width:640px) 45vw, 200px" />
+                <span className="absolute inset-0 bg-linear-to-t from-black/90 via-black/20 to-transparent" />
+                <span className="absolute bottom-10 left-3 right-3 flex items-center justify-between gap-2 text-sm font-semibold text-white sm:left-4 sm:text-base">{activity.name}<ArrowUpRight className="h-4 w-4 shrink-0" aria-hidden="true" /></span>
+              </Link>)}
             </div>
-            <p className="mt-5 border-t border-border-subtle pt-4 text-xs leading-relaxed text-text-muted">No scores, no pressure. Just clear details on who meets, where, and when.</p>
-          </div>
+          </HomeSection>
+
+          <HomeSection id="community" eyebrow="Find your people" title="Better together" href="/communities" linkLabel="All groups">
+            {communities.length ? <div className="mobile-rail grid auto-cols-[88%] grid-flow-col gap-4 overflow-x-auto pb-4 md:auto-cols-auto md:grid-flow-row md:grid-cols-3">{communities.map(community => <CommunityCard key={community.id} community={community} />)}</div> : <EmptyHome message="Find a local group to make movement a regular thing." href="/communities" label="Browse communities" />}
+          </HomeSection>
+
+          <HomeSection id="places" eyebrow="Your neighbourhood" title="A place to get moving" href="/places" linkLabel="All places">
+            {featuredPlaces.length ? <div className="mobile-rail grid auto-cols-[88%] grid-flow-col gap-4 overflow-x-auto pb-4 md:auto-cols-auto md:grid-flow-row md:grid-cols-3">{featuredPlaces.map(place => <PlaceCard key={place.id} place={place} />)}</div> : <EmptyHome message="Venue details are on the way." href="/discover" label="Explore the directory" />}
+          </HomeSection>
+
+          <HomeSection id="weekend" eyebrow="Make time for you" title="Your weekend, sorted" href="/events?date=weekend" linkLabel="This weekend">
+            {weekend.length ? <div className="mobile-rail grid auto-cols-[88%] grid-flow-col gap-4 overflow-x-auto pb-4 md:auto-cols-auto md:grid-flow-row md:grid-cols-3">{weekend.map(event => <EventCard key={event.id} event={event} />)}</div> : <EmptyHome message="No weekend sessions listed yet. Explore another day or find a regular group." href="/events" label="Browse events" />}
+          </HomeSection>
+
+          <Reveal>
+            <section className="flex flex-col gap-5 rounded-2xl border border-border-subtle bg-surface p-5 sm:flex-row sm:items-center sm:justify-between sm:p-8" aria-labelledby="organizer-heading">
+              <div className="max-w-2xl"><p className="eyebrow">For organizers</p><h2 id="organizer-heading" className="mt-2 text-xl font-bold sm:text-2xl">You bring the group. We’ll help people find it.</h2><p className="mt-2 text-sm text-text-secondary">Share your regular run, ride, class, or game for a listing review.</p></div>
+              <Link href="/for-organizers" className="button-primary">List your group <ArrowUpRight className="h-4 w-4" aria-hidden="true" /></Link>
+            </section>
+          </Reveal>
         </div>
-      </section>
-
-      <div className="mx-auto max-w-7xl space-y-20 px-4 py-14 sm:px-6 sm:py-20 lg:px-8">
-        {hasDemo && <DemoNotice />}
-        <section aria-labelledby="week-heading">
-          <div className="mb-7 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"><div><p className="font-mono text-xs font-bold uppercase tracking-widest text-velocity">OPEN SESSIONS</p><h2 id="week-heading" className="mt-1 text-2xl font-bold tracking-tight text-white sm:text-3xl">The next seven days</h2><p className="mt-1 text-sm text-text-secondary">Compare start times, meeting points and costs. Demo sessions are clearly labelled.</p></div><Link href="/events" className="text-sm font-semibold text-velocity hover:text-velocity-glow">See the full calendar →</Link></div>
-          {events.length ? <div className="grid auto-cols-[85%] grid-flow-col gap-5 overflow-x-auto pb-4 sm:auto-cols-auto sm:grid-flow-row sm:grid-cols-2 lg:grid-cols-4">{events.map((event) => <EventCard key={event.id} event={event} />)}</div> : <EmptyHome message="New sessions are being added. Browse all communities to find a regular rhythm." href="/communities" label="Find a community" />}
-        </section>
-
-        <section aria-labelledby="activities-heading">
-          <div className="mb-7 flex items-end justify-between gap-4"><div><p className="eyebrow">Start with what you love</p><h2 id="activities-heading" className="mt-1 text-2xl font-bold sm:text-3xl">Choose your next move</h2></div><Link href="/activities" className="text-sm font-semibold text-velocity">All activities →</Link></div>
-          <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 lg:grid-cols-6">{activities.slice(0,6).map(activity=><Link href={`/activities/${activity.slug}`} key={activity.id} className="group relative aspect-[4/5] overflow-hidden rounded-xl border border-border-subtle"><ListingImage category={activity.slug} alt={activity.name} sizes="(max-width:640px) 45vw, 200px"/><span className="absolute inset-0 bg-linear-to-t from-black/90 via-black/10 to-transparent"/><span className="absolute bottom-10 left-4 font-semibold text-white">{activity.name}</span></Link>)}</div>
-        </section>
-
-        <section aria-labelledby="community-heading">
-          <div className="mb-7 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"><div><p className="font-mono text-xs font-bold uppercase tracking-widest text-velocity">LOCAL GROUPS</p><h2 id="community-heading" className="mt-1 text-2xl font-bold tracking-tight text-white sm:text-3xl">Communities with a weekly rhythm</h2></div><Link href="/communities" className="text-sm font-semibold text-velocity hover:text-velocity-glow">Browse all communities →</Link></div>
-          {communities.length ? <div className="grid auto-cols-[85%] grid-flow-col gap-5 overflow-x-auto pb-4 md:auto-cols-auto md:grid-flow-row md:grid-cols-3">{communities.map((community) => <CommunityCard key={community.id} community={community} />)}</div> : <EmptyHome message="No featured communities yet. Start with the full directory." href="/communities" label="Browse communities" />}
-        </section>
-
-        <section aria-labelledby="places-heading">
-          <div className="mb-7 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between"><div><p className="font-mono text-xs font-bold uppercase tracking-widest text-velocity">WHERE TO MEET</p><h2 id="places-heading" className="mt-1 text-2xl font-bold tracking-tight text-white sm:text-3xl">Training grounds across the city</h2></div><Link href="/places" className="text-sm font-semibold text-velocity hover:text-velocity-glow">Explore places →</Link></div>
-          {featuredPlaces.length ? <div className="grid auto-cols-[85%] grid-flow-col gap-5 overflow-x-auto pb-4 md:auto-cols-auto md:grid-flow-row md:grid-cols-3">{featuredPlaces.map((place) => <PlaceCard key={place.id} place={place} />)}</div> : <EmptyHome message="Venue details are on the way." href="/discover" label="Explore the directory" />}
-        </section>
-
-        <section aria-labelledby="weekend-heading">
-          <div className="mb-7 flex flex-wrap items-end justify-between gap-3"><div><p className="eyebrow">Make room for movement</p><h2 id="weekend-heading" className="mt-1 text-2xl font-bold sm:text-3xl">Your weekend, sorted</h2></div><Link href="/events?date=weekend" className="text-sm font-semibold text-velocity">This weekend →</Link></div>
-          {weekend.length ? <div className="grid auto-cols-[85%] grid-flow-col gap-5 overflow-x-auto pb-4 md:auto-cols-auto md:grid-flow-row md:grid-cols-3">{weekend.map(event=><EventCard key={event.id} event={event}/>)}</div> : <EmptyHome message="No weekend sessions listed yet. Explore another day or find a regular group." href="/events" label="Browse events"/>}
-        </section>
-
-        <section className="border-t border-border-subtle pt-12" aria-labelledby="organizer-heading"><div className="flex flex-col gap-6 rounded-2xl border border-border-subtle bg-surface p-7 sm:flex-row sm:items-center sm:justify-between sm:p-10"><div className="max-w-2xl"><p className="font-mono text-xs font-bold uppercase tracking-widest text-velocity">FOR ORGANIZERS</p><h2 id="organizer-heading" className="mt-2 text-2xl font-bold text-white">Your group already meets. Help others find it.</h2><p className="mt-2 text-sm leading-relaxed text-text-secondary">Send the details of your regular runs, rides, classes, or games for a listing review.</p></div><Link href="/for-organizers" className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg bg-velocity px-5 text-sm font-bold text-slate-950 hover:bg-velocity-glow">For organizers</Link></div></section>
-      </div>
       </main>
       <Footer />
     </>
   );
 }
 
+function HomeSection({ id, eyebrow, title, href, linkLabel, children }: { id: string; eyebrow: string; title: string; href: string; linkLabel: string; children: ReactNode }) {
+  return <Reveal><section aria-labelledby={`${id}-heading`}>
+    <div className="mb-4 flex flex-wrap items-end justify-between gap-x-4 gap-y-1 sm:mb-6"><div><p className="eyebrow">{eyebrow}</p><h2 id={`${id}-heading`} className="mt-1 text-xl font-bold tracking-tight sm:text-3xl">{title}</h2></div><Link href={href} className="inline-flex min-h-11 shrink-0 items-center gap-1 text-xs font-semibold text-velocity sm:text-sm">{linkLabel}<ArrowUpRight className="h-4 w-4" aria-hidden="true" /></Link></div>
+    {children}
+  </section></Reveal>;
+}
+
 function EmptyHome({ message, href, label }: { message: string; href: string; label: string }) {
-  return <div className="rounded-xl border border-dashed border-border-strong px-6 py-10 text-center"><p className="text-sm text-text-secondary">{message}</p><Link href={href} className="mt-4 inline-flex min-h-11 items-center rounded-lg border border-velocity px-4 text-sm font-semibold text-velocity hover:bg-velocity/10">{label}</Link></div>;
+  return <div className="rounded-xl border border-dashed border-border-strong px-5 py-8 text-center"><p className="text-sm text-text-secondary">{message}</p><Link href={href} className="button-secondary mt-4 text-velocity">{label}</Link></div>;
 }

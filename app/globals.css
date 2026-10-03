@@ -21,6 +21,9 @@
   --radius-2xl: 24px;
   --shadow-card: 0 4px 12px rgba(0, 0, 0, .35);
   --shadow-card-hover: 0 12px 28px -6px rgba(0, 0, 0, .6);
+  --ease-out: cubic-bezier(.16, 1, .3, 1);
+  --motion-fast: 150ms;
+  --motion-standard: 250ms;
 }
 
 @theme inline {
@@ -53,8 +56,8 @@ body {
 
 @media (max-width: 1023px) {
   /* Reserve space on every screen, including auth and error pages. */
-  body { padding-bottom: calc(4.5rem + env(safe-area-inset-bottom)); }
-  html { scroll-padding-bottom: calc(5rem + env(safe-area-inset-bottom)); }
+  body { padding-bottom: calc(5.5rem + env(safe-area-inset-bottom)); }
+  html { scroll-padding-bottom: calc(6rem + env(safe-area-inset-bottom)); }
 }
 
 main, section, article { min-width: 0; }
@@ -95,6 +98,120 @@ summary::-webkit-details-marker { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
 
+.mobile-dock {
+  position: fixed;
+  inset-inline: 0;
+  bottom: 0;
+  z-index: 490;
+  padding: 8px max(8px, env(safe-area-inset-right)) max(8px, env(safe-area-inset-bottom)) max(8px, env(safe-area-inset-left));
+  pointer-events: none;
+}
+.mobile-dock-inner {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  max-width: 520px;
+  margin-inline: auto;
+  padding: 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-2xl);
+  background: color-mix(in srgb, var(--background) 94%, transparent);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, .45);
+  backdrop-filter: blur(16px);
+  pointer-events: auto;
+}
+.mobile-dock-indicator {
+  position: absolute;
+  top: 6px;
+  bottom: 6px;
+  left: 6px;
+  width: calc((100% - 12px) / 5);
+  border-radius: var(--radius-xl);
+  background: color-mix(in srgb, var(--accent-velocity) 10%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--accent-velocity) 16%, transparent);
+  transform: translateX(calc(var(--active-tab) * 100%));
+  transition: transform 300ms var(--ease-out), opacity var(--motion-fast);
+}
+.mobile-dock-link {
+  position: relative;
+  display: flex;
+  min-height: 52px;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border-radius: var(--radius-xl);
+  font-size: 11px;
+  font-weight: 600;
+  transition: color var(--motion-fast);
+}
+.mobile-dock-icon { transition: transform var(--motion-standard) var(--ease-out); }
+.mobile-dock-link[aria-current="page"] .mobile-dock-icon { transform: translateY(-2px) scale(1.05); }
+.mobile-dock-link:active .mobile-dock-icon { transform: scale(.88); }
+
+.mobile-rail { scroll-snap-type: x proximity; overscroll-behavior-x: contain; scroll-padding-inline: 2px; }
+.mobile-rail > * { scroll-snap-align: start; }
+.home-hero { background: radial-gradient(ellipse at 5% 5%, color-mix(in srgb, var(--accent-velocity) 5%, transparent), transparent 65%); }
+
+.filter-dialog {
+  position: fixed;
+  inset: auto 0 0;
+  width: 100%;
+  max-width: none;
+  max-height: 88dvh;
+  margin: 0;
+  padding: 0;
+  overflow: visible;
+  color: var(--foreground);
+  background: transparent;
+  border: 0;
+}
+.filter-dialog::backdrop { background: rgba(0,0,0,.7); backdrop-filter: blur(4px); }
+.filter-dialog-panel {
+  display: flex;
+  flex-direction: column;
+  max-height: 88dvh;
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  border-bottom: 0;
+  border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
+  background: var(--surface);
+}
+.filter-dialog-panel > header, .filter-dialog-actions { flex-shrink: 0; }
+.filter-dialog-actions { padding-bottom: max(16px, env(safe-area-inset-bottom)); }
+@media (min-width: 640px) {
+  .filter-dialog { inset: 0; width: min(640px, calc(100% - 48px)); margin: auto; }
+  .filter-dialog-panel { border-bottom: 1px solid var(--border-strong); border-radius: var(--radius-2xl); }
+}
+
+.motion-card { transition: transform var(--motion-standard) var(--ease-out), border-color var(--motion-standard), box-shadow var(--motion-standard); }
+.motion-photo img { transition: transform 400ms var(--ease-out); }
+.motion-press, .button-primary, .button-secondary, .filter-chip {
+  transition: transform var(--motion-fast) var(--ease-out), color var(--motion-fast), background-color var(--motion-fast), border-color var(--motion-fast);
+  -webkit-tap-highlight-color: transparent;
+}
+.motion-press:active, .button-primary:active, .button-secondary:active, .filter-chip:active { transform: scale(.97); }
+@media (hover: hover) and (pointer: fine) {
+  .motion-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-card-hover); }
+  .motion-card:hover .motion-photo img, .motion-photo:hover img { transform: scale(1.045); }
+}
+@keyframes rise-in { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes sheet-in { from { opacity: 0; transform: translateY(32px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes menu-in { from { opacity: 0; transform: translateX(32px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@media (prefers-reduced-motion: no-preference) {
+  .hero-enter { animation: rise-in 400ms var(--ease-out) both; }
+  .hero-stagger > * { animation: rise-in 300ms var(--ease-out) both; }
+  .hero-stagger > :nth-child(2) { animation-delay: 35ms; }
+  .hero-stagger > :nth-child(3) { animation-delay: 65ms; }
+  .hero-stagger > :nth-child(4) { animation-delay: 90ms; }
+  .hero-stagger > :nth-child(5) { animation-delay: 100ms; }
+  .filter-dialog[open] .filter-dialog-panel { animation: sheet-in 250ms var(--ease-out); }
+  .mobile-menu-dialog[open] .mobile-menu-panel { animation: menu-in 250ms var(--ease-out); }
+  .filter-dialog[open]::backdrop, .mobile-menu-dialog[open]::backdrop { animation: fade-in 150ms ease-out; }
+}
+
 .fitness-card { perspective: 1200px; }
 .fitness-card-body { transform-style: preserve-3d; transition: transform 420ms cubic-bezier(.2,.7,.2,1); }
 .fitness-card-face { backface-visibility: hidden; -webkit-backface-visibility: hidden; }
@@ -106,6 +223,7 @@ summary::-webkit-details-marker { display: none; }
 .animate-pulse-subtle { animation: pulse-subtle 2.4s ease-in-out infinite; }
 
 @media (prefers-reduced-motion: reduce) {
+  .motion-card, .motion-photo img, .motion-press, .button-primary, .button-secondary, .filter-chip, .mobile-dock-icon { transform: none !important; }
   *, *::before, *::after {
     animation-duration: .01ms !important;
     animation-iteration-count: 1 !important;
