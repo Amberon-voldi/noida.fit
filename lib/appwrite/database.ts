@@ -4,6 +4,7 @@ import { AppwriteException, ID, Permission, Query, Role } from "node-appwrite";
 import type { Models } from "node-appwrite";
 import { getAdminServices, getAppwriteDatabaseConfig } from "@/lib/appwrite/server";
 import { reportAppwriteFailure } from "@/lib/appwrite/errors";
+import { appwriteCollections } from "@/lib/appwrite/config";
 
 export type AppwriteData = Record<string, unknown>;
 export type AppwriteDocument<T extends object> = T & Models.Document;
@@ -41,11 +42,21 @@ function queryMethod(query: string): string {
   return parsed.method;
 }
 
+function logCollectionRead(collectionId: string): void {
+  const configured = Object.entries(appwriteCollections).find(([, id]) => id && id === collectionId);
+  // Server console only: never include credentials, queries, row IDs or row data.
+  console.info("[Appwrite] Reading collection", {
+    name: configured?.[0] ?? "unconfigured",
+    id: configured?.[1] ?? "(unset)",
+  });
+}
+
 /** Auto-paginate unbounded queries. An explicit Query.limit is honored as a bounded read. */
 export async function listAppwriteDocuments<T extends object = AppwriteData>(
   collectionId: string,
   queries: string[] = [],
 ): Promise<AppwriteDocument<T>[]> {
+  logCollectionRead(collectionId);
   try {
     return await listDocuments<T>(collectionId, queries);
   } catch (error) {
@@ -80,6 +91,7 @@ export async function getAppwriteDocument<T extends object = AppwriteData>(
   collectionId: string,
   documentId: string,
 ): Promise<AppwriteDocument<T> | null> {
+  logCollectionRead(collectionId);
   const { databases } = getAdminServices();
   const { databaseId } = getAppwriteDatabaseConfig();
   try {

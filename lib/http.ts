@@ -61,7 +61,7 @@ export function assertSameOrigin(request: Request): void {
 
 /** Forwarded IPs are used only with an explicitly trusted, overwriting ingress. */
 export function getClientKey(request: Request): string {
-  if (process.env.TRUST_PROXY_IP === "true") {
+  if (process.env.NEXT_PUBLIC_TRUST_PROXY_IP === "true") {
     const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
     if (ip && ip.length <= 64) return ip;
   }

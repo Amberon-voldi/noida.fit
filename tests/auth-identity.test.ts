@@ -19,18 +19,18 @@ before(async () => {
     NEXT_PUBLIC_APPWRITE_ENDPOINT: "https://appwrite.test/v1",
     NEXT_PUBLIC_APPWRITE_PROJECT_ID: "identity-test-project",
     APPWRITE_KEY: "test-key-not-real",
-    APPWRITE_DATABASE_ID: "identity-test-db",
-    APPWRITE_COLLECTION_PROFILES: "profiles",
-    APPWRITE_COLLECTION_FITNESS_IDS: "fitness_ids",
-    APPWRITE_COLLECTION_EVENTS: "events",
-    APPWRITE_COLLECTION_RSVPS: "rsvps",
-    APPWRITE_COLLECTION_CHECKINS: "checkins",
-    APPWRITE_COLLECTION_ACTIVITIES: "activities",
-    APPWRITE_COLLECTION_PLACES: "places",
-    APPWRITE_COLLECTION_COMMUNITIES: "communities",
-    APPWRITE_COLLECTION_MEMBERSHIPS: "memberships",
-    APPWRITE_COLLECTION_SAVED_ITEMS: "savedItems",
-    APPWRITE_COLLECTION_PARTICIPATIONS: "participations",
+    NEXT_PUBLIC_APPWRITE_DATABASE_ID: "identity-test-db",
+    NEXT_PUBLIC_APPWRITE_COLLECTION_PROFILES: "profiles",
+    NEXT_PUBLIC_APPWRITE_COLLECTION_FITNESS_IDS: "fitness_ids",
+    NEXT_PUBLIC_APPWRITE_COLLECTION_EVENTS: "events",
+    NEXT_PUBLIC_APPWRITE_COLLECTION_RSVPS: "rsvps",
+    NEXT_PUBLIC_APPWRITE_COLLECTION_CHECKINS: "checkins",
+    NEXT_PUBLIC_APPWRITE_COLLECTION_ACTIVITIES: "activities",
+    NEXT_PUBLIC_APPWRITE_COLLECTION_PLACES: "places",
+    NEXT_PUBLIC_APPWRITE_COLLECTION_COMMUNITIES: "communities",
+    NEXT_PUBLIC_APPWRITE_COLLECTION_MEMBERSHIPS: "memberships",
+    NEXT_PUBLIC_APPWRITE_COLLECTION_SAVED_ITEMS: "savedItems",
+    NEXT_PUBLIC_APPWRITE_COLLECTION_PARTICIPATIONS: "participations",
     NEXT_PUBLIC_SITE_URL: "https://noida.fit",
   });
   // SDK20 captures node-fetch-native's fetch at import time.
@@ -122,6 +122,31 @@ function fakeAppwrite() {
   };
   return { rows, calls, user, setFitnessFailure: (value: boolean) => { failFitnessId = value; }, setSessionFailure: (value: boolean) => { unavailableSession = value; }, raceForUsername: (value: string) => { raceUsername = value; }, setSessionError: (status: number, type: string) => { sessionError = { status, type }; }, setDocumentError: (status: number, type: string) => { documentError = { status, type }; } };
 }
+
+test("runtime and CLI configuration use the same public resource variables while the key stays private", async () => {
+  const runtime = await import("../lib/appwrite/config");
+  const scripts = await import("../scripts/lib/appwrite");
+  const config = runtime.requireAppwriteServerConfig();
+  assert.equal(config.databaseId, "identity-test-db");
+  assert.equal(config.apiKey, "test-key-not-real");
+  assert.deepEqual(config.collections, scripts.getScriptCollections());
+  assert.equal(scripts.getScriptConfig().databaseId, config.databaseId);
+  assert.equal(scripts.getScriptConfig().apiKey, config.apiKey);
+});
+
+test("collection reads log configured collection names and IDs without secrets or row data", async (t) => {
+  fakeAppwrite();
+  const logged: unknown[][] = [];
+  t.mock.method(console, "info", (...args: unknown[]) => { logged.push(args); });
+  const db = await import("../lib/appwrite/database");
+  await db.listAppwriteDocuments("profiles", [db.Query.equal("username", "private-query-value"), db.Query.limit(1)]);
+  await db.getAppwriteDocument("fitness_ids", "private-row-id");
+  assert.deepEqual(logged, [
+    ["[Appwrite] Reading collection", { name: "profiles", id: "profiles" }],
+    ["[Appwrite] Reading collection", { name: "fitnessIds", id: "fitness_ids" }],
+  ]);
+  assert.doesNotMatch(JSON.stringify(logged), /test-key|private-query|private-row|server-only-session/);
+});
 
 test("usernames normalize and enforce bounded handle syntax", () => {
   assert.equal(usernameSchema.parse(" Runner.Noida "), "runner.noida");

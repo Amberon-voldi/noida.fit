@@ -4,7 +4,7 @@ This guide describes the implemented backend, superseding earlier seed-only arch
 
 ## Configuration and credential handling
 
-`.env` is the source for `NEXT_PUBLIC_APPWRITE_PROJECT_ID`, `NEXT_PUBLIC_APPWRITE_PROJECT_NAME`, `NEXT_PUBLIC_APPWRITE_ENDPOINT`, and server-only `APPWRITE_KEY`. Database and collection IDs are explicit `APPWRITE_DATABASE_ID` / `APPWRITE_COLLECTION_*` variables, with no hardcoded runtime fallbacks. See root `.env.example` for the full list.
+`.env` is the source for `NEXT_PUBLIC_APPWRITE_PROJECT_ID`, `NEXT_PUBLIC_APPWRITE_PROJECT_NAME`, `NEXT_PUBLIC_APPWRITE_ENDPOINT`, and server-only `APPWRITE_KEY`. Database and collection IDs are explicit `NEXT_PUBLIC_APPWRITE_DATABASE_ID` / `NEXT_PUBLIC_APPWRITE_COLLECTION_*` variables, with no hardcoded runtime fallbacks. See root `.env.example` for the full list.
 
 `APPWRITE_CHECKIN_SECRET` is a separate random HMAC secret, generated in ignored `.env.local` by setup only when absent. Persist the same value on every application instance; changing it invalidates unexpired check-in codes. It must not be the API key. Set `NEXT_PUBLIC_SITE_URL` to the deployed origin for canonical links, QR codes and mutation origin validation. Leave it unset for local development unless intentionally testing another origin.
 
@@ -27,6 +27,14 @@ Set the variables in `.env.example` in Netlify for the correct deploy context an
 Production Turbopack disk caching is disabled in `next.config.ts` because its `.sst` files can retain build-time environment secrets. `npm run build` first removes stale compiler caches from `.next/cache/turbopack` and `.netlify/.next/cache/turbopack`. After deploying this fix, use Netlify's **clear cache and deploy** option once to discard older remote caches. Keep Netlify secret scanning enabled: do not omit `APPWRITE_KEY` or disable the scan. Prefer **Functions-only** scope for `APPWRITE_KEY` and `APPWRITE_CHECKIN_SECRET`; the Next.js build does not need those secrets. A cache match alone does not prove the key was served publicly; rotate it if exposure cannot be ruled out.
 
 A runtime `401 user_unauthorized` means the project/key/scopes need correction; deferring prerendering does not repair credentials. Do not make private collections public to work around it. The SDK's `1.8.0` versus `1.8.0-RC2` warning is separate from authentication failure.
+
+### Public configuration variable migration
+
+Database/collection IDs now use `NEXT_PUBLIC_APPWRITE_DATABASE_ID` and `NEXT_PUBLIC_APPWRITE_COLLECTION_*`; the proxy flag is `NEXT_PUBLIC_TRUST_PROXY_IP`. Rename these variables in Netlify's Production context and make them available during **Builds**, then rebuild/redeploy: Next.js inlines public variables at build time. The CLI scripts also read the new names from `.env`. There is no fallback to the old names.
+
+`APPWRITE_KEY`, `APPWRITE_CHECKIN_SECRET`, and any `AUTH_SECRET` remain private. Never add `NEXT_PUBLIC_` to authentication/signing secrets. Framework/test-runner variables such as `NODE_ENV` and `E2E_BASE_URL` retain their standard names.
+
+Page data reads log `[Appwrite] Reading collection` with the collection name and configured ID in the server console / Netlify Function logs. They do not log keys, session secrets, queries or row contents.
 
 ### Runtime failures after a successful deploy
 
@@ -123,7 +131,7 @@ Before launch:
 
 - Replace/unpublish fictional demos and confirm real meeting points, venues and prices.
 - Use HTTPS, a stable supported Appwrite version, least-privilege keys, backups and monitoring.
-- Add a shared edge rate limiter for multi-instance deployment; the current process-local limiter intentionally has no cross-process guarantees. `TRUST_PROXY_IP=true` is safe only if a trusted ingress replaces spoofable forwarding headers.
+- Add a shared edge rate limiter for multi-instance deployment; the current process-local limiter intentionally has no cross-process guarantees. `NEXT_PUBLIC_TRUST_PROXY_IP=true` is safe only if a trusted ingress replaces spoofable forwarding headers.
 - Rotate previously exposed diagnostic credentials. Never log CLI sessions or API keys.
 - Configure and test email delivery, recovery and verification as an onboarding follow-up.
 - Stock imagery is illustrative and attributed. Provider integrations are not faked: Strava requires official OAuth configuration, Apple Health requires a native bridge, and Cult.fit/FITPASS require official access.

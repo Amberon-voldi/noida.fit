@@ -237,7 +237,7 @@ async function main(): Promise<void> {
   } catch (error) {
     if (!isNotFound(error)) throw error;
     const existing = await databases.list({ queries: [Query.equal("name", "NOIDA.FIT")] });
-    if (existing.total > 0) throw new Error("Existing NOIDA.FIT database: set APPWRITE_DATABASE_ID to its ID before continuing");
+    if (existing.total > 0) throw new Error("Existing NOIDA.FIT database: set NEXT_PUBLIC_APPWRITE_DATABASE_ID to its ID before continuing");
     await databases.create({ databaseId: config.databaseId, name: "NOIDA.FIT", enabled: true });
   }
   for (const spec of collectionSpecs) await ensureCollection(databases, config.databaseId, spec);

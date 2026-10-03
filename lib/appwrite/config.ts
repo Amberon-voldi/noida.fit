@@ -10,17 +10,17 @@ export const appwritePublicConfig = {
 };
 
 export const appwriteCollections = {
-  profiles: process.env.APPWRITE_COLLECTION_PROFILES ?? "",
-  fitnessIds: process.env.APPWRITE_COLLECTION_FITNESS_IDS ?? "",
-  events: process.env.APPWRITE_COLLECTION_EVENTS ?? "",
-  rsvps: process.env.APPWRITE_COLLECTION_RSVPS ?? "",
-  checkins: process.env.APPWRITE_COLLECTION_CHECKINS ?? "",
-  activities: process.env.APPWRITE_COLLECTION_ACTIVITIES ?? "",
-  places: process.env.APPWRITE_COLLECTION_PLACES ?? "",
-  communities: process.env.APPWRITE_COLLECTION_COMMUNITIES ?? "",
-  memberships: process.env.APPWRITE_COLLECTION_MEMBERSHIPS ?? "",
-  savedItems: process.env.APPWRITE_COLLECTION_SAVED_ITEMS ?? "",
-  participations: process.env.APPWRITE_COLLECTION_PARTICIPATIONS ?? "",
+  profiles: process.env.NEXT_PUBLIC_APPWRITE_COLLECTION_PROFILES ?? "",
+  fitnessIds: process.env.NEXT_PUBLIC_APPWRITE_COLLECTION_FITNESS_IDS ?? "",
+  events: process.env.NEXT_PUBLIC_APPWRITE_COLLECTION_EVENTS ?? "",
+  rsvps: process.env.NEXT_PUBLIC_APPWRITE_COLLECTION_RSVPS ?? "",
+  checkins: process.env.NEXT_PUBLIC_APPWRITE_COLLECTION_CHECKINS ?? "",
+  activities: process.env.NEXT_PUBLIC_APPWRITE_COLLECTION_ACTIVITIES ?? "",
+  places: process.env.NEXT_PUBLIC_APPWRITE_COLLECTION_PLACES ?? "",
+  communities: process.env.NEXT_PUBLIC_APPWRITE_COLLECTION_COMMUNITIES ?? "",
+  memberships: process.env.NEXT_PUBLIC_APPWRITE_COLLECTION_MEMBERSHIPS ?? "",
+  savedItems: process.env.NEXT_PUBLIC_APPWRITE_COLLECTION_SAVED_ITEMS ?? "",
+  participations: process.env.NEXT_PUBLIC_APPWRITE_COLLECTION_PARTICIPATIONS ?? "",
 } as const;
 
 export function hasPublicAppwriteConfig(): boolean {
@@ -49,12 +49,12 @@ export function requireAppwriteServerConfig(): {
   collections: typeof appwriteCollections;
 } {
   const apiKey = process.env.APPWRITE_KEY;
-  const databaseId = process.env.APPWRITE_DATABASE_ID;
+  const databaseId = process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID;
   const missing = [
     !endpoint && "NEXT_PUBLIC_APPWRITE_ENDPOINT",
     !projectId && "NEXT_PUBLIC_APPWRITE_PROJECT_ID",
     !apiKey && "APPWRITE_KEY",
-    !databaseId && "APPWRITE_DATABASE_ID",
+    !databaseId && "NEXT_PUBLIC_APPWRITE_DATABASE_ID",
   ].filter((value): value is string => Boolean(value));
 
   const missingCollections = Object.entries(appwriteCollections).filter(([, value]) => !value).map(([key]) => `collection:${key}`);

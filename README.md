@@ -118,7 +118,7 @@ These tests create randomly named test accounts and two temporary events, exerci
 1. Replace or unpublish demo listings with organizer-confirmed schedules, venue permissions and real imagery.
 2. Set `NEXT_PUBLIC_SITE_URL` to the deployed HTTPS origin and persist `APPWRITE_CHECKIN_SECRET` across deployments.
 3. Use a stable supported Appwrite release. The inspected server identifies itself as **1.8.0-RC2**; SDK20 targets 1.8.0, so the SDK warns about the release-candidate suffix despite verified operations. Server upgrades are an operator task, not performed by application setup.
-4. Add a shared edge/ingress limiter for multiple instances. Current application limiting is process-local (5 mutations per action/user per 10 minutes). Without a trusted IP-overwriting proxy, anonymous auth attempts share a conservative network bucket. Set `TRUST_PROXY_IP=true` only behind such an ingress.
+4. Add a shared edge/ingress limiter for multiple instances. Current application limiting is process-local (5 mutations per action/user per 10 minutes). Without a trusted IP-overwriting proxy, anonymous auth attempts share a conservative network bucket. Set `NEXT_PUBLIC_TRUST_PROXY_IP=true` only behind such an ingress.
 5. Rotate any credentials previously exposed by CLI diagnostics, use least-privilege runtime keys, configure backups/monitoring, and establish password-recovery/email verification delivery before broader public onboarding.
 6. Serve production over HTTPS. Session cookies are HttpOnly, SameSite=Lax and Secure in production. Do not enable a production insecure-cookie workaround.
 
