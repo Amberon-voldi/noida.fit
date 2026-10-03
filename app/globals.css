@@ -146,7 +146,9 @@ summary::-webkit-details-marker { display: none; }
   font-weight: 600;
   transition: color var(--motion-fast);
 }
-.mobile-dock-icon { transition: transform var(--motion-standard) var(--ease-out); }
+.mobile-dock-icon-frame { position: relative; display: block; width: 20px; height: 20px; }
+.mobile-dock-link:has([data-nav-pending="true"]) { color: var(--accent-velocity); background: color-mix(in srgb, var(--accent-velocity) 5%, transparent); }
+.mobile-dock-icon { transition: transform var(--motion-standard) var(--ease-out), opacity 100ms; }
 .mobile-dock-link[aria-current="page"] .mobile-dock-icon { transform: translateY(-2px) scale(1.05); }
 .mobile-dock-link:active .mobile-dock-icon { transform: scale(.88); }
 
@@ -268,7 +270,21 @@ summary::-webkit-details-marker { display: none; }
 }
 
 .motion-card { transition: transform var(--motion-standard) var(--ease-out), border-color var(--motion-standard), box-shadow var(--motion-standard); }
+.motion-card::after { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; box-shadow: inset 0 1px 0 rgba(255,255,255,.07); opacity: .4; transition: opacity var(--motion-standard); }
+.motion-card:focus-within::after, .motion-card:hover::after { opacity: 1; }
 .motion-photo img { transition: transform 400ms var(--ease-out); }
+.motion-card .lucide-arrow-up-right { transition: transform var(--motion-standard) var(--ease-out); }
+.toggle-state-icon { display: inline-flex; width: 15px; height: 15px; flex-shrink: 0; }
+.skeleton { position: relative; overflow: hidden; isolation: isolate; background: var(--surface-elevated); }
+input:focus-visible, select:focus-visible, textarea:focus-visible { border-color: var(--accent-velocity); }
+.filter-choice label > span { transition: transform 100ms ease-out, border-color 150ms, background-color 150ms, color 150ms; }
+.filter-choice label:active > span { transform: scale(.97); }
+@media (max-width: 767px) {
+  .page-loading { padding-block: 24px; }
+  .loading-heading { margin-top: 20px; }
+  .loading-heading > :nth-child(2) { height: 32px; margin-top: 12px; }
+  .loading-grid { margin-top: 24px; }
+}
 .motion-press, .button-primary, .button-secondary, .filter-chip {
   transition: transform var(--motion-fast) var(--ease-out), color var(--motion-fast), background-color var(--motion-fast), border-color var(--motion-fast);
   -webkit-tap-highlight-color: transparent;
@@ -277,11 +293,15 @@ summary::-webkit-details-marker { display: none; }
 @media (hover: hover) and (pointer: fine) {
   .motion-card:hover { transform: translateY(-4px); box-shadow: var(--shadow-card-hover); }
   .motion-card:hover .motion-photo img, .motion-photo:hover img { transform: scale(1.045); }
+  .motion-card:hover .lucide-arrow-up-right { transform: translate(2px, -2px); }
 }
 @keyframes rise-in { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes sheet-in { from { opacity: 0; transform: translateY(32px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes menu-in { from { opacity: 0; transform: translateX(32px); } to { opacity: 1; transform: translateX(0); } }
 @keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes skeleton-sweep { from { transform: translateX(-100%); } to { transform: translateX(100%); } }
+@keyframes confirm-pop { 0% { transform: scale(.75); } 60% { transform: scale(1.12); } 100% { transform: scale(1); } }
+@keyframes confirm-draw { from { stroke-dashoffset: 32; } to { stroke-dashoffset: 0; } }
 @media (prefers-reduced-motion: no-preference) {
   .hero-enter { animation: rise-in 400ms var(--ease-out) both; }
   .hero-stagger > * { animation: rise-in 300ms var(--ease-out) both; }
@@ -292,6 +312,38 @@ summary::-webkit-details-marker { display: none; }
   .filter-dialog[open] .filter-dialog-panel { animation: sheet-in 250ms var(--ease-out); }
   .mobile-menu-dialog[open] .mobile-menu-panel { animation: menu-in 250ms var(--ease-out); }
   .filter-dialog[open]::backdrop, .mobile-menu-dialog[open]::backdrop { animation: fade-in 150ms ease-out; }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .skeleton::after { content: ""; position: absolute; inset: 0; background: linear-gradient(100deg, transparent 15%, rgba(255,255,255,.055) 50%, transparent 85%); animation: skeleton-sweep 1400ms ease-in-out infinite; }
+  .toggle-state-icon[data-selected="true"] { animation: confirm-pop 250ms var(--ease-out); }
+  .toggle-state-icon[data-selected="true"] svg path { stroke-dasharray: 32; animation: confirm-draw 250ms ease-out both; }
+  @media (max-width: 767px) {
+    .account-section-enter { animation: rise-in 200ms var(--ease-out); }
+  }
+  /* Native exit transitions keep the top layer alive only for the visual exit.
+     Escape, focus restoration and scroll unlocking still use the browser's dialog API. */
+  @supports (transition-behavior: allow-discrete) and (overlay: auto) {
+    .filter-dialog, .mobile-menu-dialog {
+      opacity: 0;
+      transition: opacity 180ms ease-out, transform 220ms var(--ease-out), display 220ms allow-discrete, overlay 220ms allow-discrete;
+    }
+    .filter-dialog { transform: translateY(24px); }
+    .mobile-menu-dialog { transform: translateX(20px); }
+    .filter-dialog[open], .mobile-menu-dialog[open] { opacity: 1; transform: none; }
+    .filter-dialog:not([open]), .mobile-menu-dialog:not([open]) { pointer-events: none; }
+    .filter-dialog[open] .filter-dialog-panel, .mobile-menu-dialog[open] .mobile-menu-panel { animation: none; }
+    .filter-dialog::backdrop, .mobile-menu-dialog::backdrop {
+      opacity: 0;
+      transition: opacity 180ms ease-out, display 220ms allow-discrete, overlay 220ms allow-discrete;
+    }
+    .filter-dialog[open]::backdrop, .mobile-menu-dialog[open]::backdrop { opacity: 1; animation: none; }
+    @starting-style {
+      .filter-dialog[open] { opacity: 0; transform: translateY(24px); }
+      .mobile-menu-dialog[open] { opacity: 0; transform: translateX(20px); }
+      .filter-dialog[open]::backdrop, .mobile-menu-dialog[open]::backdrop { opacity: 0; }
+    }
+  }
 }
 
 .fitness-card { perspective: 1200px; }
@@ -305,7 +357,7 @@ summary::-webkit-details-marker { display: none; }
 .animate-pulse-subtle { animation: pulse-subtle 2.4s ease-in-out infinite; }
 
 @media (prefers-reduced-motion: reduce) {
-  .motion-card, .motion-photo img, .motion-press, .button-primary, .button-secondary, .filter-chip, .mobile-dock-icon { transform: none !important; }
+  .motion-card, .motion-photo img, .motion-press, .button-primary, .button-secondary, .filter-chip, .mobile-dock-icon, .motion-card .lucide-arrow-up-right, .filter-choice label > span { transform: none !important; }
   *, *::before, *::after {
     animation-duration: .01ms !important;
     animation-iteration-count: 1 !important;

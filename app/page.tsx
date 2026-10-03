@@ -59,7 +59,7 @@ export default async function HomePage() {
 
           <HomeSection id="activities" eyebrow="Find your thing" title="Choose your next move" href="/activities" linkLabel="All activities">
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 sm:gap-4 lg:grid-cols-6">
-              {activities.slice(0, 6).map(activity => <Link href={`/activities/${activity.slug}`} key={activity.id} className="motion-card motion-photo group relative aspect-[4/3] overflow-hidden rounded-xl border border-border-subtle sm:aspect-[4/5]">
+              {activities.slice(0, 6).map(activity => <Link href={`/activities/${activity.slug}`} key={activity.id} data-reveal-item className="motion-card motion-photo group relative aspect-[4/3] overflow-hidden rounded-xl border border-border-subtle sm:aspect-[4/5]">
                 <ListingImage category={activity.slug} alt="" sizes="(max-width:640px) 45vw, 200px" />
                 <span className="absolute inset-0 bg-linear-to-t from-black/90 via-black/20 to-transparent" />
                 <span className="absolute bottom-10 left-3 right-3 flex items-center justify-between gap-2 text-sm font-semibold text-white sm:left-4 sm:text-base">{activity.name}<ArrowUpRight className="h-4 w-4 shrink-0" aria-hidden="true" /></span>
@@ -94,7 +94,7 @@ export default async function HomePage() {
 
 function HomeSection({ id, eyebrow, title, href, linkLabel, children, emptyOnMobile = false }: { id: string; eyebrow: string; title: string; href: string; linkLabel: string; children: ReactNode; emptyOnMobile?: boolean }) {
   return <Reveal className={emptyOnMobile ? "empty-home-section" : ""}><section aria-labelledby={`${id}-heading`}>
-    <div className="mb-4 flex flex-wrap items-end justify-between gap-x-4 gap-y-1 sm:mb-6"><div><p className="eyebrow">{eyebrow}</p><h2 id={`${id}-heading`} className="mt-1 text-xl font-bold tracking-tight sm:text-3xl">{title}</h2></div><Link href={href} className="inline-flex min-h-11 shrink-0 items-center gap-1 text-xs font-semibold text-velocity sm:text-sm">{linkLabel}<ArrowUpRight className="h-4 w-4" aria-hidden="true" /></Link></div>
+    <div data-reveal-item className="mb-4 flex flex-wrap items-end justify-between gap-x-4 gap-y-1 sm:mb-6"><div><p className="eyebrow">{eyebrow}</p><h2 id={`${id}-heading`} className="mt-1 text-xl font-bold tracking-tight sm:text-3xl">{title}</h2></div><Link href={href} className="inline-flex min-h-11 shrink-0 items-center gap-1 text-xs font-semibold text-velocity sm:text-sm">{linkLabel}<ArrowUpRight className="h-4 w-4" aria-hidden="true" /></Link></div>
     {children}
   </section></Reveal>;
 }

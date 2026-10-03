@@ -69,10 +69,10 @@ export function MobileAccountSection({ headingId, title, sectionId, children }: 
           className="flex min-h-11 w-full items-center justify-between gap-3 rounded-lg border border-border-subtle bg-surface px-4 py-2 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-velocity md:hidden"
         >
           {title}
-          <ChevronDown size={18} aria-hidden="true" className={`shrink-0 ${open ? "rotate-180" : ""}`} />
+          <ChevronDown size={18} aria-hidden="true" className={`shrink-0 transition-transform duration-200 motion-reduce:transition-none ${open ? "rotate-180" : ""}`} />
         </button>
       </h2>
-      <div id={contentId} className={open ? "block" : "hidden md:block"}>{children}</div>
+      <div id={contentId} className={open ? "account-section-enter block" : "hidden md:block"}>{children}</div>
     </section>
   );
 }
