@@ -26,12 +26,3 @@ export function ListingImage({ src, category = "outdoor", alt, sizes, hero = fal
     </>
   );
 }
-
-export function DemoNotice({ className = "", detail = false }: { className?: string; detail?: boolean }) {
-  return (
-    <div className={`rounded-lg border border-border-strong bg-surface px-4 py-3 text-xs leading-relaxed text-text-secondary ${className}`}>
-      <span className="font-semibold text-white">Demo directory. </span>
-      {detail ? "This is a sample listing, not a confirmed gathering or partnership. Do not travel or pay based on these details." : "Sample listings, not confirmed sessions or partnerships. Don’t travel or pay based on these details."}
-    </div>
-  );
-}

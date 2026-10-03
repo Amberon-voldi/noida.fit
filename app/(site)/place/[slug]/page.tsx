@@ -6,7 +6,7 @@ import { EventCard } from "@/components/cards/EventCard";
 import { SaveButton } from "@/components/participation/SaveButton";
 import { ShareButton } from "@/components/ui/ShareButton";
 import { Breadcrumb, StructuredData } from "@/components/discovery/DetailPrimitives";
-import { DemoNotice, ListingImage } from "@/components/discovery/ListingImage";
+import { ListingImage } from "@/components/discovery/ListingImage";
 import { eventIsUpcoming, eventTimestamp } from "@/components/discovery/filter";
 import { listingMetadata } from "@/components/discovery/metadata";
 import { SITE_CONFIG } from "@/lib/config";
@@ -33,9 +33,9 @@ export default async function PlacePage({ params }: Props) {
     <div className="pb-16">
       {!place.demo && <StructuredData data={jsonLd} />}
       <Breadcrumb directory="Places" href="/places" title={place.name} />
-      <header className="border-b border-border-subtle px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
+      <header className="detail-header border-b border-border-subtle px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
         <div className="mx-auto max-w-7xl">
-          <div className="relative mb-8 aspect-[16/7] overflow-hidden rounded-2xl border border-border-subtle sm:aspect-[3/1]"><ListingImage src={place.coverImageUrl ?? place.imageUrl} category={place.activities?.[0]} alt={place.name} hero sizes="(max-width: 1280px) 100vw, 1200px" /></div>
+          <div className="detail-cover relative mb-8 aspect-[16/7] overflow-hidden rounded-2xl border border-border-subtle sm:aspect-[3/1]"><ListingImage src={place.coverImageUrl ?? place.imageUrl} category={place.activities?.[0]} alt={place.name} hero sizes="(max-width: 1280px) 100vw, 1200px" /></div>
           <p className="eyebrow">{place.category}{place.demo ? " · Demo listing" : ""}</p>
           <h1 className="mt-3 text-4xl font-extrabold tracking-tight sm:text-5xl">{place.name}</h1>
           <p className="mt-3 text-sm text-text-secondary">{place.address}</p>
@@ -44,7 +44,6 @@ export default async function PlacePage({ params }: Props) {
             <SaveButton itemType="place" itemId={place.id} /><ShareButton title={place.name} text={`${place.name}, ${place.sector}`} />
             <Link href={`/places?sector=${encodeURIComponent(place.sector)}`} className="button-secondary">More in {place.sector}</Link>
           </div>
-          {place.demo && <DemoNotice detail className="mt-6" />}
         </div>
       </header>
       <div className="mx-auto grid max-w-7xl gap-10 px-4 py-10 sm:px-6 sm:py-14 lg:grid-cols-[minmax(0,1fr)_350px] lg:px-8">

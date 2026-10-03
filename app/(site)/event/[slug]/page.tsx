@@ -5,7 +5,7 @@ import { EventActions } from "@/components/participation/EventActions";
 import { SaveButton } from "@/components/participation/SaveButton";
 import { ShareButton } from "@/components/ui/ShareButton";
 import { Breadcrumb, StructuredData } from "@/components/discovery/DetailPrimitives";
-import { DemoNotice, ListingImage } from "@/components/discovery/ListingImage";
+import { ListingImage } from "@/components/discovery/ListingImage";
 import { eventIsUpcoming, eventTimestamp } from "@/components/discovery/filter";
 import { listingMetadata } from "@/components/discovery/metadata";
 import { getActivities, getEventBySlug } from "@/lib/data";
@@ -42,10 +42,10 @@ export default async function EventPage({ params }: Props) {
     <div className="pb-16">
       {!event.demo && <StructuredData data={jsonLd} />}
       <Breadcrumb directory="Events" href="/events" title={event.title} />
-      <div className="mx-auto grid max-w-7xl gap-10 px-4 py-10 sm:px-6 sm:py-14 lg:grid-cols-[minmax(0,1fr)_350px] lg:px-8">
+      <div className="event-detail-layout mx-auto grid max-w-7xl gap-10 px-4 py-10 sm:px-6 sm:py-14 lg:grid-cols-[minmax(0,1fr)_350px] lg:px-8">
         <div className="min-w-0 space-y-8">
-          <header>
-            <div className="relative mb-7 aspect-[16/9] overflow-hidden rounded-2xl border border-border-subtle sm:aspect-[16/7]"><ListingImage src={event.coverImageUrl ?? event.imageUrl} category={event.category} alt={event.title} hero sizes="(max-width: 1024px) 100vw, 760px" /></div>
+          <header className="detail-header">
+            <div className="detail-cover relative mb-7 aspect-[16/9] overflow-hidden rounded-2xl border border-border-subtle sm:aspect-[16/7]"><ListingImage src={event.coverImageUrl ?? event.imageUrl} category={event.category} alt={event.title} hero sizes="(max-width: 1024px) 100vw, 760px" /></div>
             <div className="flex flex-wrap items-center gap-2">
               <Link href={activity ? `/activities/${activity.slug}` : `/events?activity=${event.category}`} className="filter-chip text-velocity">{activity?.name ?? CATEGORY_LABELS[event.category]}</Link>
               <Link href={`/discover?sector=${encodeURIComponent(event.sector)}`} className="filter-chip">{event.sector}</Link>
@@ -54,7 +54,6 @@ export default async function EventPage({ params }: Props) {
             <h1 className="mt-4 text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl">{event.title}</h1>
             <p className="mt-4 text-sm text-text-secondary">Hosted by <Link href={`/community/${event.communitySlug}`} className="font-semibold text-velocity hover:text-velocity-glow">{event.communityName}</Link></p>
           </header>
-          {event.demo && <DemoNotice detail />}
           {!upcoming && <p role="status" className="rounded-lg border border-border-strong bg-surface px-4 py-3 text-sm text-text-secondary">{event.status === "cancelled" ? "This gathering has been cancelled." : "This gathering has ended."} Check the host community for other sessions.</p>}
           <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {[["Date", formatDate(event.date)], ["Time · IST", `${event.startTime} – ${event.endTime}`], ["Cost", event.price], ["Level", event.level ?? "Ask the host"]].map(([label, value]) => <div key={label} className="min-w-0 rounded-lg border border-border-subtle bg-surface p-4"><dt className="font-mono text-[10px] uppercase tracking-widest text-text-secondary">{label}</dt><dd className="mt-2 break-words text-sm font-semibold">{value}</dd></div>)}

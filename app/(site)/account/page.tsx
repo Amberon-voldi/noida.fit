@@ -9,6 +9,7 @@ import { FitnessCard } from "@/components/cards/FitnessCard";
 import { ActivitySummary } from "@/components/profile/ActivitySummary";
 import { ProfileActions } from "@/components/profile/ProfileActions";
 import { SettingsForm } from "@/components/profile/SettingsForm";
+import { MobileAccountSection } from "@/components/profile/MobileAccountSection";
 import { SignOutButton } from "@/components/auth/SignOutButton";
 import { integrations } from "@/lib/integrations";
 import { SaveButton } from "@/components/participation/SaveButton";
@@ -53,9 +54,9 @@ export default async function AccountPage() {
   history.sort((a, b) => Date.parse(b.occurredAt) - Date.parse(a.occurredAt));
 
   return (
-    <div className="mx-auto max-w-5xl space-y-10 px-4 py-8 sm:px-6 sm:py-12">
+    <div className="mx-auto max-w-5xl space-y-10 px-4 pb-8 pt-4 sm:px-6 sm:pb-12 md:pt-12">
       <header className="flex flex-wrap items-start justify-between gap-4">
-        <div><h1 className="text-3xl font-bold text-white">Your account</h1><p className="mt-2 text-sm text-text-secondary">Your plans, communities and real participation in Noida.</p></div>
+        <div><h1 className="text-2xl font-bold text-white md:text-3xl">Your account</h1><p className="mt-2 hidden text-sm text-text-secondary md:block">Your plans, communities and real participation in Noida.</p></div>
         {canOrganize && <Link href="/organizer" className="text-sm text-velocity underline">Organizer check-in</Link>}
       </header>
       <div className="grid items-start gap-8 lg:grid-cols-2">
@@ -94,12 +95,11 @@ export default async function AccountPage() {
           })}</ul> : <p className={`${panel} text-sm text-text-secondary`}>No communities followed yet. <Link href="/communities" className="text-white underline">Find your people.</Link></p>}
         </section>
       </div>
-      <section id="activity" aria-labelledby="participation" className="space-y-4 scroll-mt-24">
-        <h2 id="participation" className="text-lg font-semibold text-white">Participation history · private</h2>
+      <MobileAccountSection sectionId="activity" headingId="participation" title="Participation history · private">
         {history.length ? <ul className="space-y-3">{history.map((item) => <li key={item.key} className={`${panel} flex flex-wrap justify-between gap-3`}><div>{item.event ? <Link href={`/event/${item.event.slug}`} className="text-sm font-semibold text-white hover:text-velocity">{item.title}</Link> : <p className="text-sm font-semibold text-white">{item.title}</p>}<p className="mt-1 text-xs text-text-secondary">{dateLabel(item.occurredAt)}</p></div><p className="text-xs text-text-secondary">{({ verified: "Organizer verified", connected: "Connected service", self_reported: "Self-reported · not verified", pending: "Pending verification" })[item.status]}</p></li>)}</ul> : <p className={`${panel} text-sm text-text-secondary`}>No participation recorded yet. An organizer check-in at an event will appear here.</p>}
-      </section>
-      <section aria-labelledby="settings" className="space-y-4"><h2 id="settings" className="scroll-mt-24 text-lg font-semibold text-white">Profile settings</h2><SettingsForm settings={profileSettings(stored)} /></section>
-      <section aria-labelledby="integrations" className="space-y-4"><h2 id="integrations" className="text-lg font-semibold text-white">Connected services</h2><div className="grid gap-3 sm:grid-cols-2">{integrations.map((integration) => <div key={integration.id} className={panel}><h3 className="text-sm font-semibold text-white">{integration.name}</h3><p className="mt-1 text-sm text-text-secondary">{integration.message}</p></div>)}</div></section>
+      </MobileAccountSection>
+      <MobileAccountSection headingId="settings" title="Profile settings"><SettingsForm settings={profileSettings(stored)} /></MobileAccountSection>
+      <MobileAccountSection headingId="integrations" title="Connected services"><div className="grid gap-3 sm:grid-cols-2">{integrations.map((integration) => <div key={integration.id} className={panel}><h3 className="text-sm font-semibold text-white">{integration.name}</h3><p className="mt-1 text-sm text-text-secondary">{integration.message}</p></div>)}</div></MobileAccountSection>
       <div className="flex justify-center border-t border-border-subtle pt-6 sm:justify-start">
         <SignOutButton />
       </div>

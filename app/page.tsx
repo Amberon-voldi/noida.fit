@@ -11,7 +11,7 @@ import { Footer } from "@/components/layout/Footer";
 import { Reveal } from "@/components/ui/Reveal";
 import { getDirectory } from "@/lib/data";
 import { filterDirectory, readFilters } from "@/components/discovery/filter";
-import { DemoNotice, ListingImage } from "@/components/discovery/ListingImage";
+import { ListingImage } from "@/components/discovery/ListingImage";
 
 export const metadata: Metadata = {
   title: { absolute: "NOIDA.FIT — Discover Fitness Communities & Events in Noida" },
@@ -26,7 +26,6 @@ export default async function HomePage() {
   const weekend = filterDirectory(directory, readFilters({ date: "weekend", type: "events" })).events.slice(0, 3);
   const communities = directory.communities.filter((item) => item.featured).slice(0, 3);
   const featuredPlaces = directory.places.slice(0, 3);
-  const hasDemo = [...events, ...communities, ...featuredPlaces].some((item) => item.demo);
 
   return (
     <>
@@ -36,8 +35,8 @@ export default async function HomePage() {
           <div className="mx-auto grid max-w-7xl grid-cols-1 gap-10 px-4 sm:px-6 lg:grid-cols-[1.1fr_.9fr] lg:items-center lg:px-8">
             <div className="hero-stagger min-w-0">
               <p className="eyebrow inline-flex items-center gap-2"><MapPin className="h-3.5 w-3.5" aria-hidden="true" />Noida &amp; Greater Noida</p>
-              <h1 id="hero-heading" className="mt-4 text-[clamp(2rem,9.3vw,4.5rem)] font-black leading-[1.05] tracking-[-.045em] text-white">Your fitness scene.<br /><span className="text-velocity">All in one place.</span></h1>
-              <p className="mt-4 max-w-xl text-sm leading-relaxed text-text-secondary sm:mt-6 sm:text-lg">Find a run, a workout, or your people. Good things happen when you show up.</p>
+              <h1 id="hero-heading" className="mt-4 text-[clamp(2rem,9.3vw,4.5rem)] font-black leading-[1.05] tracking-[-.045em] text-white"><span className="md:hidden">Find your next move.</span><span className="hidden md:inline">Your fitness scene.<br /><span className="text-velocity">All in one place.</span></span></h1>
+              <p className="home-intro mt-4 max-w-xl text-sm leading-relaxed text-text-secondary sm:mt-6 sm:text-lg"><span className="md:hidden">Local sessions. Good company.</span><span className="hidden md:inline">Find a run, a workout, or your people. Good things happen when you show up.</span></p>
               <SearchForm id="home-search" className="mt-6 max-w-2xl" action="/discover" placeholder="Try running, yoga, Sector 50…" />
               <nav className="no-scrollbar mt-3 flex gap-2 overflow-x-auto pb-1" aria-label="Quick plans">
                 <Link href="/events?date=today" className="filter-chip"><CalendarDays className="h-3.5 w-3.5" aria-hidden="true" />Today</Link>
@@ -53,9 +52,8 @@ export default async function HomePage() {
           </div>
         </section>
 
-        <div className="mx-auto max-w-7xl space-y-10 px-4 py-6 sm:space-y-16 sm:px-6 sm:py-12 lg:px-8">
-          {hasDemo && <DemoNotice />}
-          <HomeSection id="week" eyebrow="Make a plan" title="The next seven days" href="/events" linkLabel="All events">
+        <div className="home-sections mx-auto max-w-7xl space-y-10 px-4 py-6 sm:space-y-16 sm:px-6 sm:py-12 lg:px-8">
+          <HomeSection id="week" eyebrow="Make a plan" title="The next seven days" href="/events" linkLabel="All events" emptyOnMobile={!events.length}>
             {events.length ? <div className="mobile-rail grid auto-cols-[88%] grid-flow-col gap-4 overflow-x-auto pb-4 sm:auto-cols-auto sm:grid-flow-row sm:grid-cols-2 lg:grid-cols-4">{events.map(event => <EventCard key={event.id} event={event} />)}</div> : <EmptyHome message="New sessions are being added. Find a community with a regular rhythm." href="/communities" label="Find a community" />}
           </HomeSection>
 
@@ -77,7 +75,7 @@ export default async function HomePage() {
             {featuredPlaces.length ? <div className="mobile-rail grid auto-cols-[88%] grid-flow-col gap-4 overflow-x-auto pb-4 md:auto-cols-auto md:grid-flow-row md:grid-cols-3">{featuredPlaces.map(place => <PlaceCard key={place.id} place={place} />)}</div> : <EmptyHome message="Venue details are on the way." href="/discover" label="Explore the directory" />}
           </HomeSection>
 
-          <HomeSection id="weekend" eyebrow="Make time for you" title="Your weekend, sorted" href="/events?date=weekend" linkLabel="This weekend">
+          <HomeSection id="weekend" eyebrow="Make time for you" title="Your weekend, sorted" href="/events?date=weekend" linkLabel="This weekend" emptyOnMobile={!weekend.length}>
             {weekend.length ? <div className="mobile-rail grid auto-cols-[88%] grid-flow-col gap-4 overflow-x-auto pb-4 md:auto-cols-auto md:grid-flow-row md:grid-cols-3">{weekend.map(event => <EventCard key={event.id} event={event} />)}</div> : <EmptyHome message="No weekend sessions listed yet. Explore another day or find a regular group." href="/events" label="Browse events" />}
           </HomeSection>
 
@@ -94,8 +92,8 @@ export default async function HomePage() {
   );
 }
 
-function HomeSection({ id, eyebrow, title, href, linkLabel, children }: { id: string; eyebrow: string; title: string; href: string; linkLabel: string; children: ReactNode }) {
-  return <Reveal><section aria-labelledby={`${id}-heading`}>
+function HomeSection({ id, eyebrow, title, href, linkLabel, children, emptyOnMobile = false }: { id: string; eyebrow: string; title: string; href: string; linkLabel: string; children: ReactNode; emptyOnMobile?: boolean }) {
+  return <Reveal className={emptyOnMobile ? "empty-home-section" : ""}><section aria-labelledby={`${id}-heading`}>
     <div className="mb-4 flex flex-wrap items-end justify-between gap-x-4 gap-y-1 sm:mb-6"><div><p className="eyebrow">{eyebrow}</p><h2 id={`${id}-heading`} className="mt-1 text-xl font-bold tracking-tight sm:text-3xl">{title}</h2></div><Link href={href} className="inline-flex min-h-11 shrink-0 items-center gap-1 text-xs font-semibold text-velocity sm:text-sm">{linkLabel}<ArrowUpRight className="h-4 w-4" aria-hidden="true" /></Link></div>
     {children}
   </section></Reveal>;

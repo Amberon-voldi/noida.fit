@@ -58,6 +58,13 @@ test("discovery is usable at mobile and desktop widths with a real backend",asyn
       const response=await page.goto(path);
       expect(response?.status()).toBe(200);
       await expect(page.locator("h1")).toBeVisible();
+      await expect(page.getByText("Demo directory.", {exact:true})).toHaveCount(0);
+      if (width < 768 && ["/discover?q=running", "/places", "/communities", "/events"].includes(path)) {
+        await expect(page.getByRole("navigation", {name:"Quick activity filters"})).toBeHidden();
+        const firstCard = page.locator(".directory-results article").first();
+        if (await firstCard.count()) expect((await firstCard.boundingBox())!.y).toBeLessThan(360);
+        expect((await page.locator(".directory-header").boundingBox())!.height).toBeLessThanOrEqual(64);
+      }
       const bottomNav = page.getByRole("navigation", {name:"Quick navigation"});
       if (width < 1024) {
         await expect(bottomNav).toBeVisible();
@@ -101,13 +108,14 @@ test("mobile filter sheet preserves search, submits filters, and respects reduce
   await page.keyboard.press("Tab");
   expect(await sheet.evaluate(node => node.contains(document.activeElement))).toBe(true);
   await sheet.getByRole("combobox", {name:"Activity",exact:true}).selectOption("running");
-  await sheet.getByRole("combobox", {name:"Cost",exact:true}).selectOption("free");
-  await sheet.getByRole("combobox", {name:"Date · events only",exact:true}).selectOption("weekend");
+  await sheet.getByRole("group", {name:"Cost",exact:true}).getByText("Free", {exact:true}).click();
+  await sheet.getByRole("group", {name:"Date · events only",exact:true}).getByText("Weekend", {exact:true}).click();
   await page.getByLabel("Sector / neighbourhood").fill("Sector 21A");
   await page.keyboard.press("Escape");
   await expect(filters).toBeFocused();
   await filters.click();
-  await expect(sheet.getByRole("combobox", {name:"Cost",exact:true})).toHaveValue("free");
+  await expect(sheet.getByRole("radio", {name:"Free",exact:true})).toBeChecked();
+  expect(await page.locator("form[role=search]").evaluate(node => new FormData(node as HTMLFormElement).getAll("price"))).toEqual(["free"]);
   await page.getByRole("button", {name:"Apply filters",exact:true}).click();
   await page.waitForURL(url => url.searchParams.get("price") === "free" && url.searchParams.get("date") === "weekend");
   const params = new URL(page.url()).searchParams;
@@ -138,6 +146,11 @@ test("mobile filter sheet preserves search, submits filters, and respects reduce
   await page.getByRole("button", {name:/^Filters/}).click();
   await expect(sheet).toBeVisible();
   expect(await sheet.locator(".filter-dialog-panel").evaluate(node => getComputedStyle(node).animationName)).toBe("none");
+  await page.setViewportSize({width:1440,height:900});
+  await sheet.getByRole("combobox", {name:"Cost",exact:true}).selectOption("paid");
+  expect(await page.locator("form[role=search]").evaluate(node => new FormData(node as HTMLFormElement).getAll("price"))).toEqual(["paid"]);
+  await page.setViewportSize({width:390,height:844});
+  await expect(sheet.getByRole("radio", {name:"Paid",exact:true})).toBeChecked();
 });
 
 test("signup → save/follow/RSVP → organizer check-in → private/public Fitness ID → logout",async({page})=>{

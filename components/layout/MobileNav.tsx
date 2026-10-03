@@ -47,7 +47,7 @@ export function MobileNav({ signedIn = false }: { signedIn?: boolean }) {
   return (
     <>
       <div className="flex items-center gap-1 lg:hidden">
-        <button ref={triggerRef} type="button" aria-label="Open navigation menu" aria-expanded={open} aria-controls="mobile-nav-panel" aria-haspopup="dialog" onClick={() => setOpen(true)} className="motion-press flex h-11 items-center justify-center gap-2 rounded-lg border border-border-subtle px-3 text-text-secondary hover:bg-surface-hover hover:text-white"><span className="text-xs font-semibold">More</span><Menu className="h-5 w-5" aria-hidden="true" /></button>
+        <button ref={triggerRef} type="button" aria-label="Open navigation menu" aria-expanded={open} aria-controls="mobile-nav-panel" aria-haspopup="dialog" onClick={() => setOpen(true)} className="mobile-menu-trigger motion-press flex h-11 items-center justify-center gap-2 rounded-lg border border-border-subtle px-3 text-text-secondary hover:bg-surface-hover hover:text-white"><span className="hidden text-xs font-semibold md:inline">More</span><Menu className="h-5 w-5" aria-hidden="true" /></button>
       </div>
       {mounted && createPortal(
         <>

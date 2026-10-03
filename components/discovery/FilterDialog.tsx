@@ -26,9 +26,9 @@ export function FilterDialog({ children, activeCount }: { children: ReactNode; a
 
   return (
     <>
-      <button ref={triggerRef} type="button" aria-haspopup="dialog" aria-expanded={open} aria-controls="directory-filters" onClick={() => setOpen(true)} className="button-secondary shrink-0 px-3 sm:px-4">
+      <button ref={triggerRef} type="button" aria-haspopup="dialog" aria-expanded={open} aria-controls="directory-filters" onClick={() => setOpen(true)} className="filter-trigger button-secondary shrink-0 px-3 sm:px-4" aria-label={activeCount > 0 ? `Filters (${activeCount} active)` : "Filters"}>
         <SlidersHorizontal className="h-4 w-4" aria-hidden="true" />
-        Filters{activeCount > 0 && <span className="flex h-5 min-w-5 items-center justify-center rounded bg-velocity px-1 text-[11px] text-slate-950">{activeCount}</span>}
+        <span className="hidden md:inline">Filters</span>{activeCount > 0 && <span aria-hidden="true" className="filter-count flex h-5 min-w-5 items-center justify-center rounded bg-velocity px-1 text-[11px] text-slate-950">{activeCount}</span>}
       </button>
       <dialog ref={dialogRef} id="directory-filters" aria-labelledby="filter-dialog-title" className="filter-dialog" onCancel={() => setOpen(false)} onClose={() => setOpen(false)} onClick={event => { if (event.target === event.currentTarget) setOpen(false); }}>
         <div className="filter-dialog-panel">

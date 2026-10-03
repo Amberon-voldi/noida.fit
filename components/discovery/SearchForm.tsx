@@ -45,8 +45,10 @@ export function SearchForm({
         <button
           type="submit"
           className="button-primary"
+          aria-label="Search"
         >
-          Search
+          <Search className="h-4 w-4 md:hidden" aria-hidden="true" />
+          <span className="hidden md:inline">Search</span>
         </button>
       </div>
     </form>

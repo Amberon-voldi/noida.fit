@@ -7,7 +7,7 @@ import { FollowButton } from "@/components/participation/FollowButton";
 import { SaveButton } from "@/components/participation/SaveButton";
 import { ShareButton } from "@/components/ui/ShareButton";
 import { Breadcrumb, StructuredData } from "@/components/discovery/DetailPrimitives";
-import { DemoNotice, ListingImage } from "@/components/discovery/ListingImage";
+import { ListingImage } from "@/components/discovery/ListingImage";
 import { eventIsUpcoming, eventTimestamp } from "@/components/discovery/filter";
 import { listingMetadata } from "@/components/discovery/metadata";
 import { CATEGORY_LABELS, SITE_CONFIG } from "@/lib/config";
@@ -34,9 +34,9 @@ export default async function CommunityPage({ params }: Props) {
     <div className="pb-16">
       {!community.demo && <StructuredData data={jsonLd} />}
       <Breadcrumb directory="Communities" href="/communities" title={community.name} />
-      <header className="border-b border-border-subtle px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
+      <header className="detail-header border-b border-border-subtle px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
         <div className="mx-auto max-w-7xl">
-          <div className="relative mb-8 aspect-[16/7] overflow-hidden rounded-2xl border border-border-subtle sm:aspect-[3/1]"><ListingImage src={community.bannerUrl} category={community.category} alt={community.name} hero sizes="(max-width: 1280px) 100vw, 1200px" /></div>
+          <div className="detail-cover relative mb-8 aspect-[16/7] overflow-hidden rounded-2xl border border-border-subtle sm:aspect-[3/1]"><ListingImage src={community.bannerUrl} category={community.category} alt={community.name} hero sizes="(max-width: 1280px) 100vw, 1200px" /></div>
           <div className="flex flex-wrap items-center gap-2">
             <Link href={activity ? `/activities/${activity.slug}` : `/communities?activity=${community.category}`} className="filter-chip text-velocity">{activity?.name ?? CATEGORY_LABELS[community.category]}</Link>
             {community.verified && !community.demo && <span className="rounded-md border border-indigo-400/40 px-2 py-1 text-xs font-semibold text-indigo-200">Verified community</span>}
@@ -46,7 +46,6 @@ export default async function CommunityPage({ params }: Props) {
           <p className="mt-3 max-w-2xl text-lg text-text-secondary">{community.tagline}</p>
           <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm text-text-secondary"><span>{community.baseLocation}</span><span>{community.meetingDays.join(" · ")}</span></div>
           <div className="mt-6 flex flex-wrap gap-2"><FollowButton communityId={community.id} /><SaveButton itemType="community" itemId={community.id} /><ShareButton title={community.name} text={community.tagline} /></div>
-          {community.demo && <DemoNotice detail className="mt-6" />}
         </div>
       </header>
       <div className="mx-auto grid max-w-7xl gap-10 px-4 py-10 sm:px-6 sm:py-14 lg:grid-cols-[minmax(0,1fr)_350px] lg:px-8">
