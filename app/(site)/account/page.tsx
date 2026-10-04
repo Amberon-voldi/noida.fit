@@ -79,13 +79,16 @@ export default async function AccountPage() {
 
   return (
     <div className="account-page mx-auto max-w-6xl px-4 pb-10 pt-5 sm:px-6 sm:pb-16 lg:px-8">
-      <header className="account-header">
+      <header className="account-header account-mvp-header">
         <div className="min-w-0">
-          <p className="eyebrow">MEMBER SPACE</p>
-          <h1 className="mt-2 text-3xl font-black tracking-tight text-white sm:text-4xl">Good to see you, {firstName}.</h1>
-          <p className="mt-2 max-w-xl text-sm leading-relaxed text-text-secondary sm:text-base">Your Fitness ID, plans, communities and verified progress — all in one place.</p>
+          <p className="account-kicker"><span className="account-live-dot" aria-hidden="true" />NOIDA.FIT <span aria-hidden="true">/</span> MEMBER SPACE</p>
+          <h1 className="mt-2 text-3xl font-black tracking-tight text-white sm:text-5xl">Your movement has a name, {firstName}.</h1>
+          <p className="mt-3 max-w-xl text-sm leading-relaxed text-text-secondary sm:text-base">Your Fitness ID is the thread between every run, ride, class and new connection.</p>
         </div>
-        {canOrganize && <Link href="/organizer" aria-label="Organizer tools" className="button-secondary account-organizer-link"><ShieldCheck className="h-4 w-4 text-velocity" aria-hidden="true" /><span className="account-organizer-label">Organizer tools</span><ArrowUpRight className="h-4 w-4" aria-hidden="true" /></Link>}
+        <div className="account-header-actions">
+          <span className="account-header-mark" aria-hidden="true"><strong>NF</strong><span>FITNESS<br />ID</span></span>
+          {canOrganize && <Link href="/organizer" aria-label="Organizer tools" className="button-secondary account-organizer-link"><ShieldCheck className="h-4 w-4 text-velocity" aria-hidden="true" /><span className="account-organizer-label">Organizer tools</span><ArrowUpRight className="h-4 w-4" aria-hidden="true" /></Link>}
+        </div>
       </header>
 
       <nav className="account-jump-nav" aria-label="Account sections">
@@ -98,15 +101,17 @@ export default async function AccountPage() {
 
       <section id="overview" className="account-overview-grid scroll-mt-28" aria-label="Account overview">
         <section className="account-panel account-id-panel" aria-labelledby="fitness-id-heading">
+          <div className="account-id-ambient" aria-hidden="true" />
           <div className="account-panel-topline"><div><p className="eyebrow">YOUR DIGITAL MEMBER CARD</p><h2 id="fitness-id-heading" className="mt-1 text-xl font-bold text-white">Your Fitness ID</h2></div><span className={`account-status ${profile.visibility === "public" ? "account-status-public" : "account-status-private"}`}>{profile.visibility === "public" ? "Public" : "Private"}</span></div>
-          <p className="mt-2 max-w-md text-sm leading-relaxed text-text-secondary">Your identity for showing up, sharing your profile and finding your people.</p>
-          <FitnessCard user={profile} className="account-fitness-card mt-5" />
-          {profile.visibility === "public" ? <div className="mt-4"><ProfileActions handle={profile.handle} name={profile.name} /><p className="mt-2 text-center text-xs"><Link href={`/@${profile.slug}`} className="text-velocity underline underline-offset-4">View public profile</Link></p></div>
-            : <p className="account-private-note mt-4"><ShieldCheck className="h-4 w-4 shrink-0 text-text-secondary" aria-hidden="true" />Only you can see this profile. Open <a href="#settings" className="text-white underline underline-offset-4">profile settings</a> to choose what to share.</p>}
+          <p className="relative mt-2 max-w-md text-sm leading-relaxed text-text-secondary">Your identity for showing up, sharing your profile and finding your people.</p>
+          <FitnessCard user={profile} className="account-fitness-card relative mt-5" />
+          <div className="account-card-utility"><span><span className="account-live-dot" aria-hidden="true" />{profile.visibility === "public" ? "Visible in the scene" : "Private until you say so"}</span><a href="#settings">Tune visibility <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" /></a></div>
+          {profile.visibility === "public" ? <div className="mt-3"><ProfileActions handle={profile.handle} name={profile.name} /><p className="mt-2 text-center text-xs"><Link href={`/@${profile.slug}`} className="text-velocity underline underline-offset-4">View public profile</Link></p></div>
+            : <p className="account-private-note mt-3"><ShieldCheck className="h-4 w-4 shrink-0 text-text-secondary" aria-hidden="true" />Only you can see this profile. Open <a href="#settings" className="text-white underline underline-offset-4">profile settings</a> to choose what to share.</p>}
         </section>
 
         <div className="account-overview-side">
-          <section className="account-panel account-activity-panel" aria-labelledby="activity-summary">
+          <section className="account-panel account-activity-panel account-signal-panel" aria-labelledby="activity-summary">
             <AccountSectionHeading headingId="activity-summary" eyebrow="AT A GLANCE" title="Your activity" description="Verified records only — RSVPs do not count as attendance." icon={CheckCircle2} />
             <div className="mt-5"><ActivitySummary stats={profile.stats} /></div>
             <p className="account-help-note mt-4">A streak is consecutive active weeks, Monday–Sunday in India. Last week’s streak stays while this week is in progress.</p>

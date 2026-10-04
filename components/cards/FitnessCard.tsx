@@ -36,11 +36,12 @@ export function FitnessCard({ user, className = "", showControls = true }: Fitne
         className="fitness-card motion-press block w-full rounded-2xl text-left focus-visible:outline-offset-4"
       >
         <span className="fitness-card-body relative grid min-h-64 w-full sm:aspect-[1.586/1]" style={{ transform: flipped ? "rotateY(180deg)" : "rotateY(0deg)" }}>
-          <span aria-hidden={flipped} className="fitness-card-face fitness-card-front col-start-1 row-start-1 flex min-w-0 flex-col justify-between gap-5 overflow-hidden rounded-2xl border border-border-strong p-4 sm:p-6">
+          <span aria-hidden={flipped} className="fitness-card-face fitness-card-front col-start-1 row-start-1 flex min-w-0 flex-col justify-between gap-4 overflow-hidden rounded-2xl border border-border-strong p-4 sm:p-6">
+            <span className="fitness-card-grid" aria-hidden="true" />
             <span className="fitness-card-glow" aria-hidden="true" />
             <span className="relative flex items-center justify-between gap-3">
               <span className="text-base font-black tracking-tight text-white sm:text-lg">NOIDA<span className="text-velocity">.FIT</span></span>
-              <span className="fitness-card-type">MEMBER PASS</span>
+              <span className="fitness-card-type"><span className="fitness-card-live-dot" />MEMBER PASS</span>
             </span>
             <span className="relative flex min-w-0 items-center gap-3 sm:gap-4">
               <span aria-hidden="true" className="fitness-card-avatar flex size-12 shrink-0 items-center justify-center rounded-full text-lg font-black sm:size-16 sm:text-2xl">{user.name.slice(0, 1).toUpperCase()}</span>
@@ -49,6 +50,7 @@ export function FitnessCard({ user, className = "", showControls = true }: Fitne
                 <span className="mt-1 block text-xl font-black leading-tight tracking-tight text-white sm:text-3xl">{user.name}</span>
                 <span className="mt-1 block font-mono text-[11px] text-text-secondary sm:text-xs">@{user.slug}</span>
               </span>
+              <span className="fitness-card-side-label" aria-hidden="true">MOVE<br />TOGETHER</span>
             </span>
             <span className="relative flex min-w-0 items-center gap-2 text-xs font-semibold text-text-secondary"><MapPin className="h-3.5 w-3.5 shrink-0 text-velocity" aria-hidden="true" /><span className="truncate">{user.city || "Noida & Greater Noida"}</span><span className="ml-auto shrink-0 text-[10px] uppercase tracking-wider text-text-muted">{isPublic ? "Shareable" : "Private"}</span></span>
             <span className="relative grid grid-cols-2 gap-4 border-t border-white/10 pt-3">
