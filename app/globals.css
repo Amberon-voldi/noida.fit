@@ -524,6 +524,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { border-color
 .fitness-card-live-dot { margin-right: 5px; vertical-align: 1px; }
 .fitness-card-side-label { margin-left: auto; color: color-mix(in srgb, var(--accent-velocity) 68%, transparent); font-family: var(--font-geist-mono), monospace; font-size: 8px; font-weight: 800; line-height: 1.35; letter-spacing: .14em; text-align: right; writing-mode: vertical-rl; transform: rotate(180deg); }
 @media (max-width: 639px) { .fitness-card-side-label { display: none; } }
+.fitness-card-logo { display: block; width: 112px; height: auto; max-width: 42%; object-fit: contain; object-position: left center; }
 .fitness-card-type { border: 1px solid rgba(255,255,255,.12); border-radius: 999px; padding: 6px 8px; color: var(--text-secondary); font-family: var(--font-geist-mono), monospace; font-size: 9px; font-weight: 700; letter-spacing: .12em; line-height: 1; }
 .fitness-card-avatar { border: 1px solid color-mix(in srgb, var(--accent-velocity) 55%, var(--border-strong)); color: var(--accent-velocity); background: color-mix(in srgb, var(--accent-velocity) 9%, var(--surface)); box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent-velocity) 5%, transparent); }
 .fitness-card-qr-wrap { padding: 7px; border-radius: 16px; background: white; box-shadow: 0 10px 30px rgba(0,0,0,.28); }
@@ -532,6 +533,12 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { border-color
 .fitness-card-private { padding: 20px 14px; border: 1px dashed var(--border-strong); border-radius: 14px; }
 .fitness-card-controls { display: flex; align-items: center; justify-content: center; gap: 4px; margin-top: 6px; }
 .fitness-card-hint { color: var(--text-muted); font-size: 11px; }
+.profile-actions { display: flex; min-height: 44px; flex-direction: column; align-items: center; justify-content: center; gap: 6px; margin-top: 10px; }
+.profile-share-button { display: inline-flex; height: 44px; width: 44px; align-items: center; justify-content: center; border: 1px solid var(--border-strong); border-radius: 50%; color: var(--text-secondary); background: var(--surface-elevated); }
+.profile-share-button:hover { border-color: var(--accent-velocity); color: var(--accent-velocity); background: color-mix(in srgb, var(--accent-velocity) 8%, var(--surface-elevated)); }
+.profile-share-status { min-height: 1.25em; color: var(--text-secondary); font-size: 11px; text-align: center; }
+.fitness-id-showcase, .account-id-panel { border: 0; background: transparent; padding: 0; }
+@media (max-width: 639px) { .fitness-card-logo { width: 96px; } }
 @media (max-width: 639px) {
   .fitness-card-body { min-height: 270px; }
   .fitness-card-front, .fitness-card-back { padding: 16px; }
