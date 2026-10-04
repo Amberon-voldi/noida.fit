@@ -6,6 +6,7 @@ import type { Community } from "../types/community";
 import type { Place } from "../types/place";
 import { eventIsUpcoming, eventTimestamp, filterDirectory, filterUrl, indiaDate, readFilters } from "../components/discovery/filter";
 import { listingMetadata } from "../components/discovery/metadata";
+import { formatDate } from "../lib/config";
 
 const NOW = new Date("2026-09-30T00:00:00+05:30");
 const event = (id: string, changes: Partial<Event> = {}): Event => ({ id, slug: id, title: "Sunrise run", category: "running", activityId: "a-running", communitySlug: "track-crew", communityName: "Track Crew", venueSlug: "stadium", venueName: "Noida Stadium", sector: "Sector 21A", date: "2026-09-30", startTime: "06:00 AM", endTime: "07:00 AM", price: "FREE", description: "An easy local gathering", featured: false, attendeesCount: 0, status: "published", ...changes });
@@ -175,6 +176,34 @@ test("timestamps normalize ISO offsets and 12/24-hour fallback times for sorting
   assert.equal(eventTimestamp(event("noon", { startTime: "12:00 PM" })), Date.parse("2026-09-30T12:00:00+05:30"));
   assert.equal(eventTimestamp(event("24-hour", { startTime: "18:30" })), Date.parse("2026-09-30T18:30:00+05:30"));
   assert.equal(eventTimestamp(event("overnight", { startTime: "11:00 PM", endTime: "01:00 AM" }), true), Date.parse("2026-10-01T01:00:00+05:30"));
+});
+
+test("reused date formatters preserve labels, invalid dates and changing IST days", () => {
+  for (const value of ["2026-09-30", "2026-12-31", "not-a-date", ""]) {
+    assert.equal(formatDate(value), new Date(`${value}T00:00:00+05:30`).toLocaleDateString("en-IN", { timeZone: "Asia/Kolkata", weekday: "short", month: "short", day: "numeric" }));
+  }
+  assert.equal(indiaDate(new Date("2026-09-30T18:29:59Z")), "2026-09-30");
+  assert.equal(indiaDate(new Date("2026-09-30T18:30:00Z")), "2026-10-01");
+});
+
+test("filter indexes are request-local and keep the first matching activity", () => {
+  const first = { id: "collision", slug: "first", name: "First Match", description: "", emoji: "" };
+  const second = { ...first, id: "second", slug: "collision", name: "Second Match" };
+  const data = { ...directory, activities: [first, second], events: [event("indexed", { activityId: "collision" })] };
+  assert.deepEqual(ids(filterDirectory(data, readFilters({ q: "first", type: "events" }), NOW).events), ["indexed"]);
+  assert.equal(filterDirectory(data, readFilters({ q: "second", type: "events" }), NOW).total, 0);
+  data.activities.reverse();
+  assert.deepEqual(ids(filterDirectory(data, readFilters({ q: "second", type: "events" }), NOW).events), ["indexed"]);
+});
+
+test("venue indexes retain past and unpublished event associations without leaking event results", () => {
+  const data = { ...directory, places: [place("stadium", { activities: [] })], events: [event("draft", { status: "draft", activityId: "a-yoga", category: "wellness" })] };
+  assert.equal(filterDirectory(data, readFilters({ activity: "yoga" }), NOW).places.length, 1);
+  assert.equal(filterDirectory(data, readFilters({ q: "yoga" }), NOW).places.length, 1);
+  assert.equal(filterDirectory(data, readFilters({}), NOW).events.length, 0);
+  data.events = [];
+  assert.equal(filterDirectory(data, readFilters({ activity: "yoga" }), NOW).places.length, 0);
+  assert.equal(filterDirectory(data, readFilters({ q: "near me" }), NOW).places.length, 1);
 });
 
 test("demo metadata is honest and excluded from indexing", () => {

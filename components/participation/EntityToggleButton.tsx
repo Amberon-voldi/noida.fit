@@ -5,9 +5,9 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { loginUrl, refreshParticipation, useParticipation } from "./useParticipation";
 
-interface Props { itemId: string; itemType: "event" | "place" | "community"; action: "saved" | "follow"; compact?: boolean }
+interface Props { itemId: string; itemType: "event" | "place" | "community"; action: "saved" | "follow"; compact?: boolean; refreshPage?: boolean }
 
-export function EntityToggleButton({ itemId, itemType, action, compact = false }: Props) {
+export function EntityToggleButton({ itemId, itemType, action, compact = false, refreshPage = false }: Props) {
   const router = useRouter();
   const state = useParticipation();
   const [pending, setPending] = useState(false);
@@ -31,7 +31,7 @@ export function EntityToggleButton({ itemId, itemType, action, compact = false }
       if (!response.ok) throw new Error(data.error || "Could not update. Please try again.");
       await refreshParticipation();
       setMessage(action === "saved" ? selected ? "Removed from saved" : "Saved to your account" : selected ? "Unfollowed community" : "Following community");
-      router.refresh();
+      if (refreshPage) router.refresh();
     } catch (reason) { setError(true); setMessage(reason instanceof Error ? reason.message : "Please try again."); }
     finally { setPending(false); }
   }

@@ -84,18 +84,29 @@ export function eventWindow(event: { startsAt: string; endsAt: string }) {
   return { start, end, opensAt: start - 30 * 60_000, closesAt: end + 60 * 60_000 };
 }
 
-/** Internal server DAL: callers must authenticate userId or explicitly enforce profile visibility. */
+export type ParticipationControls = Pick<AccountParticipation, "rsvps" | "savedItems" | "memberships">;
+
+/** Internal server DAL: callers must authenticate userId or explicitly enforce profile visibility.
+ * Buttons need current intent, not the member's entire attendance history. No persistent cache. */
+export async function getParticipationControls(userId: string): Promise<ParticipationControls> {
+  documentIdSchema.parse(userId);
+  const [rsvps, savedItems, memberships] = await Promise.all([
+    listAppwriteDocuments<Row<RSVP>>(collections.rsvps, [Query.equal("userId", userId), Query.select(["userId", "eventId", "status", "seatNumber", "createdAt"])]),
+    listAppwriteDocuments<Row<SavedItem>>(collections.savedItems, [Query.equal("userId", userId), Query.select(["userId", "itemId", "itemType", "createdAt"])]),
+    listAppwriteDocuments<Row<Membership>>(collections.memberships, [Query.equal("userId", userId), Query.select(["userId", "communityId", "status", "createdAt"])]),
+  ]);
+  return { rsvps: rsvps.map(rsvpDto), savedItems: savedItems.map(savedDto), memberships: memberships.map(membershipDto) };
+}
+
+/** Full account/history contract; all five collections still load concurrently. */
 export async function getAccountParticipation(userId: string): Promise<AccountParticipation> {
   documentIdSchema.parse(userId);
-  const queries = [Query.equal("userId", userId)];
-  const [rsvps, savedItems, memberships, participations, checkins] = await Promise.all([
-    listAppwriteDocuments<Row<RSVP>>(collections.rsvps, queries),
-    listAppwriteDocuments<Row<SavedItem>>(collections.savedItems, queries),
-    listAppwriteDocuments<Row<Membership>>(collections.memberships, queries),
-    listAppwriteDocuments<Row<Participation>>(collections.participations, queries),
-    listAppwriteDocuments<Row<CheckIn>>(collections.checkins, queries),
+  const [controls, participations, checkins] = await Promise.all([
+    getParticipationControls(userId),
+    listAppwriteDocuments<Row<Participation>>(collections.participations, [Query.equal("userId", userId), Query.select(["userId", "eventId", "activityId", "title", "occurredAt", "status", "source"])]),
+    listAppwriteDocuments<Row<CheckIn>>(collections.checkins, [Query.equal("userId", userId), Query.select(["userId", "eventId", "timestamp", "verificationMethod"])]),
   ]);
-  return { rsvps: rsvps.map(rsvpDto), savedItems: savedItems.map(savedDto), memberships: memberships.map(membershipDto), participations: participations.map(participationDto), checkins: checkins.map(checkinDto) };
+  return { ...controls, participations: participations.map(participationDto), checkins: checkins.map(checkinDto) };
 }
 
 async function createOnce<T extends object>(collection: string, id: string, data: T, userId: string): Promise<AppwriteDocument<T>> {

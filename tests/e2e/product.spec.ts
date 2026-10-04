@@ -197,7 +197,7 @@ test("signup → save/follow/RSVP → organizer check-in → private/public Fitn
       await expect(page.getByRole("navigation", {name:"Account sections"}).getByRole("link")).toHaveCount(5);
       expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
       await page.getByRole("link", {name:"Settings", exact:true}).click();
-      await expect(page.getByRole("heading", {name:"Profile settings", exact:true})).toBeVisible();
+      await expect(page.getByRole("heading", {name:/^Profile settings/})).toBeVisible();
       await expect(page.getByLabel("Display name", {exact:true})).toBeVisible();
     }
     await page.setViewportSize({width: 1280, height: 900});
@@ -220,7 +220,14 @@ test("signup → save/follow/RSVP → organizer check-in → private/public Fitn
       expect((await mutation(ctx,"/api/check-in",{token})).status()).toBe(200);
       expect((await mutation(ctx,"/api/participation/rsvp",{eventId:event.id},"DELETE")).status()).toBe(409);
     } finally {await second.context.dispose();await third.context.dispose();}
+    expect((await guest.get("/api/participation?view=controls")).status()).toBe(401);
+    const controlsResponse = await ctx.get("/api/participation?view=controls");
+    expect(controlsResponse.status()).toBe(200);
+    expect(controlsResponse.headers()["cache-control"]).toBe("private, no-store");
+    const controls = await controlsResponse.json();
+    expect(Object.keys(controls).sort()).toEqual(["memberships", "rsvps", "savedItems"]);
     const participation=await (await ctx.get("/api/participation")).json();
+    expect(controls).toEqual({ memberships: participation.memberships, rsvps: participation.rsvps, savedItems: participation.savedItems });
     expect(participation.rsvps.length).toBe(1);expect(participation.savedItems.length).toBe(3);expect(participation.memberships.length).toBe(1);expect(participation.checkins.length).toBe(1);expect(participation.participations.length).toBe(1);expect(participation.participations[0].status).toBe("verified");
     const settings=await mutation(ctx,"/api/profile",{visibility:"public",showActivity:true,showCommunities:true},"PATCH");expect(settings.status()).toBe(200);
     const publicResponse=await guest.get(`/api/profile/public?username=${username}`);expect(publicResponse.status()).toBe(200);

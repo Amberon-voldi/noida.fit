@@ -35,14 +35,17 @@ export const SITE_CONFIG = {
   instagram: "https://instagram.com/noida.fit",
 } as const;
 
+const listingDateFormatter = new Intl.DateTimeFormat("en-IN", {
+  timeZone: "Asia/Kolkata",
+  weekday: "short",
+  month: "short",
+  day: "numeric",
+});
+
 export function formatDate(dateStr: string): string {
   const date = new Date(`${dateStr}T00:00:00+05:30`);
-  return date.toLocaleDateString("en-IN", {
-    timeZone: "Asia/Kolkata",
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
+  // Match Date#toLocaleDateString's invalid-input result (Intl#format would throw).
+  return Number.isNaN(date.getTime()) ? "Invalid Date" : listingDateFormatter.format(date);
 }
 
 export function cn(...classes: (string | undefined | false | null)[]): string {

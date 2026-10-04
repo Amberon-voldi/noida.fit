@@ -1,5 +1,5 @@
 "use client";
 import { EntityToggleButton } from "./EntityToggleButton";
-export function SaveButton(props: {itemType: "event" | "place" | "community"; itemId: string; compact?: boolean}) {
+export function SaveButton(props: {itemType: "event" | "place" | "community"; itemId: string; compact?: boolean; refreshPage?: boolean}) {
   return <EntityToggleButton {...props} action="saved" />;
 }

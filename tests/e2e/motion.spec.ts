@@ -77,7 +77,15 @@ test("save confirmation only animates after success, and failed saves remain uns
   // Synthetic participation responses: this test never writes to Appwrite.
   const saved: { id: string; itemType: string; itemId: string; userId: string; createdAt: string }[] = [];
   let fail = true;
-  await page.route(url => url.pathname === "/api/participation", route => route.fulfill({ json: { rsvps: [], memberships: [], savedItems: saved } }));
+  let detailRscRequests = 0;
+  page.on("request", request => {
+    const headers = request.headers();
+    if (new URL(request.url()).pathname.startsWith("/place/") && headers.rsc === "1") detailRscRequests += 1;
+  });
+  await page.route(url => url.pathname === "/api/participation", route => {
+    expect(new URL(route.request().url()).searchParams.get("view")).toBe("controls");
+    return route.fulfill({ json: { rsvps: [], memberships: [], savedItems: saved } });
+  });
   await page.route("**/api/participation/saved", async route => {
     if (fail) {
       fail = false;
@@ -91,7 +99,9 @@ test("save confirmation only animates after success, and failed saves remain uns
   await page.goto("/places");
   await page.getByRole("link", { name: /^View / }).first().click();
   const button = page.getByRole("button", { name: "Save place", exact: true });
+  // Ignore navigation/prefetch requests needed to reach the detail page; only the mutation may follow.
   await expect(button).toBeEnabled();
+  detailRscRequests = 0;
   await button.click();
   await expect(page.getByRole("alert").filter({ hasText: "Test save unavailable" })).toBeVisible();
   await expect(button).toHaveAttribute("aria-pressed", "false");
@@ -100,4 +110,5 @@ test("save confirmation only animates after success, and failed saves remain uns
   const selected = page.getByRole("button", { name: "Saved place", exact: true });
   await expect(selected).toHaveAttribute("aria-pressed", "true");
   await expect(selected.locator('[data-selected="true"]')).toBeVisible();
+  expect(detailRscRequests).toBe(0);
 });

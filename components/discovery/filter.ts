@@ -40,8 +40,10 @@ export function filterUrl(path: string, filters: DirectoryFilters, changes: Part
   return `${path}${params.size ? `?${params.toString()}` : ""}`;
 }
 
+const indiaDateFormatter = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" });
+
 export function indiaDate(now = new Date()): string {
-  return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Kolkata", year: "numeric", month: "2-digit", day: "2-digit" }).format(now);
+  return indiaDateFormatter.format(now);
 }
 
 function hourOf(time: string): number {
@@ -79,10 +81,10 @@ const QUERY_SYNONYMS: Record<string, string> = {
 };
 const STOP_WORDS = new Set(["near", "me", "in", "the", "and", "for", "a", "at", "this", "club", "clubs", "group", "groups", "community", "communities", "event", "events", "session", "sessions"]);
 
-function queryMatches(query: string, fields: Array<string | undefined>): boolean {
-  const words = normalize(fields.filter(Boolean).join(" ")).split(" ");
-  const terms = normalize(query).split(" ").filter((word) => word && !STOP_WORDS.has(word));
-  return terms.every((term) => words.some((word) => word === term || (QUERY_SYNONYMS[word] ?? word) === (QUERY_SYNONYMS[term] ?? term)));
+function queryMatches(terms: string[], fields: Array<string | undefined>): boolean {
+  if (!terms.length) return true;
+  const words = new Set(normalize(fields.filter(Boolean).join(" ")).split(" ").map(word => QUERY_SYNONYMS[word] ?? word));
+  return terms.every(term => words.has(term));
 }
 
 /** Small, explicit intent vocabulary; dates always use Noida's timezone. */
@@ -102,9 +104,8 @@ function queryIntent(filters: DirectoryFilters): DirectoryFilters {
   };
 }
 
-function dateMatches(date: string, window: string, now: Date): boolean {
+function dateMatches(date: string, window: string, today: Date): boolean {
   if (!window) return true;
-  const today = new Date(`${indiaDate(now)}T00:00:00Z`);
   const target = Date.parse(`${date}T00:00:00Z`);
   if (window === "today") return target === today.getTime();
   if (window === "tomorrow") return target === today.getTime() + DAY;
@@ -134,31 +135,49 @@ const ACTIVITY_CATEGORIES: Record<string, string> = {
 
 export function filterDirectory(directory: Directory, input: DirectoryFilters, now = new Date()) {
   const filters = queryIntent(input);
-  const selected = directory.activities.find((item) => item.id === filters.activity || item.slug === filters.activity);
+  const terms = normalize(filters.q).split(" ").filter(word => word && !STOP_WORDS.has(word)).map(word => QUERY_SYNONYMS[word] ?? word);
+  let today: Date | undefined;
+  const matchesDate = (date: string) => !filters.date || dateMatches(date, filters.date, today ??= new Date(`${indiaDate(now)}T00:00:00Z`));
+  const sector = filters.sector ? ` ${normalize(filters.sector)} ` : "";
+  // Request-local indexes preserve first-match semantics, including ID/slug collisions.
+  const activities = new Map<string, Activity>();
+  for (const activity of directory.activities) {
+    if (!activities.has(activity.id)) activities.set(activity.id, activity);
+    if (!activities.has(activity.slug)) activities.set(activity.slug, activity);
+  }
+  const selected = activities.get(filters.activity);
   const activityMatch = (category?: string, activityId?: string) => !filters.activity || (selected ? matchesActivity(selected, category, activityId) : filters.activity === category);
-  const sectorMatch = (value: string) => !filters.sector || ` ${normalize(value)} `.includes(` ${normalize(filters.sector)} `);
+  const sectorMatch = (value: string) => !sector || ` ${normalize(value)} `.includes(sector);
   const show = (type: DirectoryType) => !filters.type || filters.type === type;
   const events = show("events") ? directory.events.filter((event) => {
-    const activityName = directory.activities.find((item) => item.id === event.activityId || item.slug === event.activityId)?.name;
+    const activityName = event.activityId ? activities.get(event.activityId)?.name : undefined;
     const hour = hourOf(event.startTime);
     const timeMatch = !filters.time || (filters.time === "morning" ? hour >= 5 && hour < 8.5 : filters.time === "evening" ? hour >= 17 && hour < 21.5 : (filters.time === "day" || filters.time === "daytime") && hour >= 8.5 && hour < 17);
-    return eventIsUpcoming(event, now) && activityMatch(event.category, event.activityId) && sectorMatch(event.sector) && dateMatches(event.date, filters.date, now) && timeMatch && priceMatches(event.price, filters.price) && queryMatches(filters.q, [event.title, event.description, activityName, event.category, event.communityName, event.venueName, event.sector, event.level, ...(event.tags ?? [])]);
+    return eventIsUpcoming(event, now) && activityMatch(event.category, event.activityId) && sectorMatch(event.sector) && matchesDate(event.date) && timeMatch && priceMatches(event.price, filters.price) && queryMatches(terms, [event.title, event.description, activityName, event.category, event.communityName, event.venueName, event.sector, event.level, ...(event.tags ?? [])]);
   }).sort((a, b) => (eventTimestamp(a) || 0) - (eventTimestamp(b) || 0)) : [];
   // Date/time apply only to scheduled events. A community has no assumed joining fee.
   const eventOnly = !!filters.date || !!filters.time;
   const communities = show("communities") && !eventOnly && !filters.price ? directory.communities.filter((community) => {
-    const activityName = directory.activities.find((item) => item.id === community.activityId || item.slug === community.activityId)?.name;
-    return activityMatch(community.category, community.activityId) && sectorMatch(community.baseLocation) && queryMatches(filters.q, [community.name, community.tagline, community.description, community.baseLocation, activityName, community.category, ...(community.tags ?? [])]);
+    const activityName = community.activityId ? activities.get(community.activityId)?.name : undefined;
+    return activityMatch(community.category, community.activityId) && sectorMatch(community.baseLocation) && queryMatches(terms, [community.name, community.tagline, community.description, community.baseLocation, activityName, community.category, ...(community.tags ?? [])]);
   }) : [];
+  const venueActivities = new Map<string, string[]>();
+  if (show("places") && !eventOnly && (filters.activity || terms.length)) {
+    for (const event of directory.events) {
+      const linked = venueActivities.get(event.venueSlug) ?? [];
+      linked.push(event.activityId ?? "", event.category);
+      venueActivities.set(event.venueSlug, linked);
+    }
+  }
   const places = show("places") && !eventOnly ? directory.places.filter((place) => {
-    const linkedActivities = directory.events.filter((event) => event.venueSlug === place.slug).flatMap((event) => [event.activityId ?? "", event.category]);
+    const linkedActivities = venueActivities.get(place.slug) ?? [];
     const placeActivities = [...(place.activities ?? []), ...linkedActivities].flatMap((value) => {
-      const activity = directory.activities.find((item) => item.id === value || item.slug === value);
+      const activity = activities.get(value);
       const slug = activity?.slug ?? value;
       return [value, slug, activity?.name ?? "", ACTIVITY_CATEGORIES[slug] ?? ""];
     });
     const activityMatches = !filters.activity || placeActivities.some((value) => value === filters.activity || value === selected?.id || value === selected?.slug);
-    return activityMatches && (!filters.category || place.category === filters.category) && sectorMatch(`${place.sector} ${place.address}`) && priceMatches(place.priceIndicator ?? "", filters.price) && queryMatches(filters.q, [place.name, place.category, place.description, place.address, place.sector, ...placeActivities, ...place.amenities]);
+    return activityMatches && (!filters.category || place.category === filters.category) && sectorMatch(`${place.sector} ${place.address}`) && priceMatches(place.priceIndicator ?? "", filters.price) && queryMatches(terms, [place.name, place.category, place.description, place.address, place.sector, ...placeActivities, ...place.amenities]);
   }) : [];
   return { events, communities, places, total: events.length + communities.length + places.length };
 }

@@ -35,14 +35,14 @@ function subscribe(listener: () => void) {
 export function refreshParticipation(): Promise<void> {
   if (request) return request;
   const current = generation;
-  request = fetch("/api/participation", { credentials: "same-origin", cache: "no-store" })
+  request = fetch("/api/participation?view=controls", { credentials: "same-origin", cache: "no-store" })
     .then(async response => {
       if (current !== generation) return;
       if (response.status === 401) { emit({ ...empty, loaded: true, observedAt: Date.now() }); return; }
       if (!response.ok) throw new Error("Your saved items couldn't be loaded. Try again.");
       const data = await response.json() as Pick<ParticipationSnapshot, "rsvps" | "savedItems" | "memberships">;
       if (current !== generation) return;
-      emit({ ...data, authenticated: true, loaded: true, observedAt: Date.now(), error: null });
+      emit({ rsvps: data.rsvps, savedItems: data.savedItems, memberships: data.memberships, authenticated: true, loaded: true, observedAt: Date.now(), error: null });
     })
     .catch(() => { if (current === generation) emit({ ...empty, loaded: true, observedAt: Date.now(), error: "Account status is temporarily unavailable. Try again." }); })
     .finally(() => { if (current === generation) request = null; });
