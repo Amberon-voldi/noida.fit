@@ -191,7 +191,7 @@ test("signup → save/follow/RSVP → organizer check-in → private/public Fitn
     for (const width of [1440, 390]) {
       await page.setViewportSize({width, height: 900});
       await page.goto("/account");
-      await expect(page.getByRole("heading", {name:"Fitness ID", exact:true})).toBeVisible();
+      await expect(page.getByRole("heading", {name:/Fitness ID/}).first()).toBeVisible();
       await expect(page.getByRole("heading", {name:"Your plans", exact:true})).toBeVisible();
       await expect(page.getByRole("heading", {name:"Account & privacy", exact:true})).toBeVisible();
       await expect(page.getByRole("navigation", {name:"Account sections"}).getByRole("link")).toHaveCount(5);

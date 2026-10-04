@@ -98,8 +98,8 @@ export default async function AccountPage() {
 
       <section id="overview" className="account-overview-grid scroll-mt-28" aria-label="Account overview">
         <section className="account-panel account-id-panel" aria-labelledby="fitness-id-heading">
-          <div className="account-panel-topline"><div><p className="eyebrow">YOUR ID</p><h2 id="fitness-id-heading" className="mt-1 text-xl font-bold text-white">Fitness ID</h2></div><span className={`account-status ${profile.visibility === "public" ? "account-status-public" : "account-status-private"}`}>{profile.visibility === "public" ? "Public" : "Private"}</span></div>
-          <p className="mt-2 max-w-md text-sm leading-relaxed text-text-secondary">Your shareable identity for the local fitness scene.</p>
+          <div className="account-panel-topline"><div><p className="eyebrow">YOUR DIGITAL MEMBER CARD</p><h2 id="fitness-id-heading" className="mt-1 text-xl font-bold text-white">Your Fitness ID</h2></div><span className={`account-status ${profile.visibility === "public" ? "account-status-public" : "account-status-private"}`}>{profile.visibility === "public" ? "Public" : "Private"}</span></div>
+          <p className="mt-2 max-w-md text-sm leading-relaxed text-text-secondary">Your identity for showing up, sharing your profile and finding your people.</p>
           <FitnessCard user={profile} className="account-fitness-card mt-5" />
           {profile.visibility === "public" ? <div className="mt-4"><ProfileActions handle={profile.handle} name={profile.name} /><p className="mt-2 text-center text-xs"><Link href={`/@${profile.slug}`} className="text-velocity underline underline-offset-4">View public profile</Link></p></div>
             : <p className="account-private-note mt-4"><ShieldCheck className="h-4 w-4 shrink-0 text-text-secondary" aria-hidden="true" />Only you can see this profile. Open <a href="#settings" className="text-white underline underline-offset-4">profile settings</a> to choose what to share.</p>}
