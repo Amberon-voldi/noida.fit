@@ -44,6 +44,12 @@ yarn-error.log*
 # Local CLI target is configured from the environment, not checked-in project IDs.
 /appwrite.config.json
 
+# Cloudflare / OpenNext generated output and local secrets
+.open-next/
+.wrangler/
+.dev.vars*
+cloudflare-env.d.ts
+
 # vercel
 .vercel
 

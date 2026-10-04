@@ -16,5 +16,8 @@ function inspect(directory:string) {
     scanned++;
   }
 }
-try {inspect(".next/static");inspect("public");console.log(`PASS browser artifact secret scan: ${scanned} files checked; no secret values printed.`);}
+try {
+  for (const directory of [".next/static", "public", ...process.argv.slice(2)]) inspect(directory);
+  console.log(`PASS browser artifact secret scan: ${scanned} files checked; no secret values printed.`);
+}
 catch(error){console.error(error instanceof Error?error.message:"Secret scan failed");process.exitCode=1;}

@@ -104,6 +104,38 @@ npm run test:e2e
 
 These tests create randomly named test accounts and two temporary events, exercise signup/session restoration, saving/following, concurrent RSVP capacity, organizer check-in, privacy, QR-card interaction and logout, then delete only their own fixtures. Traces/video/screenshots are disabled for auth tests to avoid retaining credentials. Run against a development/staging project, not a live public event database.
 
+## Cloudflare Workers deployment (OpenNext)
+
+This is a server-rendered application, not a static Pages export. The repository includes a pinned OpenNext adapter and `wrangler.jsonc` for Worker **`noida-fit`**.
+
+Set these in **Workers & Pages → noida-fit → Settings → Build**:
+
+| Setting | Value |
+| --- | --- |
+| Build command | `npm run cloudflare:build` |
+| Deploy command | `npm run cloudflare:deploy` |
+| Root directory | Repository root |
+
+The build command runs the normal Next.js build and security scan, packages `.open-next/worker.js`, then scans `.open-next/assets`. The deploy command deploys that existing bundle; it does not build again. Do not run `migrate` inside CI or deploy `.next` as static files. Standard `npm run build` remains available for Node/Netlify deployments.
+
+- **Build variables:** configure the `NEXT_PUBLIC_*` values from `wrangler.jsonc` in Cloudflare's **Build variables and secrets** as well. Next.js can inline them at build time; runtime Worker variables alone are not sufficient. Rebuild after changing them.
+- **Runtime secrets:** set `APPWRITE_KEY` and the persistent `APPWRITE_CHECKIN_SECRET` under the Worker's **Variables and Secrets** as secrets. Never put their values in Wrangler `vars`, source control or `NEXT_PUBLIC_*` settings. `.dev.vars*` is ignored and is for local preview only; it does not provision production secrets.
+- `keep_vars: true` retains additional dashboard-managed runtime variables. The public identifiers in `wrangler.jsonc` are not credentials. Keep `NEXT_PUBLIC_SITE_URL` aligned with the HTTPS origin visitors use.
+- `workers_dev` and `preview_urls` remain disabled, matching the existing Worker. Keep the intended custom domain/route configured in Cloudflare; this change does not provision or move DNS.
+- SSR reads are live, with no ISR/on-demand revalidation. No R2 cache or self-service binding is needed. If revalidation is introduced later, explicitly provision its storage/queue; any `WORKER_SELF_REFERENCE` service must match the Worker name **`noida-fit`**, not `noidafit`.
+- OpenNext currently warns that Node.js proxy/middleware support is experimental. A successful bundle/dry-run does not prove hosted login, redirects, or Appwrite connectivity. Verify those after deployment.
+
+Local packaging checks (no deployment):
+
+```sh
+npm run cloudflare:build
+npx wrangler deploy --dry-run
+# Optional local Workers-runtime preview; requires appropriate local configuration:
+npm run cloudflare:preview
+```
+
+References: [OpenNext setup](https://opennext.js.org/cloudflare/get-started), [cache requirements](https://opennext.js.org/cloudflare/caching).
+
 ## Honest integration boundaries
 
 - **Strava:** provider registration exists, but OAuth is not enabled without official application credentials and callback setup.
