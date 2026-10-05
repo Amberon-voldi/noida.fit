@@ -22,7 +22,7 @@ test.beforeAll(async () => {
       window.routerCalls = {refresh: 0, destinations: []};
       const router = { back() {}, forward() {}, prefetch() {}, refresh() { window.routerCalls.refresh++; },
         push(href) { window.routerCalls.destinations.push(href); }, replace(href) { window.routerCalls.destinations.push(href); } };
-      window.renderAccount = props => root.render(React.createElement(AppRouterContext.Provider, {value: router}, React.createElement(AccountWorkspace, props)));
+      window.renderAccount = props => root.render(props ? React.createElement(AppRouterContext.Provider, {value: router}, React.createElement(AccountWorkspace, props)) : null);
     ` },
     bundle: true, write: false, outfile: "account-workspace-fixture.js", platform: "browser", format: "iife",
     define: { "process.env": "{}", "process.env.NODE_ENV": '"production"', "process.env.NEXT_PUBLIC_SITE_URL": '"https://noida.fit"' },
@@ -79,8 +79,17 @@ for (const width of [320, 390, 768, 1440]) {
     await expect(next.getByRole("link", { name: "Open event", exact: true })).toHaveAttribute("href", "/event/earliest");
     await expect(next).toContainText("Synthetic Stadium Gate");
     await expect(next).toContainText("Confirmed RSVP");
+    if (process.env.E2E_SYNTHETIC_SCREENSHOTS) await page.screenshot({ path: `/tmp/noidafit-member-space-banner-${width}.png`, fullPage: true });
+    const banner = page.getByRole("button", { name: /Open Fitness ID for/ });
+    await banner.click();
+    const dialog = page.getByRole("dialog", { name: "Fitness ID", exact: true });
+    await expect(dialog).toBeVisible();
     await expect(page.getByRole("button", { name: "Share public profile", exact: true })).toBeVisible();
-    if (process.env.E2E_SYNTHETIC_SCREENSHOTS) await page.screenshot({ path: `/tmp/noidafit-member-space-${width}.png`, fullPage: true });
+    await expect.poll(() => page.locator(".identity-dialog-surface").evaluate(node => node.getAnimations().length)).toBe(0);
+    if (process.env.E2E_SYNTHETIC_SCREENSHOTS) await page.screenshot({ path: `/tmp/noidafit-member-space-foreground-${width}.png` });
+    await page.keyboard.press("Escape");
+    await expect(dialog).toBeHidden();
+    await expect(banner).toBeFocused();
     await expect(page.locator(".member-id")).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
     const idBox = (await page.locator(".member-id").boundingBox())!;
     const nextBox = (await next.boundingBox())!;
@@ -96,13 +105,95 @@ for (const width of [320, 390, 768, 1440]) {
     await expect(page.locator('.participation-passport-history .passport-entry[data-status="connected"]')).toContainText("Connected service");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await render(page, { ...props, profile: { ...props.profile, visibility: "private" }, settings: { ...props.settings, visibility: "private" } });
+    await expect(page.getByRole("link", { name: /^Preview public profile/ })).toHaveCount(0);
+    await banner.click();
     await expect(page.getByRole("button", { name: "Share public profile", exact: true })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Card details", exact: true })).toBeVisible();
-    await expect(page.getByRole("link", { name: /^Preview public profile/ })).toHaveCount(0);
     await expect(page.locator(".fitness-card-qr-wrap svg")).toHaveCount(0);
+    await page.keyboard.press("Escape");
+    await expect(dialog).toBeHidden();
     expect(errors).toEqual([]);
   });
 }
+
+test("Banner lifts into the foreground, traps focus, flips, and returns without layout shifts", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.addInitScript(() => {
+    const records: { frames: unknown; duration: number }[] = [];
+    Object.assign(window, { identityMotion: records });
+    const animate = Element.prototype.animate;
+    Element.prototype.animate = function (frames, options) {
+      if (this.classList.contains("identity-dialog-surface") && typeof options === "object") records.push({ frames, duration: Number(options.duration) });
+      return animate.call(this, frames, options);
+    };
+  });
+  await mount(page);
+  const banner = page.getByRole("button", { name: /Open Fitness ID for/ });
+  const dialog = page.getByRole("dialog", { name: "Fitness ID", exact: true });
+  const before = await page.locator(".member-next").boundingBox();
+  await expect(page.getByRole("button", { name: "Show profile QR", exact: true })).toHaveCount(0);
+  await expect(banner).toHaveAttribute("aria-expanded", "false");
+  await banner.focus();
+  await page.keyboard.press("Enter");
+  await expect(dialog).toBeVisible();
+  await expect(banner).toHaveAttribute("aria-expanded", "true");
+  expect(await page.evaluate(() => document.body.style.overflow)).toBe("hidden");
+  await expect.poll(() => page.evaluate(() => (window as unknown as { identityMotion: unknown[] }).identityMotion.length)).toBe(1);
+  const motion = await page.evaluate(() => (window as unknown as { identityMotion: { duration: number; frames: { transform: string }[] }[] }).identityMotion);
+  expect(motion[0].duration).toBeLessThanOrEqual(400);
+  expect(motion[0].frames[0].transform).toMatch(/translate\(.+scale\(/);
+  expect(motion[0].frames[1].transform).toBe("translate(0, 0) scale(1)");
+  await expect.poll(() => page.locator(".identity-dialog-surface").evaluate(node => node.getAnimations().length)).toBe(0);
+  await page.getByRole("button", { name: "Show profile QR", exact: true }).click();
+  await expect(page.getByRole("img", { name: "Public profile QR code for @synthetic-member" })).toBeVisible();
+  await expect.poll(() => page.locator(".fitness-card-back").evaluate(node => {
+    const composed = new DOMMatrix(getComputedStyle(node.parentElement!).transform).multiply(new DOMMatrix(getComputedStyle(node).transform));
+    return Math.abs(composed.m11 - 1) + Math.abs(composed.m33 - 1);
+  })).toBeLessThan(.001);
+  for (let i = 0; i < 8; i++) {
+    await page.keyboard.press("Tab");
+    expect(await page.evaluate(() => document.querySelector("dialog")?.contains(document.activeElement))).toBe(true);
+  }
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await expect(banner).toBeFocused();
+  expect(await page.evaluate(() => document.body.style.overflow)).not.toBe("hidden");
+  expect(await page.locator(".member-next").boundingBox()).toEqual(before);
+  // Returning from the back resets to the front on the next reveal.
+  await banner.click();
+  await expect(page.getByRole("button", { name: "Show profile QR", exact: true })).toHaveAttribute("aria-pressed", "false");
+  await page.getByRole("button", { name: "Return Fitness ID to banner" }).click();
+  await expect(dialog).toBeHidden();
+  await expect(banner).toBeFocused();
+  await banner.click();
+  await dialog.click({ position: { x: 4, y: 4 } });
+  await expect(dialog).toBeHidden();
+  await expect(banner).toBeFocused();
+  const footerTrigger = page.getByRole("button", { name: "View Fitness ID", exact: true });
+  await footerTrigger.click();
+  await expect(dialog).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await expect(footerTrigger).toBeFocused();
+});
+
+test("Reduced motion skips banner travel; closing and unmounting restore scrolling", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 640 });
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await mount(page);
+  await page.getByRole("button", { name: /Open Fitness ID for/ }).click();
+  const dialog = page.getByRole("dialog", { name: "Fitness ID", exact: true });
+  await expect(dialog).toBeVisible();
+  expect(await page.locator(".identity-dialog-surface").evaluate(node => node.getAnimations().length)).toBe(0);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await page.getByRole("button", { name: /Open Fitness ID for/ }).click();
+  await expect(dialog).toBeVisible();
+  await page.evaluate(() => (window as unknown as { renderAccount: (props: null) => void }).renderAccount(null));
+  await expect(page.locator("dialog[open]")).toHaveCount(0);
+  expect(await page.evaluate(() => document.body.style.overflow)).not.toBe("hidden");
+});
 
 test("Empty account keeps discovery and all settings reachable without fake attendance", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 900 });
@@ -171,6 +262,7 @@ test("Long member and event names reflow on a phone with enlarged text", async (
   props.profile.name = "Synthetic Member With A Very Long Name";
   props.events[1].title = "Synthetic session with a very long name that still needs to remain readable";
   await mount(page, props);
+  await page.getByRole("button", { name: /Open Fitness ID for/ }).click();
   await page.addStyleTag({ content: "html { font-size: 200%; }" });
   await expect(page.locator(".fitness-card-name")).toHaveText(props.profile.name);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

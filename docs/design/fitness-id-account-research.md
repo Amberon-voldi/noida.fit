@@ -193,3 +193,11 @@ The subsequent requested UI enhancement applies the following parts of this rese
 No new badges, public attendance history, wallet integration or reward system was introduced. Authorization and persistence remain in the existing server flows. The route loads private account data; `AccountWorkspace` is its server-rendered presentation, not a client-side account store.
 
 Regression coverage includes synthetic account/card/share browser fixtures, India-date and account-record unit tests, and standard project checks. Real-device QR scanning, native share-sheet behavior and participant usability studies remain separate manual validation. The implementation does not establish a measured UX or engagement improvement.
+
+## 10. Subsequent reference-led direction
+
+The user subsequently requested a layered profile inspired by their supplied image: a banner behind an overlapping avatar and compact profile details, with the banner acting as the Fitness ID launcher. This replaces the always-visible ID presentation from section 9, rather than claiming that research selected the user's preferred visual style.
+
+`MemberIdentity` now composes that profile on account, own-ID and public-profile pages. Activating the banner lifts the flippable ID into a foreground native dialog using a measured origin-to-destination transform (380ms). Closing returns it toward the banner (260ms), restores focus and scrolling, and resets the next opening to the front. Reduced motion skips the travel; Escape, close-button and backdrop dismissal remain available. The foreground has no redundant panel around the card. Artwork is original CSS using the app's accents; the reference image is not shipped as an asset.
+
+Only browser-safe profile fields enter the interactive presentation. Public/private QR rules, sharing fallbacks, owner-only settings links and the private participation passport remain unchanged. Synthetic browser checks cover opening, upright flipping, closing, focus containment/return, unchanged account layout, repeated cycles, short mobile screens and unmount cleanup.

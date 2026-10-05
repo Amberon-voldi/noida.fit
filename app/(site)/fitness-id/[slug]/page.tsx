@@ -3,9 +3,8 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { getPublicProfileByUsername } from "@/lib/appwrite/profiles";
 import { getCommunities } from "@/lib/data";
-import { FitnessCard } from "@/components/cards/FitnessCard";
 import { ActivitySummary } from "@/components/profile/ActivitySummary";
-import { ProfileActions } from "@/components/profile/ProfileActions";
+import { MemberIdentity } from "@/components/profile/MemberIdentity";
 import { getProfileUrl } from "@/components/profile/links";
 import { ArrowUpRight, Globe2, MapPin } from "lucide-react";
 
@@ -34,7 +33,7 @@ export default async function PublicProfilePage({ params }: Props) {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c") }} />
       <header className="fitness-id-hero public-fitness-id-hero"><div><p className="eyebrow">MEET THE COMMUNITY</p><h1 className="mt-2 break-words text-3xl font-black tracking-tight text-white sm:text-4xl">{profile.name}’s Fitness ID</h1><p className="mt-3 flex flex-wrap items-center gap-2 text-sm text-text-secondary"><span className="font-mono text-velocity">@{profile.slug}</span><span aria-hidden="true">·</span><MapPin className="h-3.5 w-3.5" aria-hidden="true" />{profile.city}</p></div><span className="fitness-id-public-label"><Globe2 size={14} aria-hidden="true" />Public profile</span></header>
       <div className="fitness-id-layout">
-        <section className="fitness-id-showcase" aria-label="Public member card"><FitnessCard user={profile} actions={<ProfileActions handle={profile.handle} name={profile.name} />} /></section>
+        <section className="fitness-id-showcase" aria-label="Public member card"><MemberIdentity profile={profile} /></section>
         <aside className="fitness-id-context public-fitness-id-summary"><p className="eyebrow">A LITTLE ABOUT THEM</p><h2>Part of a city<br />that moves.</h2>{profile.bio ? <p className="whitespace-pre-wrap break-words">{profile.bio}</p> : <p>A member of Noida’s local fitness community.</p>}<Link href="/discover" className="button-secondary mt-5">Find your next session<ArrowUpRight className="h-4 w-4" aria-hidden="true" /></Link><p className="fitness-id-context-note">This QR opens their profile, not an event ticket or check-in.</p></aside>
       </div>
       {hasSharedStats && <section className="fitness-id-totals" aria-label="Shared participation totals"><div><p className="eyebrow">ON THEIR TERMS</p><h2 className="mt-1 text-xl font-bold text-white">What they’ve shared</h2></div><ActivitySummary stats={profile.stats} /></section>}

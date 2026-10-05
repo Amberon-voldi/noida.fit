@@ -203,7 +203,7 @@ test("signup → save/follow/RSVP → organizer check-in → private/public Fitn
     await page.setViewportSize({width: 1280, height: 900});
     await page.goto("/account");
     await expect(page.getByText("Verification session — temporary test").first()).toBeVisible();
-    await page.getByRole("button",{name:"Card details",exact:true}).click();
+    await page.getByRole("button",{name:/Open Fitness ID for/}).click();await page.getByRole("button",{name:"Card details",exact:true}).click();
     await expect(page.getByText("Your profile is private",{exact:true})).toBeVisible();
     const second=await testAccount();const third=await testAccount();
     try {
@@ -234,7 +234,7 @@ test("signup → save/follow/RSVP → organizer check-in → private/public Fitn
     const publicBody=await publicResponse.text();expect(publicBody.includes(email)).toBe(false);expect(publicBody.includes(user.$id)).toBe(false);expect(publicBody.includes("password")).toBe(false);
     const profile=JSON.parse(publicBody).profile;expect(profile.activity.verifiedActivities).toBe(1);expect(profile.activity.eventsAttended).toBe(1);
     await page.goto(`/@${username}`);await expect(page.locator("h1")).toBeVisible();
-    await page.getByRole("button",{name:"Show profile QR",exact:true}).click();
+    await page.getByRole("button",{name:/Open Fitness ID for/}).click();await page.getByRole("button",{name:"Show profile QR",exact:true}).click();
     await expect(page.getByRole("img",{name:`Public profile QR code for @${username}`})).toBeVisible();
     // Owner reads allowed, guest/owner writes denied at the Appwrite layer too.
     const ownerDb=new Databases(new Client().setEndpoint(config.endpoint).setProject(config.projectId).setSession(cookie!.value));

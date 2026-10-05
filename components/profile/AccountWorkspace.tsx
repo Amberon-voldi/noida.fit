@@ -1,13 +1,12 @@
 import Link from "next/link";
-import { ArrowUpRight, Bookmark, CalendarDays, Clock3, Footprints, Globe2, Link2, LockKeyhole, Mail, MapPin, Settings2, ShieldCheck, UsersRound } from "lucide-react";
+import { ArrowUpRight, Bookmark, CalendarDays, Clock3, Footprints, Link2, LockKeyhole, Mail, MapPin, Settings2, ShieldCheck, UsersRound } from "lucide-react";
 import type { FitnessProfile, ProfileSettings } from "@/types/user";
 import type { Event } from "@/types/event";
 import type { Community } from "@/types/community";
 import type { Place } from "@/types/place";
 import type { AccountParticipation } from "@/lib/participation";
-import { FitnessCard } from "@/components/cards/FitnessCard";
 import { ActivitySummary } from "./ActivitySummary";
-import { ProfileActions } from "./ProfileActions";
+import { MemberIdentity } from "./MemberIdentity";
 import { SettingsForm } from "./SettingsForm";
 import { MobileAccountSection } from "./MobileAccountSection";
 import { ParticipationPassport } from "./ParticipationPassport";
@@ -59,12 +58,9 @@ export function AccountWorkspace({ profile, settings, email, canOrganize, partic
     <section id="overview" className="member-overview" aria-label="Account overview">
       <section className="member-id" aria-labelledby="fitness-id-heading">
         <div className="member-section-label"><h2 id="fitness-id-heading">Your Fitness ID</h2><span className="member-edition" aria-hidden="true">NOIDA / FIT</span></div>
-        <FitnessCard user={profile} actions={isPublic ? <ProfileActions handle={profile.handle} name={profile.name} /> : undefined} />
-        <div className="member-id-privacy">
-          <span>{isPublic ? <Globe2 size={13} aria-hidden="true" /> : <LockKeyhole size={13} aria-hidden="true" />}{isPublic ? "Public profile" : "Private · only you"}</span>
-          <a href="#settings">Profile visibility<ArrowUpRight size={13} aria-hidden="true" /></a>
-          {isPublic && <Link href={`/@${profile.slug}`}>Preview public profile<ArrowUpRight size={13} aria-hidden="true" /></Link>}
-        </div>
+        <MemberIdentity profile={profile}>
+          <div className="identity-owner-links"><a href="#settings">Profile visibility<ArrowUpRight size={13} aria-hidden="true" /></a>{isPublic && <Link href={`/@${profile.slug}`}>Preview public profile<ArrowUpRight size={13} aria-hidden="true" /></Link>}</div>
+        </MemberIdentity>
       </section>
 
       <section className="member-next" aria-labelledby="next-plan-heading">

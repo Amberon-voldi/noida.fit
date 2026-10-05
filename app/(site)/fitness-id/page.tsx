@@ -1,13 +1,12 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { ArrowUpRight, Globe2, LockKeyhole } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import { getCurrentAppwriteUser } from "@/lib/appwrite/server";
 import { ensureProfileForUser, toFitnessProfile } from "@/lib/appwrite/profiles";
 import { getAccountParticipation } from "@/lib/participation";
-import { FitnessCard } from "@/components/cards/FitnessCard";
 import { ActivitySummary } from "@/components/profile/ActivitySummary";
-import { ProfileActions } from "@/components/profile/ProfileActions";
+import { MemberIdentity } from "@/components/profile/MemberIdentity";
 
 export const metadata: Metadata = { title: "My Fitness ID — NOIDA.FIT", robots: { index: false, follow: false } };
 
@@ -22,8 +21,9 @@ export default async function MyFitnessIdPage() {
     <header className="fitness-id-hero"><div><p className="eyebrow">NOIDA.FIT / MEMBER ID</p><h1 className="mt-2 text-3xl font-black tracking-tight text-white sm:text-4xl">Your Fitness ID</h1><p className="mt-3 text-sm text-text-secondary">A small introduction to a city that moves.</p></div><Link href="/account" className="fitness-id-owner-link">Back to account<ArrowUpRight size={14} aria-hidden="true" /></Link></header>
     <div className="fitness-id-layout">
       <section className="fitness-id-showcase" aria-label="Your member card">
-        <FitnessCard user={profile} actions={isPublic ? <ProfileActions handle={profile.handle} name={profile.name} /> : undefined} />
-        <div className="fitness-id-owner-actions"><span>{isPublic ? <Globe2 size={13} aria-hidden="true" /> : <LockKeyhole size={13} aria-hidden="true" />}{isPublic ? "Public profile" : "Private · only you"}</span><Link href="/account#settings">Profile visibility<ArrowUpRight size={13} aria-hidden="true" /></Link>{isPublic && <Link href={`/@${profile.slug}`}>Preview public profile<ArrowUpRight size={13} aria-hidden="true" /></Link>}</div>
+        <MemberIdentity profile={profile}>
+          <div className="identity-owner-links"><Link href="/account#settings">Profile visibility<ArrowUpRight size={13} aria-hidden="true" /></Link>{isPublic && <Link href={`/@${profile.slug}`}>Preview public profile<ArrowUpRight size={13} aria-hidden="true" /></Link>}</div>
+        </MemberIdentity>
       </section>
       <aside className="fitness-id-context" aria-labelledby="fitness-id-context-heading">
         <p className="eyebrow">ON YOUR TERMS</p><h2 id="fitness-id-context-heading">Your introduction.<br />Your choice.</h2>
