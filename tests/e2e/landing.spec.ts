@@ -18,6 +18,12 @@ for (const width of [320, 390, 768, 1440]) {
     await expect(page.locator(".landing-activity-menu > a")).toHaveCount(6);
     await expect(page.locator(".landing-collection-item")).toHaveCount(2);
     await expect(page.locator(".landing-place-row")).toHaveCount(3);
+    await expect(page.locator(".landing-departure-action")).toHaveCount(3);
+    await expect(page.locator(".landing-organizers, .landing-finale, .landing-weekend")).toHaveCount(0);
+    for (const heading of await page.locator("h1, h2, h3").all()) {
+      const box = await heading.boundingBox();
+      if (box) expect(box.x + box.width).toBeLessThanOrEqual(width + 1);
+    }
     expect(await page.locator(".base-card").count()).toBeLessThanOrEqual(2);
     if (process.env.E2E_LANDING_SCREENSHOTS) await page.screenshot({ path: `/tmp/noidafit-landing-hero-${width}.png` });
     for (const control of [page.getByRole("link", { name: /Explore Noida fitness/i }), page.getByRole("button", { name: "Pause parallax motion" }), ...await page.getByRole("navigation", { name: "Quick plans" }).getByRole("link").all()]) {
@@ -28,7 +34,7 @@ for (const width of [320, 390, 768, 1440]) {
     await page.getByRole("link", { name: "Find your next move", exact: true }).click();
     await expect(page.locator("#week")).toBeInViewport();
     await expect(page.getByRole("heading", { name: "Your next seven days." })).toBeVisible();
-    for (const selector of ["#activities", ".landing-story", "#community", "#places", "#weekend", ".landing-finale"]) {
+    for (const selector of ["#activities", ".landing-story", "#community", "#places", "#departure", ".landing-departure"]) {
       await page.locator(selector).scrollIntoViewIfNeeded();
       await expect(page.locator(selector)).toBeInViewport();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -50,6 +56,10 @@ test("landing search and community actions lead to the real discovery routes", a
   await page.goto("/");
   await page.getByRole("link", { name: "Meet your people", exact: true }).click();
   await expect(page).toHaveURL(/\/communities$/);
+  await page.goto("/");
+  await page.locator(".landing-departure").scrollIntoViewIfNeeded();
+  await page.getByRole("link", { name: /Find a session/ }).click();
+  await expect(page).toHaveURL(/\/events$/);
 });
 
 for (const width of [390, 1440]) {
@@ -99,7 +109,7 @@ test("reduced-motion landing remains readable with enlarged text and keyboard na
   await expect(action).toBeFocused();
   await page.keyboard.press("Tab");
   await expect(page.getByRole("link", { name: "Find a community", exact: true }).first()).toBeFocused();
-  for (const selector of [".landing-hero", "#activities", ".landing-story", ".landing-finale"]) {
+  for (const selector of [".landing-hero", "#activities", ".landing-story", "#departure", ".landing-departure"]) {
     await page.locator(selector).scrollIntoViewIfNeeded();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   }

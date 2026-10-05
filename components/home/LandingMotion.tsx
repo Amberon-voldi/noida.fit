@@ -64,13 +64,13 @@ export function LandingMotion({ children }: LandingMotionProps) {
         if (target.contains(document.activeElement)) continue;
         const style = target.dataset.revealStyle;
         const start: Keyframe = style === "image" ? { opacity: .5, clipPath: "inset(18% 0 18% 0)", transform: "scale(.96)" }
-          : style === "line" ? { opacity: 0, transform: "translateY(105%) rotate(2deg)" }
+          : style === "line" ? { opacity: 0, transform: "translate3d(0, 108%, 0)" }
           : style === "left" ? { opacity: 0, transform: "translateX(-28px)" }
           : style === "right" ? { opacity: 0, transform: "translateX(28px)" }
           : { opacity: 0, transform: "translateY(28px) scale(.975)" };
         const end: Keyframe = { opacity: 1, transform: "none", ...(style === "image" ? { clipPath: "inset(0% 0 0% 0)" } : {}) };
         const delay = Math.max(0, Math.min(2, Number(target.dataset.revealOrder) || 0)) * 30;
-        const animation = target.animate([start, end], { duration: 340, delay, easing: "cubic-bezier(.16,1,.3,1)", fill: "backwards" });
+        const animation = target.animate([start, end], { duration: 300, delay, easing: "cubic-bezier(.25,1,.5,1)", fill: "backwards" });
         animation.id = "noidafit-landing-reveal";
         animations.set(target, animation);
         void animation.finished.then(() => animations.delete(target), () => animations.delete(target));
