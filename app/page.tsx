@@ -8,9 +8,7 @@ import { LandingMotion } from "@/components/home/LandingMotion";
 import { LandingHero } from "@/components/home/LandingHero";
 import { LandingActivities } from "@/components/home/LandingActivities";
 import { LandingStory } from "@/components/home/LandingStory";
-import { LandingPlaces } from "@/components/home/LandingCollection";
-import { LandingDeparture } from "@/components/home/LandingDeparture";
-import { LandingTrack } from "@/components/home/LandingGraphics";
+import { LandingPlayground } from "@/components/home/LandingPlayground";
 import { getDirectory } from "@/lib/data";
 import { filterDirectory, readFilters } from "@/components/discovery/filter";
 import "@/components/home/landing.css";
@@ -45,12 +43,7 @@ export default async function HomePage() {
           <LandingActivities activities={directory.activities} />
           <LandingStory communities={communities} />
 
-          <section id="places" className="landing-places-scene" aria-labelledby="places-heading" data-parallax-scene>
-            <div className="landing-places-intro"><p data-reveal-item className="landing-kicker"><span aria-hidden="true">04 /</span>Closer than you think</p><h2 id="places-heading"><span className="landing-reveal-line"><span data-reveal-item data-reveal-style="line">Your city.</span></span><span className="landing-reveal-line"><span data-reveal-item data-reveal-style="line" data-reveal-order="1">Your playground.</span></span></h2><p data-reveal-item className="landing-section-intro">Find the track, park or court<br />that gets you out the door.</p><Link data-reveal-item href="/places" className="landing-text-link">All places<ArrowUpRight size={16} aria-hidden="true" /></Link><div className="landing-local-art landing-parallax-layer" data-parallax="-72" data-parallax-turn="-28" aria-hidden="true"><LandingTrack /></div></div>
-            {places.length ? <LandingPlaces places={places} /> : <div data-reveal-item className="landing-empty"><p>Venue details are on the way.</p><Link href="/discover" className="landing-text-link">Explore the directory<ArrowUpRight size={16} aria-hidden="true" /></Link></div>}
-          </section>
-
-          <LandingDeparture />
+          <LandingPlayground places={places} />
         </div>
       </LandingMotion>
     </main>
