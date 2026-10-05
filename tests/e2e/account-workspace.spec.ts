@@ -64,7 +64,7 @@ async function mount(page: Page, props = data()) {
   await page.goto("https://fixture.invalid/account");
   await page.addScriptTag({ content: script });
   await render(page, props);
-  await expect(page.getByRole("heading", { name: "Your Fitness ID", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Open Fitness ID for/ })).toBeVisible();
 }
 
 for (const width of [320, 390, 768, 1440]) {
@@ -74,11 +74,31 @@ for (const width of [320, 390, 768, 1440]) {
     page.on("pageerror", error => errors.push(error.message));
     const props = data();
     await mount(page, props);
-    const next = page.getByRole("region", { name: "Your next move", exact: true });
+    const next = page.getByRole("region", { name: "Up next", exact: true });
     await expect(next).toContainText("Synthetic earliest session");
     await expect(next.getByRole("link", { name: "Open event", exact: true })).toHaveAttribute("href", "/event/earliest");
     await expect(next).toContainText("Synthetic Stadium Gate");
     await expect(next).toContainText("Confirmed RSVP");
+    // One integrated introduction: no separate greeting, marketing copy or
+    // duplicate metrics above it. Navigation follows the overview, not the banner.
+    await expect(page.getByRole("heading", { name: props.profile.name, exact: true })).toBeVisible();
+    await expect(page.locator(".identity-profile")).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    await expect(page.locator(".identity-name-row h2")).toHaveCSS("color", "rgb(248, 250, 252)");
+    await expect(page.locator(".member-space-header, .member-edition, .identity-facts, .identity-banner-caption, .identity-bio")).toHaveCount(0);
+    const profileBounds = (await page.locator(".member-id").boundingBox())!;
+    const bannerBounds = (await page.locator(".identity-banner").boundingBox())!;
+    expect(bannerBounds.y).toBeLessThanOrEqual(32);
+    expect(bannerBounds.height).toBeLessThanOrEqual(124);
+    expect(profileBounds.height).toBeLessThan(300);
+    const overviewBounds = (await page.locator(".member-overview").boundingBox())!;
+    const navBounds = (await page.getByRole("navigation", { name: "Account sections" }).boundingBox())!;
+    expect(navBounds.y).toBeGreaterThan(overviewBounds.y + overviewBounds.height);
+    await expect(page.getByRole("link", { name: "Organizer tools" })).toHaveAttribute("href", "/organizer");
+    for (const control of [page.getByRole("button", { name: "View Fitness ID", exact: true }), page.getByRole("link", { name: "Privacy settings", exact: true }), page.getByRole("link", { name: "Preview public profile", exact: true })]) {
+      const target = (await control.boundingBox())!;
+      expect(target.width).toBeGreaterThanOrEqual(44);
+      expect(target.height).toBeGreaterThanOrEqual(44);
+    }
     if (process.env.E2E_SYNTHETIC_SCREENSHOTS) await page.screenshot({ path: `/tmp/noidafit-member-space-banner-${width}.png`, fullPage: true });
     const banner = page.getByRole("button", { name: /Open Fitness ID for/ });
     await banner.click();
@@ -202,7 +222,7 @@ test("Empty account keeps discovery and all settings reachable without fake atte
   await expect(page.getByRole("link", { name: "Find your next session", exact: true })).toHaveAttribute("href", "/events");
   await expect(page.locator(".member-passport-empty")).toContainText("Your story starts with showing up");
   await expect(page.locator(".passport-entry")).toHaveCount(0);
-  await page.getByRole("link", { name: "Profile visibility", exact: true }).click();
+  await page.getByRole("link", { name: "Privacy settings", exact: true }).click();
   const settings = page.getByRole("button", { name: /^Profile settings Your details/ });
   await expect(settings).toHaveAttribute("aria-expanded", "true");
   await expect(page.getByLabel("Username", { exact: true })).toBeVisible();
@@ -221,7 +241,7 @@ test("Repeated settings hashes open and focus the disclosure; updates retain per
   const props = data();
   await mount(page, props);
   const settings = page.getByRole("button", { name: /^Profile settings Your details/ });
-  const link = page.getByRole("link", { name: "Profile visibility", exact: true });
+  const link = page.getByRole("link", { name: "Privacy settings", exact: true });
   await link.click();
   await expect(settings).toHaveAttribute("aria-expanded", "true");
   await expect(settings).toBeFocused();
@@ -255,15 +275,31 @@ test("Account controls preserve route refresh and logout behavior", async ({ pag
   await expect.poll(() => page.evaluate(() => (window as unknown as { routerCalls: { destinations: string[] } }).routerCalls.destinations)).toEqual(["/"]);
 });
 
+test("Only a provided biography is shown, and organizer navigation stays permission-scoped", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const props = { ...data(false), canOrganize: false };
+  await mount(page, props);
+  await expect(page.locator(".identity-bio")).toHaveCount(0);
+  await expect(page.getByRole("link", { name: "Organizer tools", exact: true })).toHaveCount(0);
+  const bio = "Synthetic biography: morning runs and weekend rides.";
+  await render(page, { ...props, profile: { ...props.profile, bio } });
+  await expect(page.getByText(bio, { exact: true })).toBeVisible();
+  await expect(page.getByText(bio, { exact: true })).toHaveCount(1);
+});
+
 test("Long member and event names reflow on a phone with enlarged text", async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 1200 });
   await page.emulateMedia({ reducedMotion: "reduce" });
   const props = data();
   props.profile.name = "Synthetic Member With A Very Long Name";
+  props.profile.city = "SyntheticLocationWithAnUnusuallyLongName";
+  props.profile.slug = "synthetic-member-extralong";
   props.events[1].title = "Synthetic session with a very long name that still needs to remain readable";
   await mount(page, props);
-  await page.getByRole("button", { name: /Open Fitness ID for/ }).click();
   await page.addStyleTag({ content: "html { font-size: 200%; }" });
+  await expect(page.locator(".identity-name-row h2")).toHaveText(props.profile.name);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.getByRole("button", { name: /Open Fitness ID for/ }).click();
   await expect(page.locator(".fitness-card-name")).toHaveText(props.profile.name);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });

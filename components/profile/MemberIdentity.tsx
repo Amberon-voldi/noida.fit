@@ -27,8 +27,6 @@ export function MemberIdentity({ profile, children }: MemberIdentityProps) {
   const closingRef = useRef(false);
   const generation = useRef(0);
   const isPublic = profile.visibility === "public";
-  const verified = profile.stats.verifiedActivities === undefined ? profile.stats.eventsAttended : profile.stats.verifiedActivities;
-  const year = new Date(profile.joinedAt).getUTCFullYear();
 
   function originTransform() {
     const origin = triggerRef.current?.getBoundingClientRect();
@@ -90,17 +88,15 @@ export function MemberIdentity({ profile, children }: MemberIdentityProps) {
   return <div className={`member-identity ${open ? "member-identity-open" : ""}`}>
     <div className="identity-profile">
       <button ref={triggerRef} type="button" className="identity-banner" onClick={event => { returnFocusRef.current = event.currentTarget; setOpen(true); }} aria-haspopup="dialog" aria-expanded={open} aria-controls={`${id}-dialog`} aria-label={`Open Fitness ID for ${profile.name}`}>
-        <span className="identity-banner-art" aria-hidden="true"><span /><span /><span /></span>
+        <span className="identity-banner-art" aria-hidden="true" />
         <Image src="/images/logo.png" alt="" width={112} height={38} className="identity-banner-logo" />
-        <span className="identity-banner-label">FITNESS ID <ArrowUpRight size={15} aria-hidden="true" /></span>
-        <span className="identity-banner-caption">Tap to bring this ID forward.</span>
+        <span className="identity-banner-label" aria-hidden="true"><ArrowUpRight size={18} /></span>
       </button>
       <div className="identity-profile-body">
         <span className="identity-avatar" aria-hidden="true">{profile.name.trim().slice(0, 1).toUpperCase()}</span>
-        <div className="identity-name-row"><div><h2>{profile.name}</h2><p className="identity-handle">@{profile.slug}</p></div><span className="identity-visibility">{isPublic ? <Globe2 size={13} aria-hidden="true" /> : <LockKeyhole size={13} aria-hidden="true" />}{isPublic ? "Public" : "Private"}</span></div>
-        <p className="identity-city"><MapPin size={14} aria-hidden="true" />{profile.city || "Noida & Greater Noida"}</p>
-        <p className="identity-bio">{profile.bio || "Finding people to move with, one session at a time."}</p>
-        <dl className="identity-facts"><div><dd>{verified === null ? "—" : verified}</dd><dt>{verified === null ? "Sessions not shared" : "Verified sessions"}</dt></div><div><dd>{Number.isFinite(year) ? year : "—"}</dd><dt>Member since</dt></div><div><dd>{profile.stats.communitiesJoined === null ? "—" : profile.stats.communitiesJoined}</dd><dt>Communities followed</dt></div></dl>
+        <div className="identity-name-row"><h2>{profile.name}</h2><span className="identity-visibility">{isPublic ? <Globe2 size={13} aria-hidden="true" /> : <LockKeyhole size={13} aria-hidden="true" />}{isPublic ? "Public" : "Private"}</span></div>
+        <div className="identity-meta"><span className="identity-handle">@{profile.slug}</span><span className="identity-city"><MapPin size={13} aria-hidden="true" /><span>{profile.city || "Noida & Greater Noida"}</span></span></div>
+        {profile.bio && <p className="identity-bio">{profile.bio}</p>}
       </div>
       <div className="identity-profile-footer"><button type="button" onClick={event => { returnFocusRef.current = event.currentTarget; setOpen(true); }} className="identity-open-action" aria-haspopup="dialog" aria-expanded={open} aria-controls={`${id}-dialog`}>View Fitness ID<ArrowUpRight size={14} aria-hidden="true" /></button>{children}</div>
     </div>
@@ -113,9 +109,8 @@ export function MemberIdentity({ profile, children }: MemberIdentityProps) {
       else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
     }} onClick={event => { if (event.target === event.currentTarget) void dismiss(); }}>
       <div className="identity-dialog-layout">
-        <header className="identity-dialog-toolbar"><div><p>NOIDA.FIT / MEMBER PASS</p><h2 id={`${id}-title`}>Fitness ID</h2></div><button type="button" onClick={() => void dismiss()} aria-label="Return Fitness ID to banner" disabled={closing}><X size={20} aria-hidden="true" /></button></header>
+        <header className="identity-dialog-toolbar"><h2 id={`${id}-title`} className="sr-only">Fitness ID</h2><button type="button" onClick={() => void dismiss()} aria-label="Return Fitness ID to banner" disabled={closing}><X size={20} aria-hidden="true" /></button></header>
         <div ref={surfaceRef} className="identity-dialog-surface" inert={closing}>{open && <FitnessCard user={profile} actions={isPublic ? <ProfileActions handle={profile.handle} name={profile.name} /> : undefined} />}</div>
-        <p className="identity-dialog-hint">Tap the card to flip. Close it to return to the profile.</p>
       </div>
     </dialog>
   </div>;

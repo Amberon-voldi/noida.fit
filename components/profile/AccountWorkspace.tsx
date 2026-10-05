@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowUpRight, Bookmark, CalendarDays, Clock3, Footprints, Link2, LockKeyhole, Mail, MapPin, Settings2, ShieldCheck, UsersRound } from "lucide-react";
+import { ArrowUpRight, Bookmark, CalendarDays, Clock3, Footprints, Link2, LockKeyhole, Mail, MapPin, ShieldCheck, UsersRound } from "lucide-react";
 import type { FitnessProfile, ProfileSettings } from "@/types/user";
 import type { Event } from "@/types/event";
 import type { Community } from "@/types/community";
@@ -10,11 +10,10 @@ import { MemberIdentity } from "./MemberIdentity";
 import { SettingsForm } from "./SettingsForm";
 import { MobileAccountSection } from "./MobileAccountSection";
 import { ParticipationPassport } from "./ParticipationPassport";
-import { accountDate, accountRecords, passportDate } from "./account-data";
+import { accountDate, accountRecords } from "./account-data";
 import { SignOutButton } from "@/components/auth/SignOutButton";
 import { SaveButton } from "@/components/participation/SaveButton";
 import { FollowButton } from "@/components/participation/FollowButton";
-import { CATEGORY_LABELS } from "@/lib/config";
 import { integrations } from "@/lib/integrations";
 import "./account-workspace.css";
 
@@ -38,50 +37,37 @@ export function AccountWorkspace({ profile, settings, email, canOrganize, partic
   const placesById = new Map(places.map(place => [place.id, place]));
   const memberships = participation.memberships.filter(item => item.status === "active");
   const nextEvent = rsvps[0]?.event;
-  const nextDate = nextEvent ? passportDate(nextEvent.startsAt || `${nextEvent.date}T00:00:00+05:30`) : null;
-  const firstName = profile.name.trim().split(/\s+/)[0] || "there";
   const isPublic = profile.visibility === "public";
 
   return <div className="member-space mx-auto max-w-6xl px-4 pb-10 pt-5 sm:px-6 sm:pb-16 lg:px-8">
-    <header className="member-space-header">
-      <div><p className="eyebrow">YOUR CORNER OF NOIDA</p><h1>Good to see you, {firstName}.</h1><p>Your people. Your plans. Your next move.</p></div>
-      <div className="member-space-header-actions">
-        {canOrganize && <Link href="/organizer" className="member-text-action" aria-label="Organizer tools"><ShieldCheck size={16} aria-hidden="true" /><span>Organizer tools</span></Link>}
-        <a href="#settings" className="member-settings-action" aria-label="Profile settings"><Settings2 size={18} aria-hidden="true" /></a>
-      </div>
-    </header>
-
-    <nav className="member-section-nav" aria-label="Account sections">
-      <a href="#overview">Fitness ID</a><a href="#plans">Your plans</a><a href="#passport">Passport</a><a href="#settings">Profile &amp; privacy</a>
-    </nav>
+    <h1 className="sr-only">My account</h1>
 
     <section id="overview" className="member-overview" aria-label="Account overview">
       <section className="member-id" aria-labelledby="fitness-id-heading">
-        <div className="member-section-label"><h2 id="fitness-id-heading">Your Fitness ID</h2><span className="member-edition" aria-hidden="true">NOIDA / FIT</span></div>
+        <h2 id="fitness-id-heading" className="sr-only">Your Fitness ID</h2>
         <MemberIdentity profile={profile}>
-          <div className="identity-owner-links"><a href="#settings">Profile visibility<ArrowUpRight size={13} aria-hidden="true" /></a>{isPublic && <Link href={`/@${profile.slug}`}>Preview public profile<ArrowUpRight size={13} aria-hidden="true" /></Link>}</div>
+          <div className="identity-owner-links"><a href="#settings" aria-label="Privacy settings">Privacy</a>{isPublic && <Link href={`/@${profile.slug}`} className="identity-preview" aria-label="Preview public profile" title="Preview public profile"><ArrowUpRight size={16} aria-hidden="true" /></Link>}</div>
         </MemberIdentity>
       </section>
 
       <section className="member-next" aria-labelledby="next-plan-heading">
-        <div className="member-next-heading"><p className="eyebrow">OUTSIDE IS CALLING</p><h2 id="next-plan-heading">Your next move</h2></div>
-        {nextEvent && nextDate ? <>
-          <div className="member-next-date"><div><span>{nextDate.month}</span><strong>{nextDate.day}</strong></div><p><span>{CATEGORY_LABELS[nextEvent.category]}</span><span className="member-confirmed">Confirmed RSVP</span></p></div>
+        <div className="member-next-heading"><h2 id="next-plan-heading">Up next</h2></div>
+        {nextEvent ? <>
+          <p className="member-confirmed">Confirmed RSVP</p>
           <h3><Link href={`/event/${nextEvent.slug}`}>{nextEvent.title}</Link></h3>
           <p className="member-next-detail"><Clock3 size={16} aria-hidden="true" />{nextEvent.startTime} · {accountDate(nextEvent.startsAt || `${nextEvent.date}T00:00:00+05:30`)}</p>
           <p className="member-next-detail"><MapPin size={16} aria-hidden="true" />{nextEvent.venueName} · {nextEvent.sector}</p>
           {nextEvent.demo && <span className="member-demo-label">Demo listing</span>}
-          <Link href={`/event/${nextEvent.slug}`} className="button-primary member-next-cta">Open event<ArrowUpRight size={16} aria-hidden="true" /></Link>
-          <p className="member-next-note">An RSVP reserves your plan. Attendance is recorded at check-in.</p>
-          <a href="#rsvps" className="member-text-action">All upcoming RSVPs ({rsvps.length})<ArrowUpRight size={14} aria-hidden="true" /></a>
-        </> : <div className="member-next-empty">
-          <Footprints size={30} strokeWidth={1.5} aria-hidden="true" /><h3>A good day starts with a plan.</h3><p>Find a run, ride or session near you. Your next confirmed RSVP will live here.</p><Link href="/events" className="button-primary">Find your next session<ArrowUpRight size={16} aria-hidden="true" /></Link>
-        </div>}
+          <Link href={`/event/${nextEvent.slug}`} className="button-secondary member-next-cta">Open event<ArrowUpRight size={16} aria-hidden="true" /></Link>
+          <a href="#rsvps" className="member-text-action" aria-label={`View all (${rsvps.length}) upcoming RSVPs`}>View all ({rsvps.length})<ArrowUpRight size={14} aria-hidden="true" /></a>
+        </> : <div className="member-next-empty"><p>No upcoming plans.</p><Link href="/events" className="button-secondary">Find your next session<ArrowUpRight size={16} aria-hidden="true" /></Link></div>}
       </section>
     </section>
 
+    <nav className="member-section-nav" aria-label="Account sections"><a href="#overview">Fitness ID</a><a href="#plans">Your plans</a><a href="#passport">Passport</a><a href="#settings">Profile &amp; privacy</a></nav>
+
     <section id="plans" className="member-block" aria-labelledby="plans-heading">
-      <div className="member-block-heading"><div><p className="eyebrow">MAKE ROOM FOR MOVEMENT</p><h2 id="plans-heading">Your plans</h2></div><p>Keep the useful things close.</p></div>
+      <div className="member-block-heading"><h2 id="plans-heading">Your plans</h2></div>
       <div className="member-plans-grid">
         <section id="rsvps" className="member-plan" aria-labelledby="rsvps-heading">
           <header><CalendarDays size={18} aria-hidden="true" /><h3 id="rsvps-heading">Upcoming RSVPs</h3><span className="member-count">{rsvps.length}</span></header>
@@ -111,7 +97,7 @@ export function AccountWorkspace({ profile, settings, email, canOrganize, partic
     </section>
 
     <section id="passport" className="member-block member-passport" aria-labelledby="passport-heading">
-      <div className="member-block-heading"><div><p className="eyebrow">THE PLACES YOU SHOW UP</p><h2 id="passport-heading">Your movement passport</h2></div><span className="member-private-label"><LockKeyhole size={13} aria-hidden="true" />Private history</span></div>
+      <div className="member-block-heading"><h2 id="passport-heading">Your movement passport</h2><span className="member-private-label"><LockKeyhole size={13} aria-hidden="true" />Private history</span></div>
       <p className="member-passport-intro">Real sessions, one record at a time. Only organizer-verified records count toward attendance totals.</p>
       <ActivitySummary stats={profile.stats} />
       {history.length ? <ParticipationPassport entries={history.slice(0, 3)} /> : <div className="member-passport-empty"><span><Footprints size={24} aria-hidden="true" /></span><div><h3>Your story starts with showing up.</h3><p>Your first organizer-verified check-in will appear here. Saving or RSVPing does not add attendance.</p></div><Link href="/events" className="member-text-action">Find a session<ArrowUpRight size={14} aria-hidden="true" /></Link></div>}
@@ -120,7 +106,7 @@ export function AccountWorkspace({ profile, settings, email, canOrganize, partic
     </section>
 
     <section className="member-block member-settings" aria-labelledby="account-controls-heading">
-      <div className="member-block-heading"><div><p className="eyebrow">ON YOUR TERMS</p><h2 id="account-controls-heading">Account &amp; privacy</h2></div><p>Choose what the world gets to see.</p></div>
+      <div className="member-block-heading"><h2 id="account-controls-heading">Account &amp; privacy</h2>{canOrganize && <Link href="/organizer" className="member-text-action" aria-label="Organizer tools"><ShieldCheck size={16} aria-hidden="true" />Organizer tools</Link>}</div>
       <div className="member-settings-grid">
         <MobileAccountSection headingId="settings" title="Profile settings" description="Your details, profile visibility and sharing preferences.">
           <dl className="member-account-details"><div><dt><Mail size={14} aria-hidden="true" />Account email · private</dt><dd>{email}</dd></div><div><dt>Member since</dt><dd>{accountDate(profile.joinedAt)}</dd></div></dl>

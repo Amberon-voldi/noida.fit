@@ -201,3 +201,11 @@ The user subsequently requested a layered profile inspired by their supplied ima
 `MemberIdentity` now composes that profile on account, own-ID and public-profile pages. Activating the banner lifts the flippable ID into a foreground native dialog using a measured origin-to-destination transform (380ms). Closing returns it toward the banner (260ms), restores focus and scrolling, and resets the next opening to the front. Reduced motion skips the travel; Escape, close-button and backdrop dismissal remain available. The foreground has no redundant panel around the card. Artwork is original CSS using the app's accents; the reference image is not shipped as an asset.
 
 Only browser-safe profile fields enter the interactive presentation. Public/private QR rules, sharing fallbacks, owner-only settings links and the private participation passport remain unchanged. Synthetic browser checks cover opening, upright flipping, closing, focus containment/return, unchanged account layout, repeated cycles, short mobile screens and unmount cleanup.
+
+## 11. Integrated, quieter profile refinement
+
+Following feedback that the light profile block looked disconnected and the top was crowded, the profile now uses the surrounding dark surface tokens, a lower-height banner and one visible name/handle/location introduction. The separate account greeting, decorative section labels, banner instructions, fallback biography and duplicate profile statistics strip are removed. A real biography is still shown when provided; participation facts remain in the ID and passport/shared totals.
+
+Account navigation follows the overview. The next confirmed session is an unframed, quieter summary with its date shown once; organizer tools remain reachable under account controls. Own-ID and public-profile pages use the same single introduction instead of repeating the name, bio, location and promotional sidebars. Compact actions retain accessible names and 44px targets. The existing reveal/return animation, flip, QR disclaimer, sharing recovery, privacy controls and server authorization are preserved.
+
+Synthetic browser checks cover the compact dark presentation and responsive ordering as well as the existing interaction lifecycle. This is a user-directed visual refinement, not evidence of a measured usability improvement or a hosted authenticated-flow validation.

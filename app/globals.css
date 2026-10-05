@@ -346,29 +346,12 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { border-color
   }
 }
 
-/* Fitness ID MVP: the identity surface comes first, then supporting account tools. */
-.fitness-id-page { --fitness-id-gap: 32px; }
-.fitness-id-hero { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; padding-block: 8px 28px; }
-.fitness-id-hero h1 { text-wrap: balance; }
-.fitness-id-hero .eyebrow { font-size: 10px; }
-.fitness-id-layout { display: grid; gap: var(--fitness-id-gap); align-items: start; }
+/* Profile-first Fitness ID pages: one introduction, then the shared facts. */
 .fitness-id-showcase { min-width: 0; border: 0; background: transparent; padding: 0; }
-.fitness-id-context { min-width: 0; padding-block: 12px; }
-.fitness-id-context .eyebrow { font-size: 10px; }
-.fitness-id-context h2 { margin-top: 12px; color: var(--foreground); font-size: 30px; font-weight: 800; line-height: 1.12; letter-spacing: -.04em; }
-.fitness-id-context > p:not(.eyebrow) { margin-top: 18px; color: var(--text-secondary); font-size: 13px; line-height: 1.7; }
-.fitness-id-context dl { display: grid; gap: 16px; margin-block: 24px 12px; }
-.fitness-id-context dt { color: var(--foreground); font-size: 12px; font-weight: 650; }
-.fitness-id-context dd { margin-top: 4px; color: var(--text-secondary); font-size: 12px; }
-.fitness-id-context > .fitness-id-context-note { border-top: 1px solid var(--border-subtle); padding-top: 16px; font-size: 11px !important; }
-.fitness-id-owner-link, .fitness-id-owner-actions a { display: inline-flex; min-height: 44px; align-items: center; gap: 5px; color: var(--accent-velocity); font-size: 12px; font-weight: 650; }
-.fitness-id-owner-link:hover, .fitness-id-owner-actions a:hover { text-decoration: underline; }
-.fitness-id-owner-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0 16px; margin-top: 6px; color: var(--text-secondary); font-size: 11px; }
-.fitness-id-owner-actions > span { display: inline-flex; align-items: center; gap: 5px; }
-.fitness-id-owner-actions a { color: var(--text-secondary); font-size: 11px; font-weight: 500; }
-.fitness-id-public-label { display: inline-flex; align-items: center; gap: 6px; color: var(--text-secondary); font-size: 11px; white-space: nowrap; }
+.fitness-id-return, .fitness-id-owner-link { display: inline-flex; min-height: 44px; align-items: center; gap: 5px; color: var(--text-secondary); font-size: 12px; font-weight: 600; }
+.fitness-id-return { margin-bottom: 8px; }
+.fitness-id-return:hover, .fitness-id-owner-link:hover { color: var(--foreground); text-decoration: underline; }
 .fitness-id-totals { display: grid; gap: 22px; margin-top: 36px; padding-block: 24px; border-block: 1px solid var(--border-subtle); }
-.fitness-id-totals .eyebrow { font-size: 10px; }
 .fitness-id-totals .account-stat-grid { gap: 0; }
 .fitness-id-totals .account-stat { border: 0; background: transparent; text-align: left; padding: 12px; }
 .fitness-id-communities { min-width: 0; margin-top: 28px; }
@@ -378,16 +361,9 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { border-color
 .fitness-id-community-link svg { color: var(--text-secondary); flex-shrink: 0; }
 .fitness-id-footnote { margin-top: 20px; color: var(--text-secondary); font-size: 11px; line-height: 1.6; }
 @media (min-width: 768px) {
-  .fitness-id-layout { grid-template-columns: minmax(0, 1.25fr) minmax(0, .8fr); }
-  .fitness-id-context { border-left: 1px solid var(--border-subtle); padding-left: 28px; }
   .fitness-id-totals { grid-template-columns: minmax(180px, .7fr) minmax(0, 1.3fr); align-items: center; }
 }
 @media (max-width: 767px) {
-  .fitness-id-page { --fitness-id-gap: 22px; }
-  .fitness-id-hero { align-items: flex-start; flex-wrap: wrap; gap: 8px; padding-block: 4px 20px; }
-  .fitness-id-hero h1 { font-size: 28px; line-height: 1.15; }
-  .fitness-id-context { border-top: 1px solid var(--border-subtle); padding-top: 24px; }
-  .fitness-id-context h2 { font-size: 26px; }
   .fitness-id-totals { margin-top: 22px; }
 }
 
