@@ -70,7 +70,8 @@ Welcome to the central documentation hub for **NOIDA.FIT** (`noida.fit` / `@noid
 │   ├── design-system.md                   # Tailwind CSS v4 @theme, spacing, radii & shadows
 │   ├── ui-components.md                   # Complete specification of core UI primitives
 │   ├── responsive-design.md               # Breakpoints, mobile-first layouts & device touch targets
-│   └── accessibility.md                   # WCAG 2.1 AA compliance, keyboard navigation & ARIA
+│   ├── accessibility.md                   # WCAG 2.1 AA compliance, keyboard navigation & ARIA
+│   └── fitness-id-account-research.md      # UX evidence, pass references & unvalidated design proposals
 │
 ├── ux/
 │   ├── information-architecture.md        # URL routing, sitemap, dynamic slugs & navigation
