@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { ArrowUpRight, LockKeyhole, ScanLine, Share2 } from "lucide-react";
+import { ArrowUpRight, Globe2, LockKeyhole } from "lucide-react";
 import { getCurrentAppwriteUser } from "@/lib/appwrite/server";
 import { ensureProfileForUser, toFitnessProfile } from "@/lib/appwrite/profiles";
 import { getAccountParticipation } from "@/lib/participation";
@@ -16,19 +16,24 @@ export default async function MyFitnessIdPage() {
   if (!user) redirect("/login?callbackUrl=/fitness-id");
   const [stored, participation] = await Promise.all([ensureProfileForUser(user), getAccountParticipation(user.$id)]);
   const profile = toFitnessProfile(stored, participation);
+  const isPublic = profile.visibility === "public";
 
-  return (
-    <div className="fitness-id-page mx-auto max-w-5xl px-4 pb-12 pt-6 sm:px-6 sm:pb-16 sm:pt-12">
-      <header className="fitness-id-hero">
-        <div><p className="eyebrow">YOUR DIGITAL MEMBER CARD</p><h1 className="mt-2 text-3xl font-black tracking-tight text-white sm:text-5xl">Your Fitness ID</h1><p className="mt-3 max-w-xl text-sm leading-relaxed text-text-secondary sm:text-base">One simple way to introduce yourself, share your profile and show up in the Noida fitness scene.</p></div>
-        <span className={`account-status ${profile.visibility === "public" ? "account-status-public" : "account-status-private"}`}>{profile.visibility === "public" ? "Ready to share" : "Private by default"}</span>
-      </header>
-      <div className="fitness-id-layout">
-        <section className="fitness-id-showcase" aria-labelledby="fitness-id-card-heading"><div className="fitness-id-showcase-heading"><div><p className="eyebrow">THE CARD</p><h2 id="fitness-id-card-heading" className="mt-1 text-xl font-bold text-white">{profile.name}’s member pass</h2></div><span className="fitness-id-handle">@{profile.slug}</span></div><FitnessCard user={profile} className="mt-5" />{profile.visibility === "public" ? <ProfileActions handle={profile.handle} name={profile.name} /> : <p className="fitness-id-private-note"><LockKeyhole className="h-4 w-4 shrink-0 text-text-secondary" aria-hidden="true" />Your profile is private. Only you can see this ID until you enable sharing in settings.</p>}</section>
-        <aside className="fitness-id-guide" aria-labelledby="fitness-id-guide-heading"><p className="eyebrow">MAKE IT USEFUL</p><h2 id="fitness-id-guide-heading" className="mt-2 text-xl font-bold text-white">A card built for real-world sharing.</h2><ul className="fitness-id-guide-list"><li><span><ScanLine className="h-4 w-4" aria-hidden="true" /></span><div><strong>Flip for your QR</strong><p>Let someone open your public profile in one scan.</p></div></li><li><span><Share2 className="h-4 w-4" aria-hidden="true" /></span><div><strong>Share your handle</strong><p>Send a clean profile link after a session or meetup.</p></div></li><li><span><ArrowUpRight className="h-4 w-4" aria-hidden="true" /></span><div><strong>Keep it yours</strong><p>Manage visibility, bio and shared totals from account settings.</p></div></li></ul><Link href="/account#settings" className="button-secondary mt-6 w-full">Manage profile settings<ArrowUpRight className="h-4 w-4" aria-hidden="true" /></Link></aside>
-      </div>
-      <section className="fitness-id-totals" aria-label="Your participation totals"><div><p className="eyebrow">YOUR PROGRESS</p><h2 className="mt-1 text-xl font-bold text-white">Verified at a glance</h2></div><ActivitySummary stats={profile.stats} /></section>
-      <p className="text-center text-xs leading-relaxed text-text-secondary">Attendance totals count organizer-verified records only. Your email, saved plans, RSVPs and detailed history stay private.</p>
+  return <div className="fitness-id-page mx-auto max-w-5xl px-4 pb-12 pt-6 sm:px-6 sm:pb-16 sm:pt-10">
+    <header className="fitness-id-hero"><div><p className="eyebrow">NOIDA.FIT / MEMBER ID</p><h1 className="mt-2 text-3xl font-black tracking-tight text-white sm:text-4xl">Your Fitness ID</h1><p className="mt-3 text-sm text-text-secondary">A small introduction to a city that moves.</p></div><Link href="/account" className="fitness-id-owner-link">Back to account<ArrowUpRight size={14} aria-hidden="true" /></Link></header>
+    <div className="fitness-id-layout">
+      <section className="fitness-id-showcase" aria-label="Your member card">
+        <FitnessCard user={profile} actions={isPublic ? <ProfileActions handle={profile.handle} name={profile.name} /> : undefined} />
+        <div className="fitness-id-owner-actions"><span>{isPublic ? <Globe2 size={13} aria-hidden="true" /> : <LockKeyhole size={13} aria-hidden="true" />}{isPublic ? "Public profile" : "Private · only you"}</span><Link href="/account#settings">Profile visibility<ArrowUpRight size={13} aria-hidden="true" /></Link>{isPublic && <Link href={`/@${profile.slug}`}>Preview public profile<ArrowUpRight size={13} aria-hidden="true" /></Link>}</div>
+      </section>
+      <aside className="fitness-id-context" aria-labelledby="fitness-id-context-heading">
+        <p className="eyebrow">ON YOUR TERMS</p><h2 id="fitness-id-context-heading">Your introduction.<br />Your choice.</h2>
+        <p>{isPublic ? "Share your handle after a session, or show your profile QR when you meet someone new." : "Your ID is just for you right now. You choose when to make your profile public."}</p>
+        <dl><div><dt>Always private</dt><dd>Your email, saved plans, RSVPs and detailed history.</dd></div><div><dt>Only if you choose</dt><dd>Your verified totals and communities followed.</dd></div></dl>
+        <Link href="/account#settings" className="fitness-id-owner-link">Manage profile settings<ArrowUpRight size={14} aria-hidden="true" /></Link>
+        <p className="fitness-id-context-note">The profile QR opens a public profile. It is not an event ticket or a check-in code.</p>
+      </aside>
     </div>
-  );
+    <section className="fitness-id-totals" aria-label="Your participation totals"><div><p className="eyebrow">BUILT BY SHOWING UP</p><h2 className="mt-1 text-xl font-bold text-white">Your participation</h2><Link href="/account#passport" className="fitness-id-owner-link">Open your movement passport<ArrowUpRight size={14} aria-hidden="true" /></Link></div><ActivitySummary stats={profile.stats} /></section>
+    <p className="fitness-id-footnote">Attendance totals count organizer-verified records only, never RSVPs.</p>
+  </div>;
 }

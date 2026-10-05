@@ -1,16 +1,19 @@
 "use client";
 
 import Image from "next/image";
-import { useId, useState } from "react";
+import { useId, useState, type ReactNode } from "react";
 import { QRCodeSVG } from "qrcode.react";
-import { CheckCircle2, Hash, MapPin, QrCode, RotateCw, ShieldCheck } from "lucide-react";
+import { LockKeyhole, MapPin, QrCode, RotateCw } from "lucide-react";
 import type { FitnessProfile } from "@/types/user";
 import { getProfileUrl } from "@/components/profile/links";
+import "./fitness-card.css";
 
-interface FitnessCardProps {
+export interface FitnessCardProps {
   user: FitnessProfile;
   className?: string;
   showControls?: boolean;
+  /** Public sharing controls, kept outside the card button and hidden for private IDs. */
+  actions?: ReactNode;
 }
 
 function memberYear(value: string): string {
@@ -18,56 +21,88 @@ function memberYear(value: string): string {
   return Number.isFinite(year) ? String(year) : "—";
 }
 
-export function FitnessCard({ user, className = "", showControls = true }: FitnessCardProps) {
+export function FitnessCard({ user, className = "", showControls = true, actions }: FitnessCardProps) {
   const [flipped, setFlipped] = useState(false);
   const id = useId();
   const isPublic = user.visibility === "public";
   const profileUrl = getProfileUrl(user.slug);
-  const verified = user.stats.verifiedActivities ?? user.stats.eventsAttended;
+  // Older DTOs expose only eventsAttended. A deliberate privacy null must not
+  // fall through to a different total or become an invented zero.
+  const verified = user.stats.verifiedActivities === undefined ? user.stats.eventsAttended : user.stats.verifiedActivities;
+  const publicActions = isPublic ? actions : null;
+  const controlLabel = flipped ? "Show front" : isPublic ? "Show profile QR" : "Card details";
   const toggle = () => setFlipped(value => !value);
 
   return (
-    <div className={`fitness-id-wrap w-full min-w-0 ${className}`} data-fitness-id>
+    <div className={`fitness-id-wrap ${className}`} data-fitness-id>
       <button
         type="button"
         id={id}
         onClick={toggle}
         aria-pressed={flipped}
-        aria-label={`Fitness ID for ${user.name}. ${flipped ? "Back" : "Front"} of card. Tap to flip.`}
-        className="fitness-card motion-press block w-full rounded-2xl text-left focus-visible:outline-offset-4"
+        aria-label={`Fitness ID for ${user.name}. ${flipped ? "Back" : "Front"} of card. ${controlLabel}.`}
+        className="fitness-card"
       >
-        <span className="fitness-card-body relative grid min-h-64 w-full sm:aspect-[1.586/1]" style={{ transform: flipped ? "rotateY(180deg)" : "rotateY(0deg)" }}>
-          <span aria-hidden={flipped} className="fitness-card-face fitness-card-front col-start-1 row-start-1 flex min-w-0 flex-col justify-between gap-4 overflow-hidden rounded-2xl border border-border-strong p-4 sm:p-6">
+        <span className="fitness-card-body" style={{ transform: flipped ? "rotateY(180deg)" : "rotateY(0deg)" }}>
+          <span aria-hidden={flipped} className="fitness-card-face fitness-card-front">
             <span className="fitness-card-grid" aria-hidden="true" />
-            <span className="fitness-card-glow" aria-hidden="true" />
-            <span className="relative flex items-center justify-between gap-3">
+            <span className="fitness-card-heading">
               <Image src="/images/logo.png" alt="NOIDA.FIT" width={112} height={38} className="fitness-card-logo" />
-              <span className="fitness-card-type"><span className="fitness-card-live-dot" />MEMBER PASS</span>
+              <span className="fitness-card-type">Fitness ID</span>
             </span>
-            <span className="relative flex min-w-0 items-center gap-3 sm:gap-4">
-              <span aria-hidden="true" className="fitness-card-avatar flex size-12 shrink-0 items-center justify-center rounded-full text-lg font-black sm:size-16 sm:text-2xl">{user.name.slice(0, 1).toUpperCase()}</span>
-              <span className="min-w-0 [overflow-wrap:anywhere]">
-                <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-[.12em] text-velocity"><CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />Active member</span>
-                <span className="mt-1 block text-xl font-black leading-tight tracking-tight text-white sm:text-3xl">{user.name}</span>
-                <span className="mt-1 block font-mono text-[11px] text-text-secondary sm:text-xs">@{user.slug}</span>
+            <span className="fitness-card-identity">
+              <span className="fitness-card-member">Community member</span>
+              <span className="fitness-card-name">{user.name}</span>
+              <span className="fitness-card-handle">@{user.slug}</span>
+            </span>
+            <span className="fitness-card-location">
+              <MapPin size={16} aria-hidden="true" />
+              <span>{user.city || "Noida & Greater Noida"}</span>
+              <span className="fitness-card-visibility">{isPublic ? "Public profile" : "Private profile"}</span>
+            </span>
+            <span className="fitness-card-facts">
+              <span className="fitness-card-fact">
+                <span className="fitness-card-value">{verified === null ? "—" : verified}</span>
+                <span className="fitness-card-label">Verified sessions{verified === null && <span className="fitness-card-not-shared">Not shared</span>}</span>
               </span>
-              <span className="fitness-card-side-label" aria-hidden="true">MOVE<br />TOGETHER</span>
-            </span>
-            <span className="relative flex min-w-0 items-center gap-2 text-xs font-semibold text-text-secondary"><MapPin className="h-3.5 w-3.5 shrink-0 text-velocity" aria-hidden="true" /><span className="truncate">{user.city || "Noida & Greater Noida"}</span><span className="ml-auto shrink-0 text-[10px] uppercase tracking-wider text-text-muted">{isPublic ? "Shareable" : "Private"}</span></span>
-            <span className="relative grid grid-cols-2 gap-4 border-t border-white/10 pt-3">
-              <span className="min-w-0"><span className="block text-xl font-black leading-none text-white">{verified === null ? "—" : verified}</span><span className="mt-1.5 block text-[9px] font-semibold uppercase leading-relaxed tracking-[.1em] text-text-secondary">Verified activities</span></span>
-              <span className="min-w-0 text-right"><span className="block text-xl font-black leading-none text-white">{memberYear(user.joinedAt)}</span><span className="mt-1.5 block text-[9px] font-semibold uppercase leading-relaxed tracking-[.1em] text-text-secondary">Member since</span></span>
+              <span className="fitness-card-fact">
+                <span className="fitness-card-value">{memberYear(user.joinedAt)}</span>
+                <span className="fitness-card-label">Member since</span>
+              </span>
             </span>
           </span>
 
-          <span aria-hidden={!flipped} className="fitness-card-face fitness-card-back col-start-1 row-start-1 flex min-w-0 flex-col items-center justify-between gap-3 overflow-hidden rounded-2xl border border-border-strong p-4 sm:p-6" style={{ transform: "rotateY(180deg)" }}>
-            <span className="flex w-full items-center justify-between gap-3"><Image src="/images/logo.png" alt="NOIDA.FIT" width={112} height={38} className="fitness-card-logo" /><span className="fitness-card-type">FITNESS ID</span></span>
-            {isPublic ? <span className="fitness-card-qr-wrap flex flex-col items-center gap-2"><QRCodeSVG value={profileUrl} size={144} marginSize={4} bgColor="#ffffff" fgColor="#090a0f" role="img" aria-label={`QR code for @${user.slug}`} className="size-32 shrink-0 rounded-xl sm:size-36" /><span className="flex items-center gap-1.5 text-xs font-semibold text-white"><QrCode className="h-3.5 w-3.5 text-velocity" aria-hidden="true" />Scan to open profile</span></span> : <span className="fitness-card-private flex max-w-64 flex-col items-center gap-3 text-center"><span className="flex size-11 items-center justify-center rounded-full border border-border-strong bg-surface-elevated text-text-secondary"><ShieldCheck className="h-5 w-5" aria-hidden="true" /></span><span className="text-xs leading-relaxed text-text-secondary">This ID is private. Enable public sharing in settings to reveal your QR code.</span></span>}
-            <span className="flex max-w-full items-center gap-1.5 text-center font-mono text-[10px] leading-relaxed tracking-wide text-text-secondary [overflow-wrap:anywhere]"><Hash className="h-3 w-3 shrink-0" aria-hidden="true" />ID: {user.cardNumber}</span>
+          <span aria-hidden={!flipped} className="fitness-card-face fitness-card-back" style={{ transform: "rotateY(180deg)" }}>
+            <span className="fitness-card-heading">
+              <Image src="/images/logo.png" alt="NOIDA.FIT" width={112} height={38} className="fitness-card-logo" />
+              <span className="fitness-card-type">{isPublic ? "Profile QR" : "Card details"}</span>
+            </span>
+            {isPublic ? (
+              <span className="fitness-card-profile-qr">
+                <span className="fitness-card-qr-wrap">
+                  <QRCodeSVG value={profileUrl} size={160} marginSize={4} bgColor="#ffffff" fgColor="#090a0f" role="img" aria-label={`Public profile QR code for @${user.slug}`} />
+                </span>
+                <span className="fitness-card-qr-purpose"><QrCode size={16} aria-hidden="true" />Scan to open public profile</span>
+                <span className="fitness-card-back-handle">@{user.slug}</span>
+                <span className="fitness-card-qr-note">A profile link, not an entry or check-in pass.</span>
+              </span>
+            ) : (
+              <span className="fitness-card-private">
+                <LockKeyhole size={24} aria-hidden="true" />
+                <span className="fitness-card-private-title">Your profile is private</span>
+                <span>Only you can see this ID. Public sharing and a profile QR are off until you make your profile public in settings.</span>
+              </span>
+            )}
+            <span className="fitness-card-number">ID · {user.cardNumber}</span>
           </span>
         </span>
       </button>
-      {showControls && <div className="fitness-card-controls"><span className="fitness-card-hint"><span className="hidden sm:inline">Tap the card to </span>{flipped ? "see your profile" : isPublic ? "show your QR" : "see the back"}</span><button type="button" onClick={toggle} aria-controls={id} aria-pressed={flipped} className="motion-press inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-3 text-xs font-semibold text-text-secondary hover:text-white"><RotateCw size={14} className="shrink-0" aria-hidden="true" />Flip ID<span className="sr-only"> · showing {flipped ? "back" : "front"}</span></button></div>}
+      {(showControls || publicActions) && (
+        <div className={`fitness-card-controls${showControls && publicActions ? " fitness-card-controls-with-actions" : ""}`}>
+          {showControls && <button type="button" onClick={toggle} aria-controls={id} aria-pressed={flipped} className="fitness-card-control">{flipped ? <RotateCw size={16} aria-hidden="true" /> : isPublic ? <QrCode size={16} aria-hidden="true" /> : <LockKeyhole size={16} aria-hidden="true" />}{controlLabel}</button>}
+          {publicActions}
+        </div>
+      )}
     </div>
   );
 }

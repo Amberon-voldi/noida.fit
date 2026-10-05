@@ -347,120 +347,53 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { border-color
 }
 
 /* Fitness ID MVP: the identity surface comes first, then supporting account tools. */
-.fitness-id-page { --fitness-id-gap: 20px; }
-.fitness-id-hero { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; padding-block: 12px 28px; }
+.fitness-id-page { --fitness-id-gap: 32px; }
+.fitness-id-hero { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; padding-block: 8px 28px; }
 .fitness-id-hero h1 { text-wrap: balance; }
+.fitness-id-hero .eyebrow { font-size: 10px; }
 .fitness-id-layout { display: grid; gap: var(--fitness-id-gap); align-items: start; }
-.fitness-id-showcase, .fitness-id-guide, .fitness-id-totals, .fitness-id-communities { min-width: 0; border: 1px solid var(--border-subtle); border-radius: 16px; background: var(--surface); }
-.fitness-id-showcase { padding: 20px; background: linear-gradient(145deg, color-mix(in srgb, var(--surface) 91%, var(--accent-velocity) 9%), var(--surface)); }
-.fitness-id-showcase-heading, .fitness-id-section-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
-.fitness-id-handle { align-self: center; color: var(--text-secondary); font-family: var(--font-geist-mono), monospace; font-size: 10px; }
-.fitness-id-guide { padding: 20px; }
-.fitness-id-guide-list { display: grid; gap: 16px; margin-top: 22px; }
-.fitness-id-guide-list li { display: flex; align-items: flex-start; gap: 10px; }
-.fitness-id-guide-list li > span { display: inline-flex; height: 30px; width: 30px; flex: 0 0 auto; align-items: center; justify-content: center; border-radius: 9px; color: var(--accent-velocity); background: color-mix(in srgb, var(--accent-velocity) 9%, transparent); }
-.fitness-id-guide-list strong { display: block; color: var(--foreground); font-size: 13px; }
-.fitness-id-guide-list p { margin-top: 3px; color: var(--text-secondary); font-size: 12px; line-height: 1.5; }
-.fitness-id-totals { display: grid; gap: 18px; margin-top: var(--fitness-id-gap); padding: 20px; }
-.fitness-id-private-note { display: flex; align-items: flex-start; gap: 8px; margin-top: 16px; border: 1px solid var(--border-subtle); border-radius: 10px; padding: 12px; color: var(--text-secondary); font-size: 12px; line-height: 1.55; }
-.fitness-id-communities { margin-top: var(--fitness-id-gap); padding: 20px; }
-.fitness-id-community-list { display: grid; gap: 8px; margin-top: 16px; }
-.fitness-id-community-link { display: flex; min-height: 48px; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid var(--border-subtle); border-radius: 10px; padding: 10px 12px; color: var(--foreground); font-size: 13px; font-weight: 650; transition: color var(--motion-fast), border-color var(--motion-fast), background-color var(--motion-fast); }
-.fitness-id-community-link:hover { border-color: var(--border-strong); color: var(--accent-velocity); background: var(--surface-hover); }
-.fitness-id-community-link svg { color: var(--text-secondary); }
-.public-fitness-id-summary { align-self: stretch; }
+.fitness-id-showcase { min-width: 0; border: 0; background: transparent; padding: 0; }
+.fitness-id-context { min-width: 0; padding-block: 12px; }
+.fitness-id-context .eyebrow { font-size: 10px; }
+.fitness-id-context h2 { margin-top: 12px; color: var(--foreground); font-size: 30px; font-weight: 800; line-height: 1.12; letter-spacing: -.04em; }
+.fitness-id-context > p:not(.eyebrow) { margin-top: 18px; color: var(--text-secondary); font-size: 13px; line-height: 1.7; }
+.fitness-id-context dl { display: grid; gap: 16px; margin-block: 24px 12px; }
+.fitness-id-context dt { color: var(--foreground); font-size: 12px; font-weight: 650; }
+.fitness-id-context dd { margin-top: 4px; color: var(--text-secondary); font-size: 12px; }
+.fitness-id-context > .fitness-id-context-note { border-top: 1px solid var(--border-subtle); padding-top: 16px; font-size: 11px !important; }
+.fitness-id-owner-link, .fitness-id-owner-actions a { display: inline-flex; min-height: 44px; align-items: center; gap: 5px; color: var(--accent-velocity); font-size: 12px; font-weight: 650; }
+.fitness-id-owner-link:hover, .fitness-id-owner-actions a:hover { text-decoration: underline; }
+.fitness-id-owner-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 0 16px; margin-top: 6px; color: var(--text-secondary); font-size: 11px; }
+.fitness-id-owner-actions > span { display: inline-flex; align-items: center; gap: 5px; }
+.fitness-id-owner-actions a { color: var(--text-secondary); font-size: 11px; font-weight: 500; }
+.fitness-id-public-label { display: inline-flex; align-items: center; gap: 6px; color: var(--text-secondary); font-size: 11px; white-space: nowrap; }
+.fitness-id-totals { display: grid; gap: 22px; margin-top: 36px; padding-block: 24px; border-block: 1px solid var(--border-subtle); }
+.fitness-id-totals .eyebrow { font-size: 10px; }
+.fitness-id-totals .account-stat-grid { gap: 0; }
+.fitness-id-totals .account-stat { border: 0; background: transparent; text-align: left; padding: 12px; }
+.fitness-id-communities { min-width: 0; margin-top: 28px; }
+.fitness-id-community-list { display: grid; margin-top: 16px; }
+.fitness-id-community-link { display: flex; min-height: 52px; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--border-subtle); padding-block: 12px; color: var(--foreground); font-size: 13px; font-weight: 650; }
+.fitness-id-community-link:hover { color: var(--accent-velocity); }
+.fitness-id-community-link svg { color: var(--text-secondary); flex-shrink: 0; }
+.fitness-id-footnote { margin-top: 20px; color: var(--text-secondary); font-size: 11px; line-height: 1.6; }
 @media (min-width: 768px) {
-  .fitness-id-layout { grid-template-columns: minmax(0, 1.15fr) minmax(280px, .85fr); }
+  .fitness-id-layout { grid-template-columns: minmax(0, 1.25fr) minmax(0, .8fr); }
+  .fitness-id-context { border-left: 1px solid var(--border-subtle); padding-left: 28px; }
   .fitness-id-totals { grid-template-columns: minmax(180px, .7fr) minmax(0, 1.3fr); align-items: center; }
 }
 @media (max-width: 767px) {
-  .fitness-id-hero { align-items: flex-start; padding-block: 10px 20px; }
+  .fitness-id-page { --fitness-id-gap: 22px; }
+  .fitness-id-hero { align-items: flex-start; flex-wrap: wrap; gap: 8px; padding-block: 4px 20px; }
   .fitness-id-hero h1 { font-size: 28px; line-height: 1.15; }
-  .fitness-id-hero > .account-status { margin-top: 4px; padding: 6px 8px; font-size: 9px; }
-  .fitness-id-showcase, .fitness-id-guide, .fitness-id-totals, .fitness-id-communities { border-radius: 14px; padding: 16px; }
-  .fitness-id-showcase-heading { display: block; }
-  .fitness-id-handle { display: block; margin-top: 6px; }
-  .fitness-id-totals { margin-top: 16px; }
+  .fitness-id-context { border-top: 1px solid var(--border-subtle); padding-top: 24px; }
+  .fitness-id-context h2 { font-size: 26px; }
+  .fitness-id-totals { margin-top: 22px; }
 }
 
-/* Account workspace: one calm hierarchy for the ID, plans and secondary controls. */
-.account-page { --account-gap: 20px; position: relative; }
-.account-page::before { content: ""; position: absolute; z-index: -1; top: -40px; left: 50%; width: 100vw; height: 580px; transform: translateX(-50%); pointer-events: none; opacity: .58; background: radial-gradient(ellipse at 20% 20%, color-mix(in srgb, var(--accent-velocity) 7%, transparent), transparent 48%), linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px); background-size: auto, 42px 42px, 42px 42px; mask-image: linear-gradient(to bottom, black, transparent 92%); }
-.account-mvp-header { min-height: 190px; }
-.account-kicker { display: flex; align-items: center; gap: 8px; color: var(--text-secondary); font-family: var(--font-geist-mono), monospace; font-size: 10px; font-weight: 700; letter-spacing: .14em; }
-.account-kicker > span[aria-hidden="true"] { width: 5px; height: 5px; box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-velocity) 15%, transparent); }
-.account-kicker > span:not([aria-hidden]) { color: var(--accent-velocity); }
-.account-header-actions { display: flex; align-items: center; gap: 14px; }
-.account-header-mark { display: flex; align-items: center; gap: 8px; color: var(--text-secondary); font-family: var(--font-geist-mono), monospace; font-size: 8px; font-weight: 700; line-height: 1.15; letter-spacing: .12em; }
-.account-header-mark strong { color: var(--accent-velocity); font-family: var(--font-geist-sans), system-ui, sans-serif; font-size: 30px; letter-spacing: -.08em; }
-.account-header-mark span { border-left: 1px solid var(--border-strong); padding-left: 8px; }
-.account-id-panel { overflow: hidden; position: relative; }
-.account-id-ambient { position: absolute; right: -80px; top: -100px; width: 280px; height: 280px; border: 1px solid color-mix(in srgb, var(--accent-velocity) 14%, transparent); border-radius: 50%; box-shadow: 0 0 0 22px color-mix(in srgb, var(--accent-velocity) 3%, transparent), 0 0 0 44px color-mix(in srgb, var(--accent-velocity) 2%, transparent); pointer-events: none; }
-.account-card-utility { position: relative; display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 8px; color: var(--text-secondary); font-size: 11px; }
-.account-card-utility > span { display: flex; align-items: center; gap: 8px; }
-.account-card-utility a { display: inline-flex; align-items: center; gap: 3px; color: var(--accent-velocity); font-weight: 700; }
-.account-signal-panel { background: linear-gradient(145deg, var(--surface), color-mix(in srgb, var(--surface) 88%, var(--accent-velocity) 12%)); }
-.account-signal-panel .account-section-icon { border-radius: 50%; }
-
-.account-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; padding-block: 16px 24px; }
-.account-header h1 { text-wrap: balance; }
-.account-organizer-link { min-height: 44px; }
-.account-jump-nav { position: sticky; top: 64px; z-index: 90; display: flex; gap: 4px; overflow-x: auto; margin-bottom: 20px; padding: 5px; border: 1px solid var(--border-subtle); border-radius: 14px; background: color-mix(in srgb, var(--background) 92%, transparent); box-shadow: 0 8px 24px rgba(0,0,0,.18); backdrop-filter: blur(14px); scrollbar-width: none; }
-.account-jump-nav::-webkit-scrollbar { display: none; }
-.account-jump-link { display: inline-flex; min-height: 38px; align-items: center; justify-content: center; flex: 1 0 auto; border-radius: 9px; padding: 0 14px; color: var(--text-secondary); font-size: 12px; font-weight: 650; white-space: nowrap; transition: color var(--motion-fast), background-color var(--motion-fast), transform var(--motion-fast) var(--ease-out); }
-.account-jump-link:hover { color: var(--foreground); background: var(--surface-hover); }
-.account-jump-link:active { transform: scale(.97); }
-.account-overview-grid { display: grid; gap: var(--account-gap); }
-.account-overview-side { display: grid; align-content: start; gap: var(--account-gap); min-width: 0; }
-.account-panel, .account-meta-card { min-width: 0; border: 1px solid var(--border-subtle); border-radius: 16px; background: var(--surface); }
-.account-panel { padding: 20px; }
-.account-id-panel { background: linear-gradient(145deg, color-mix(in srgb, var(--surface) 92%, var(--accent-velocity) 8%), var(--surface)); }
-.account-panel-topline, .account-panel-heading, .account-section-header, .account-footer { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
-.account-panel-topline { align-items: center; }
-.account-status, .account-count, .account-item-label, .account-verification-status { display: inline-flex; align-items: center; border-radius: 999px; font-size: 10px; font-weight: 700; line-height: 1; white-space: nowrap; }
-.account-status { padding: 7px 10px; text-transform: uppercase; letter-spacing: .08em; }
-.account-status-public { color: var(--accent-velocity); background: color-mix(in srgb, var(--accent-velocity) 12%, transparent); }
-.account-status-private { color: var(--text-secondary); background: var(--surface-elevated); }
-.account-fitness-card { max-width: none; }
-.account-private-note { display: flex; align-items: flex-start; gap: 8px; border: 1px solid var(--border-subtle); border-radius: 10px; padding: 12px; font-size: 12px; line-height: 1.55; color: var(--text-secondary); }
-.account-panel-heading { align-items: flex-start; }
-.account-section-icon { display: inline-flex; height: 32px; width: 32px; flex: 0 0 auto; align-items: center; justify-content: center; border: 1px solid color-mix(in srgb, var(--accent-velocity) 22%, var(--border-subtle)); border-radius: 9px; color: var(--accent-velocity); background: color-mix(in srgb, var(--accent-velocity) 8%, transparent); }
-.account-count { min-width: 24px; justify-content: center; padding: 5px 7px; color: var(--text-secondary); background: var(--surface-elevated); }
+/* Shared participation totals and progressive account disclosures. */
 .account-stat-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .account-stat { min-width: 0; border: 1px solid var(--border-subtle); border-radius: 11px; padding: 14px 10px; text-align: center; background: color-mix(in srgb, var(--surface-elevated) 56%, transparent); }
-.account-help-note { border-top: 1px solid var(--border-subtle); padding-top: 12px; font-size: 11px; line-height: 1.55; color: var(--text-secondary); }
-.account-meta-card { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1px; overflow: hidden; background: var(--border-subtle); }
-.account-meta-card > div { min-width: 0; padding: 16px; background: var(--surface); }
-.account-meta-card dt { display: flex; align-items: center; gap: 6px; color: var(--text-secondary); font-size: 11px; }
-.account-meta-card dt span { color: var(--text-muted); }
-.account-meta-card dd { margin-top: 6px; overflow-wrap: anywhere; color: var(--foreground); font-size: 13px; font-weight: 600; }
-.account-block { margin-top: 48px; }
-.account-section-header { position: relative; align-items: end; margin-bottom: 16px; padding: 0 2px 10px; }
-.account-section-header::after { content: ""; position: absolute; bottom: 0; left: 2px; width: 48px; height: 2px; border-radius: 2px; background: var(--accent-velocity); }
-.account-plans-grid { display: grid; gap: var(--account-gap); }
-.account-plan-panel { position: relative; display: flex; min-height: 100%; flex-direction: column; overflow: hidden; }
-.account-plan-panel::before { content: ""; position: absolute; top: 0; left: 20px; right: 20px; height: 3px; border-radius: 0 0 4px 4px; background: var(--accent-velocity); opacity: .7; }
-.account-plan-panel:nth-child(2)::before { background: var(--accent-energy); }
-.account-plan-panel:nth-child(3)::before { background: #70a7ff; }
-.account-plan-panel:nth-child(2) .account-section-icon { color: var(--accent-energy); border-color: color-mix(in srgb, var(--accent-energy) 22%, var(--border-subtle)); background: color-mix(in srgb, var(--accent-energy) 8%, transparent); }
-.account-plan-panel:nth-child(3) .account-section-icon { color: #70a7ff; border-color: color-mix(in srgb, #70a7ff 22%, var(--border-subtle)); background: color-mix(in srgb, #70a7ff 8%, transparent); }
-.account-list { overflow: hidden; border-top: 1px solid var(--border-subtle); }
-.account-list-item { display: flex; min-width: 0; align-items: center; justify-content: space-between; gap: 16px; border-bottom: 1px solid var(--border-subtle); padding: 15px 0; }
-.account-list-item:last-child { border-bottom: 0; padding-bottom: 0; }
-.account-list-item:first-child { padding-top: 15px; }
-.account-list-content { min-width: 0; flex: 1; }
-.account-list-title { display: block; overflow-wrap: anywhere; color: var(--foreground); font-size: 13px; font-weight: 700; line-height: 1.45; transition: color var(--motion-fast); }
-.account-list-title:hover { color: var(--accent-velocity); }
-.account-list-meta { display: flex; align-items: flex-start; gap: 6px; margin-top: 6px; color: var(--text-secondary); font-size: 11px; line-height: 1.4; }
-.account-list-meta svg { flex: 0 0 auto; margin-top: 1px; }
-.account-list-note { margin-top: 7px; color: var(--text-secondary); font-size: 11px; line-height: 1.45; }
-.account-item-label { margin-bottom: 6px; padding: 5px 7px; color: var(--text-secondary); background: var(--surface-elevated); text-transform: capitalize; }
-.account-list-action { display: inline-flex; min-height: 40px; flex: 0 0 auto; align-items: center; gap: 4px; color: var(--accent-velocity); font-size: 11px; font-weight: 700; }
-.account-list-action:hover svg { transform: translate(2px, -2px); }
-.account-list-action svg { transition: transform var(--motion-fast) var(--ease-out); }
-.account-empty-state { display: flex; min-height: 150px; flex-direction: column; align-items: center; justify-content: center; gap: 7px; border: 1px dashed var(--border-strong); border-radius: 11px; padding: 20px; color: var(--text-secondary); font-size: 12px; text-align: center; }
-.account-empty-state p { color: var(--foreground); font-weight: 650; }
-.account-tools-grid { display: grid; gap: 12px; }
 .account-disclosure { overflow: hidden; border: 1px solid var(--border-subtle); border-radius: 14px; background: var(--surface); transition: border-color var(--motion-standard), box-shadow var(--motion-standard); }
 .account-disclosure-open { border-color: var(--border-strong); box-shadow: 0 10px 26px rgba(0,0,0,.16); }
 .account-disclosure-heading { margin: 0; }
@@ -472,81 +405,10 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { border-color
 .account-service-grid { display: grid; gap: 10px; }
 .account-service-card { display: flex; align-items: flex-start; gap: 12px; border: 1px solid var(--border-subtle); border-radius: 11px; padding: 14px; background: color-mix(in srgb, var(--surface-elevated) 54%, transparent); }
 .account-service-icon { display: inline-flex; height: 30px; width: 30px; flex: 0 0 auto; align-items: center; justify-content: center; border-radius: 8px; color: var(--text-secondary); background: var(--surface-elevated); }
-.account-verification-status { align-self: flex-start; padding: 6px 8px; color: var(--accent-velocity); background: color-mix(in srgb, var(--accent-velocity) 10%, transparent); text-align: right; }
-.account-footer { align-items: center; margin-top: 28px; border-top: 1px solid var(--border-subtle); padding-top: 20px; }
 @keyframes account-content-in { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
-@media (min-width: 768px) {
-  .account-overview-grid { grid-template-columns: minmax(0, 1.1fr) minmax(320px, .9fr); }
-  .account-plans-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: stretch; }
-  .account-tools-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: start; }
-  .account-service-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .account-disclosure-content { min-height: 140px; }
-}
-@media (min-width: 1024px) {
-  .account-plans-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .account-plans-grid > .account-plan-panel:nth-child(2) { transform: translateY(18px); }
-  .account-tools-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-}
 @media (max-width: 767px) {
-  .account-page { padding-top: 12px; }
-  .account-mvp-header { min-height: 0; }
-  .account-header { align-items: flex-start; padding-block: 12px 18px; }
-  .account-header-mark { display: none; }
-  .account-header h1 { font-size: 28px; line-height: 1.15; }
-  .account-header-actions { align-items: flex-start; }
-  .account-header > .account-organizer-link { width: 44px; overflow: hidden; padding-inline: 0; }
-  .account-header > .account-organizer-link .account-organizer-label, .account-header > .account-organizer-link svg:last-child { display: none; }
-  .account-jump-nav { top: 56px; margin-inline: -4px; margin-bottom: 16px; }
-  .account-card-utility { align-items: flex-start; flex-direction: column; gap: 7px; }
-  .account-jump-link { min-height: 36px; padding-inline: 11px; font-size: 11px; }
-  .account-panel { padding: 16px; border-radius: 14px; }
-  .account-block { margin-top: 36px; }
-  .account-plan-panel:nth-child(2) { transform: none; }
-  .account-section-header { display: block; }
-  .account-section-header > p { margin-top: 6px; }
-  .account-list-item { align-items: flex-start; gap: 10px; }
-  .account-section-header { padding-bottom: 8px; }
-  .account-list-item > .motion-press { min-width: 44px; }
-  .account-list-action { min-height: 44px; }
   .account-disclosure-trigger { min-height: 72px; padding: 14px 16px; }
   .account-disclosure-content { padding: 16px; }
-  .account-footer { align-items: flex-start; }
-}
-
-.fitness-card { perspective: 1400px; }
-.fitness-card-body { transform-style: preserve-3d; transition: transform 420ms cubic-bezier(.2,.7,.2,1); }
-.fitness-card-face { backface-visibility: hidden; -webkit-backface-visibility: hidden; }
-.fitness-card-front { position: relative; background: linear-gradient(135deg, #1b2230 0%, #151a26 58%, #10141d 100%); box-shadow: 0 20px 45px -22px rgba(0,0,0,.85), inset 0 1px 0 rgba(255,255,255,.08); }
-.fitness-card-back { background: radial-gradient(circle at 50% 34%, color-mix(in srgb, var(--accent-velocity) 8%, var(--surface)), var(--surface) 55%); box-shadow: 0 20px 45px -22px rgba(0,0,0,.85), inset 0 1px 0 rgba(255,255,255,.06); }
-.fitness-card-grid { position: absolute; inset: 0; opacity: .18; background-image: linear-gradient(rgba(255,255,255,.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,.1) 1px, transparent 1px); background-size: 24px 24px; mask-image: linear-gradient(135deg, black, transparent 62%); }
-.fitness-card-glow { position: absolute; top: -70px; right: -40px; width: 210px; height: 170px; border-radius: 50%; background: color-mix(in srgb, var(--accent-velocity) 16%, transparent); filter: blur(34px); opacity: .5; }
-.fitness-card-live-dot, .account-live-dot { display: inline-block; width: 6px; height: 6px; border-radius: 999px; background: var(--accent-velocity); box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent-velocity) 15%, transparent); }
-.fitness-card-live-dot { margin-right: 5px; vertical-align: 1px; }
-.fitness-card-side-label { margin-left: auto; color: color-mix(in srgb, var(--accent-velocity) 68%, transparent); font-family: var(--font-geist-mono), monospace; font-size: 8px; font-weight: 800; line-height: 1.35; letter-spacing: .14em; text-align: right; writing-mode: vertical-rl; transform: rotate(180deg); }
-@media (max-width: 639px) { .fitness-card-side-label { display: none; } }
-.fitness-card-logo { display: block; width: 112px; height: auto; max-width: 42%; object-fit: contain; object-position: left center; }
-.fitness-card-type { border: 1px solid rgba(255,255,255,.12); border-radius: 999px; padding: 6px 8px; color: var(--text-secondary); font-family: var(--font-geist-mono), monospace; font-size: 9px; font-weight: 700; letter-spacing: .12em; line-height: 1; }
-.fitness-card-avatar { border: 1px solid color-mix(in srgb, var(--accent-velocity) 55%, var(--border-strong)); color: var(--accent-velocity); background: color-mix(in srgb, var(--accent-velocity) 9%, var(--surface)); box-shadow: 0 0 0 5px color-mix(in srgb, var(--accent-velocity) 5%, transparent); }
-.fitness-card-qr-wrap { padding: 7px; border-radius: 16px; background: white; box-shadow: 0 10px 30px rgba(0,0,0,.28); }
-.fitness-card-qr-wrap > svg { display: block; }
-.fitness-card-qr-wrap > span { margin: 0 -2px -2px; color: #090a0f; }
-.fitness-card-private { padding: 20px 14px; border: 1px dashed var(--border-strong); border-radius: 14px; }
-.fitness-card-controls { display: flex; align-items: center; justify-content: center; gap: 4px; margin-top: 6px; }
-.fitness-card-hint { color: var(--text-muted); font-size: 11px; }
-.profile-actions { display: flex; min-height: 44px; flex-direction: column; align-items: center; justify-content: center; gap: 6px; margin-top: 10px; }
-.profile-share-button { display: inline-flex; height: 44px; width: 44px; align-items: center; justify-content: center; border: 1px solid var(--border-strong); border-radius: 50%; color: var(--text-secondary); background: var(--surface-elevated); }
-.profile-share-button:hover { border-color: var(--accent-velocity); color: var(--accent-velocity); background: color-mix(in srgb, var(--accent-velocity) 8%, var(--surface-elevated)); }
-.profile-share-status { min-height: 1.25em; color: var(--text-secondary); font-size: 11px; text-align: center; }
-.fitness-id-showcase, .account-id-panel { border: 0; background: transparent; padding: 0; }
-@media (max-width: 639px) { .fitness-card-logo { width: 96px; } }
-@media (max-width: 639px) {
-  .fitness-card-body { min-height: 270px; }
-  .fitness-card-front, .fitness-card-back { padding: 16px; }
-  .fitness-card-hint { display: none; }
-  .fitness-card-controls { justify-content: center; }
-}
-@media (min-width: 640px) {
-  .fitness-id-wrap { max-width: 560px; }
 }
 
 

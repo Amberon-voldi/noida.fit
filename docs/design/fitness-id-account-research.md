@@ -178,3 +178,18 @@ Compare current and candidate designs with the same tasks and equivalent fixture
 Additional checks: 320/390/768/1440px, 200% zoom, long names/handles, zero and populated history, public/private transitions, canceled sharing, unavailable clipboard, keyboard and screen reader, reduced motion and real-device QR scanning under different lighting. Automated regression tests complement, but do not replace, usability observation.
 
 Use synthetic or consented staging data. Do not record passwords, sessions, private attendance records or other unnecessary personal information.
+
+## 9. Applied UI direction
+
+The subsequent requested UI enhancement applies the following parts of this research:
+
+- Standalone member ID, real logo, neutral membership wording and readable facts; no invented active/live status.
+- Purpose-based public QR/private details controls and a small external share icon on one action rail.
+- Native share → clipboard → selectable canonical public URL recovery, only when needed.
+- A compact account greeting, ID-first overview and earliest confirmed upcoming session close by.
+- Simple plan lists, a private dated participation passport with explicit verification states, and retained detailed history.
+- Direct visibility/public-preview access, grouped settings/preferences and secondary integration information.
+
+No new badges, public attendance history, wallet integration or reward system was introduced. Authorization and persistence remain in the existing server flows. The route loads private account data; `AccountWorkspace` is its server-rendered presentation, not a client-side account store.
+
+Regression coverage includes synthetic account/card/share browser fixtures, India-date and account-record unit tests, and standard project checks. Real-device QR scanning, native share-sheet behavior and participant usability studies remain separate manual validation. The implementation does not establish a measured UX or engagement improvement.

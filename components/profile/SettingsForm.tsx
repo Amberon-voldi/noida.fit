@@ -54,7 +54,7 @@ export function SettingsForm({ settings, className = "" }: SettingsFormProps) {
   return (
     <form onSubmit={submit} aria-busy={saving} className={`space-y-5 rounded-xl border border-border-subtle bg-surface p-5 ${className}`}>
       <fieldset disabled={saving} className="space-y-4">
-        <legend className="sr-only">Profile details</legend>
+        <legend className="mb-3 text-sm font-semibold text-white">Profile details</legend>
         <div><label htmlFor="settings-username" className="text-sm text-text-secondary">Username</label><input id="settings-username" name="username" value={form.username} onChange={(e) => setForm({ ...form, username: e.target.value.toLowerCase() })} minLength={3} maxLength={40} pattern={USERNAME_PATTERN} aria-describedby="settings-username-help" required className={inputClass} /><p id="settings-username-help" className="mt-1 text-xs text-text-secondary">3–40 characters. Start and end with a letter or number. Changing it also changes your public link.</p></div>
         <div><label htmlFor="settings-name" className="text-sm text-text-secondary">Display name</label><input id="settings-name" name="displayName" value={form.displayName} onChange={(e) => setForm({ ...form, displayName: e.target.value })} minLength={2} maxLength={128} required className={inputClass} /></div>
         <div><label htmlFor="settings-city" className="text-sm text-text-secondary">City</label><input id="settings-city" name="city" value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} maxLength={100} required className={inputClass} /></div>
@@ -69,7 +69,7 @@ export function SettingsForm({ settings, className = "" }: SettingsFormProps) {
         <label className="flex min-h-11 items-center gap-3 text-sm text-text-secondary"><input type="checkbox" checked={form.showCommunities} disabled={form.visibility !== "public"} onChange={(e) => setForm({ ...form, showCommunities: e.target.checked })} /> Also share communities I follow</label>
         <p className="text-xs text-text-secondary">Nothing is shared while your profile is private, even if these preferences are selected.</p>
       </fieldset>
-      <div><label className="flex min-h-11 items-center gap-3 text-sm text-text-secondary"><input type="checkbox" checked={form.notifications} disabled={saving} onChange={(e) => setForm({ ...form, notifications: e.target.checked })} /> Save my preference for product updates</label><p className="text-xs text-text-secondary">This preference is saved; email notifications are not active yet.</p></div>
+      <fieldset disabled={saving} className="border-t border-border-subtle pt-4"><legend className="text-sm font-semibold text-white">Preferences</legend><label className="flex min-h-11 items-center gap-3 text-sm text-text-secondary"><input type="checkbox" checked={form.notifications} onChange={(e) => setForm({ ...form, notifications: e.target.checked })} /> Save my preference for product updates</label><p className="text-xs text-text-secondary">This preference is saved; email notifications are not active yet.</p></fieldset>
       {error && <p role="alert" className="text-sm text-rose-400">{error}</p>}
       <p role="status" aria-live="polite" className="text-sm text-velocity">{message}</p>
       <button type="submit" disabled={saving} className="min-h-11 rounded-lg bg-velocity px-4 py-2 text-sm font-bold text-background disabled:opacity-50">{saving ? "Saving…" : "Save settings"}</button>

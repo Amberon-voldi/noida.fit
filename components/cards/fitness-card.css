@@ -1,0 +1,190 @@
+.fitness-id-wrap {
+  width: 100%;
+  min-width: 0;
+}
+
+.fitness-card {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-2xl, 24px);
+  background: transparent;
+  color: var(--text-primary);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  perspective: 1400px;
+}
+
+.fitness-card-body {
+  display: grid;
+  width: 100%;
+  min-height: 340px;
+  transform-style: preserve-3d;
+  transition: transform 300ms var(--ease-out, cubic-bezier(.16, 1, .3, 1));
+}
+
+.fitness-card-face {
+  grid-area: 1 / 1;
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 20px;
+  overflow: hidden;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-2xl, 24px);
+  background: var(--surface);
+  box-shadow: var(--shadow-card), inset 0 1px 0 rgba(255, 255, 255, .06);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+}
+
+.fitness-card-front {
+  position: relative;
+  background: linear-gradient(135deg, var(--surface-elevated), var(--surface));
+}
+
+.fitness-card-front > :not(.fitness-card-grid) { position: relative; }
+
+/* One quiet city-grid signature, not a seal or a live-status effect. */
+.fitness-card-grid {
+  position: absolute;
+  inset: 0;
+  opacity: .2;
+  pointer-events: none;
+  background-image: linear-gradient(rgba(255, 255, 255, .12) 1px, transparent 1px), linear-gradient(90deg, rgba(255, 255, 255, .12) 1px, transparent 1px);
+  background-size: 32px 32px;
+  mask-image: linear-gradient(225deg, black, transparent 55%);
+}
+
+.fitness-card-heading {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.fitness-card-logo {
+  display: block;
+  width: 112px;
+  max-width: 45%;
+  height: auto;
+  object-fit: contain;
+  object-position: left center;
+}
+
+.fitness-card-type {
+  color: var(--text-secondary);
+  font-family: var(--font-geist-mono), monospace;
+  font-size: .75rem;
+  font-weight: 600;
+  line-height: 1.5;
+  letter-spacing: .06em;
+  text-align: right;
+  text-transform: uppercase;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+}
+
+.fitness-card-identity { display: block; min-width: 0; }
+.fitness-card-member { display: block; color: var(--accent-velocity); font-size: .75rem; font-weight: 600; line-height: 1.5; }
+.fitness-card-name { display: block; margin-top: 4px; font-size: 2rem; font-weight: 800; line-height: 1.2; letter-spacing: -.035em; overflow-wrap: anywhere; }
+.fitness-card-handle, .fitness-card-back-handle { display: block; color: var(--text-secondary); font-family: var(--font-geist-mono), monospace; font-size: .875rem; line-height: 1.5; overflow-wrap: anywhere; }
+.fitness-card-handle { margin-top: 8px; }
+
+.fitness-card-location {
+  display: flex;
+  min-width: 0;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  color: var(--text-secondary);
+  font-size: .8125rem;
+  line-height: 1.5;
+}
+
+.fitness-card-location > svg { flex-shrink: 0; color: var(--accent-velocity); }
+.fitness-card-location > span:first-of-type { min-width: 0; overflow-wrap: anywhere; }
+.fitness-card-visibility { margin-left: auto; font-size: .75rem; }
+
+.fitness-card-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; padding-top: 16px; border-top: 1px solid var(--border-strong); }
+.fitness-card-fact { min-width: 0; }
+.fitness-card-fact:last-child { text-align: right; }
+.fitness-card-value { display: block; font-size: 1.5rem; font-weight: 750; line-height: 1.1; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.fitness-card-label { display: block; margin-top: 6px; color: var(--text-secondary); font-size: .8125rem; line-height: 1.5; }
+.fitness-card-not-shared { display: block; font-size: .75rem; }
+
+.fitness-card-back { align-items: center; gap: 12px; }
+.fitness-card-profile-qr { display: flex; width: 100%; min-width: 0; flex-direction: column; align-items: center; gap: 6px; text-align: center; }
+.fitness-card-qr-wrap { display: block; flex-shrink: 0; padding: 0; border-radius: 0; background: #fff; box-shadow: none; }
+.fitness-card-qr-wrap > svg { display: block; width: 160px; height: 160px; }
+.fitness-card-qr-purpose { display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 2px; font-size: .8125rem; font-weight: 650; line-height: 1.5; }
+.fitness-card-qr-purpose > svg { flex-shrink: 0; color: var(--accent-velocity); }
+.fitness-card-back-handle { max-width: 100%; font-size: .75rem; }
+.fitness-card-qr-note { max-width: 30ch; color: var(--text-secondary); font-size: .75rem; line-height: 1.5; }
+
+.fitness-card-private { display: flex; max-width: 30ch; flex-direction: column; align-items: center; gap: 12px; padding: 0; border: 0; border-radius: 0; color: var(--text-secondary); font-size: .875rem; line-height: 1.6; text-align: center; }
+.fitness-card-private-title { color: var(--text-primary); font-size: 1rem; font-weight: 700; }
+.fitness-card-number { max-width: 100%; color: var(--text-secondary); font-family: var(--font-geist-mono), monospace; font-size: .75rem; line-height: 1.5; overflow-wrap: anywhere; text-align: center; }
+
+.fitness-card-controls {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: minmax(0, 1fr) minmax(0, max-content) minmax(0, 1fr);
+  align-items: center;
+  column-gap: 8px;
+  row-gap: 0;
+  margin-top: 8px;
+}
+
+.fitness-card-controls-with-actions { grid-template-columns: minmax(0, 1fr) minmax(0, max-content) 44px minmax(0, 1fr); }
+/* Sharing feedback spans the rail below both controls, without another frame. */
+.fitness-card-controls > .profile-actions { display: contents; }
+.fitness-card-controls > .profile-actions > .profile-share-button { grid-column: 2; justify-self: center; }
+.fitness-card-controls-with-actions > .profile-actions > .profile-share-button { grid-column: 3; }
+
+.fitness-card-control {
+  grid-column: 2;
+  display: inline-flex;
+  min-width: 44px;
+  min-height: 44px;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md, 8px);
+  background: transparent;
+  color: var(--text-secondary);
+  font: inherit;
+  font-size: .8125rem;
+  font-weight: 600;
+  line-height: 1.4;
+  cursor: pointer;
+  transition: color var(--motion-fast, 150ms), background var(--motion-fast, 150ms);
+}
+
+.fitness-card-control > svg { flex-shrink: 0; }
+.fitness-card-control:hover { background: var(--surface-elevated); color: var(--text-primary); }
+.fitness-card:focus-visible, .fitness-card-control:focus-visible { outline: 2px solid var(--accent-velocity-glow); outline-offset: 4px; }
+
+@media (max-width: 359px) {
+  .fitness-card-face { padding: 16px; }
+  .fitness-card-name { font-size: 1.75rem; }
+  .fitness-card-logo { width: 96px; }
+}
+
+@media (min-width: 640px) {
+  .fitness-card-face { padding: 24px; }
+  .fitness-card-name { font-size: 2.25rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* Keep the 180° face orientation; only the animated travel is optional. */
+  .fitness-card-body, .fitness-card-control { transition: none; }
+}

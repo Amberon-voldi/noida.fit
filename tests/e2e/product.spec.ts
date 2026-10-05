@@ -194,17 +194,17 @@ test("signup → save/follow/RSVP → organizer check-in → private/public Fitn
       await expect(page.getByRole("heading", {name:/Fitness ID/}).first()).toBeVisible();
       await expect(page.getByRole("heading", {name:"Your plans", exact:true})).toBeVisible();
       await expect(page.getByRole("heading", {name:"Account & privacy", exact:true})).toBeVisible();
-      await expect(page.getByRole("navigation", {name:"Account sections"}).getByRole("link")).toHaveCount(5);
+      await expect(page.getByRole("navigation", {name:"Account sections"}).getByRole("link")).toHaveCount(4);
       expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
-      await page.getByRole("link", {name:"Settings", exact:true}).click();
+      await page.getByRole("link", {name:"Profile & privacy", exact:true}).click();
       await expect(page.getByRole("heading", {name:/^Profile settings/})).toBeVisible();
       await expect(page.getByLabel("Display name", {exact:true})).toBeVisible();
     }
     await page.setViewportSize({width: 1280, height: 900});
     await page.goto("/account");
     await expect(page.getByText("Verification session — temporary test").first()).toBeVisible();
-    await page.getByRole("button",{name:/flip fitness id/i}).click();
-    await expect(page.getByText(/enable public sharing/i)).toBeVisible();
+    await page.getByRole("button",{name:"Card details",exact:true}).click();
+    await expect(page.getByText("Your profile is private",{exact:true})).toBeVisible();
     const second=await testAccount();const third=await testAccount();
     try {
       expect((await mutation(second.context,"/api/participation/rsvp",{eventId:event.id})).status()).toBe(409);
@@ -234,8 +234,8 @@ test("signup → save/follow/RSVP → organizer check-in → private/public Fitn
     const publicBody=await publicResponse.text();expect(publicBody.includes(email)).toBe(false);expect(publicBody.includes(user.$id)).toBe(false);expect(publicBody.includes("password")).toBe(false);
     const profile=JSON.parse(publicBody).profile;expect(profile.activity.verifiedActivities).toBe(1);expect(profile.activity.eventsAttended).toBe(1);
     await page.goto(`/@${username}`);await expect(page.locator("h1")).toBeVisible();
-    await page.getByRole("button",{name:/flip fitness id/i}).click();
-    await expect(page.getByRole("img",{name:`QR code for @${username}`})).toBeVisible();
+    await page.getByRole("button",{name:"Show profile QR",exact:true}).click();
+    await expect(page.getByRole("img",{name:`Public profile QR code for @${username}`})).toBeVisible();
     // Owner reads allowed, guest/owner writes denied at the Appwrite layer too.
     const ownerDb=new Databases(new Client().setEndpoint(config.endpoint).setProject(config.projectId).setSession(cookie!.value));
     expect(Boolean(await ownerDb.getDocument({databaseId:config.databaseId,collectionId:collections.profiles,documentId:user.$id}))).toBe(true);
