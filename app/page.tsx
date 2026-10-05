@@ -1,19 +1,17 @@
 import type { Metadata } from "next";
-import type { ReactNode } from "react";
 import Link from "next/link";
-import { ArrowUpRight } from "lucide-react";
+import { ArrowUpRight, CalendarDays } from "lucide-react";
 import { EventCard } from "@/components/cards/EventCard";
-import { CommunityCard } from "@/components/cards/CommunityCard";
-import { PlaceCard } from "@/components/cards/PlaceCard";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
-import { Reveal } from "@/components/ui/Reveal";
 import { LandingMotion } from "@/components/home/LandingMotion";
 import { LandingHero } from "@/components/home/LandingHero";
+import { LandingActivities } from "@/components/home/LandingActivities";
 import { LandingStory } from "@/components/home/LandingStory";
+import { LandingPlaces } from "@/components/home/LandingCollection";
+import { LandingTrack } from "@/components/home/LandingGraphics";
 import { getDirectory } from "@/lib/data";
 import { filterDirectory, readFilters } from "@/components/discovery/filter";
-import { ListingImage } from "@/components/discovery/ListingImage";
 import "@/components/home/landing.css";
 
 export const metadata: Metadata = {
@@ -24,11 +22,9 @@ export const metadata: Metadata = {
 
 export default async function HomePage() {
   const directory = await getDirectory();
-  const { activities } = directory;
-  const events = filterDirectory(directory, readFilters({ date: "week", type: "events" })).events.slice(0, 4);
-  const weekend = filterDirectory(directory, readFilters({ date: "weekend", type: "events" })).events.slice(0, 3);
-  const communities = directory.communities.filter(item => item.featured).slice(0, 3);
-  const featuredPlaces = directory.places.slice(0, 3);
+  const events = filterDirectory(directory, readFilters({ date: "week", type: "events" })).events.slice(0, 2);
+  const communities = directory.communities.filter(item => item.featured).slice(0, 2);
+  const places = directory.places.slice(0, 3);
   const siteUrl = new URL(process.env.NEXT_PUBLIC_SITE_URL || "https://noida.fit").origin;
   const website = { "@context": "https://schema.org", "@type": "WebSite", name: "NOIDA.FIT", url: siteUrl, description: metadata.description, potentialAction: { "@type": "SearchAction", target: `${siteUrl}/discover?q={search_term_string}`, "query-input": "required name=search_term_string" } };
 
@@ -39,56 +35,26 @@ export default async function HomePage() {
       <LandingMotion>
         <LandingHero />
         <div className="landing-container landing-content">
-          <LandingSection id="week" number="01" eyebrow="Make a plan" title="Your next seven days." href="/events" linkLabel="All events">
-            {events.length ? <div className="landing-card-rail landing-events-grid mobile-rail">{events.map(event => <EventCard key={event.id} event={event} />)}</div> : <EmptyHome message="No sessions listed for the next seven days yet. Find a community with a regular rhythm." href="/communities" label="Find a community" />}
-          </LandingSection>
+          <section id="week" className="landing-section landing-week-scene" aria-labelledby="week-heading" data-parallax-scene>
+            <div className="landing-week-intro"><p data-reveal-item className="landing-kicker"><span aria-hidden="true">01 /</span>Make a plan</p><h2 id="week-heading"><span className="landing-reveal-line"><span data-reveal-item data-reveal-style="line">Your next</span></span><span className="landing-reveal-line"><span data-reveal-item data-reveal-style="line" data-reveal-order="1">seven days.</span></span></h2><p data-reveal-item className="landing-section-intro">A couple of starting points.<br />The rest of the city is one tap away.</p><Link data-reveal-item href="/events" className="landing-text-link">All events<ArrowUpRight size={16} aria-hidden="true" /></Link><span className="landing-week-graphic landing-parallax-layer" data-parallax="-48" data-parallax-turn="16" aria-hidden="true">↗</span></div>
+            {events.length ? <div className="landing-event-pair">{events.map((event, index) => <div key={event.id} className={`landing-event-position landing-event-position-${index + 1}`} data-reveal-item data-reveal-style={index === 0 ? "left" : "right"} data-reveal-order={index}><EventCard event={event} /></div>)}</div> : <div data-reveal-item className="landing-empty"><p>No sessions listed for the next seven days yet. Find a community with a regular rhythm.</p><Link href="/communities" className="landing-text-link">Find a community<ArrowUpRight size={16} aria-hidden="true" /></Link></div>}
+          </section>
 
-          <LandingSection id="activities" number="02" eyebrow="Find your thing" title="More than one way to move." href="/activities" linkLabel="All activities">
-            {activities.length ? <div className="landing-activities-grid">{activities.slice(0, 6).map(activity => <Link href={`/activities/${activity.slug}`} key={activity.id} data-reveal-item className="landing-activity motion-card motion-photo">
-              <ListingImage category={activity.slug} alt="" sizes="(max-width: 639px) 45vw, (max-width: 1023px) 30vw, 200px" />
-              <span className="landing-activity-shade" />
-              <span className="landing-activity-name">{activity.name}<ArrowUpRight size={18} aria-hidden="true" /></span>
-            </Link>)}</div> : <EmptyHome message="Activity guides are being added. Explore the directory in the meantime." href="/discover" label="Explore the directory" />}
-          </LandingSection>
+          <LandingActivities activities={directory.activities} />
+          <LandingStory communities={communities} />
 
-          <LandingStory />
+          <section id="places" className="landing-places-scene" aria-labelledby="places-heading" data-parallax-scene>
+            <div className="landing-places-intro"><p data-reveal-item className="landing-kicker"><span aria-hidden="true">04 /</span>Closer than you think</p><h2 id="places-heading"><span className="landing-reveal-line"><span data-reveal-item data-reveal-style="line">Your city.</span></span><span className="landing-reveal-line"><span data-reveal-item data-reveal-style="line" data-reveal-order="1">Your playground.</span></span></h2><p data-reveal-item className="landing-section-intro">Find the track, park or court<br />that gets you out the door.</p><Link data-reveal-item href="/places" className="landing-text-link">All places<ArrowUpRight size={16} aria-hidden="true" /></Link><div className="landing-local-art landing-parallax-layer" data-parallax="-72" data-parallax-turn="-28" aria-hidden="true"><LandingTrack /></div></div>
+            {places.length ? <LandingPlaces places={places} /> : <div data-reveal-item className="landing-empty"><p>Venue details are on the way.</p><Link href="/discover" className="landing-text-link">Explore the directory<ArrowUpRight size={16} aria-hidden="true" /></Link></div>}
+          </section>
 
-          <LandingSection id="community" number="03" eyebrow="Find your people" title="Good company. Great energy." href="/communities" linkLabel="All groups">
-            {communities.length ? <div className="landing-card-rail landing-three-grid mobile-rail">{communities.map(community => <CommunityCard key={community.id} community={community} />)}</div> : <EmptyHome message="Find a local group to make movement a regular thing." href="/communities" label="Browse communities" />}
-          </LandingSection>
+          <section id="weekend" className="landing-weekend" aria-labelledby="weekend-heading"><div data-reveal-item data-reveal-style="left"><CalendarDays size={24} aria-hidden="true" /><div><h2 id="weekend-heading">Leave room for the weekend.</h2><p>Find a session worth getting outside for.</p></div></div><Link data-reveal-item data-reveal-style="right" href="/events?date=weekend" className="landing-text-link">This weekend<ArrowUpRight size={18} aria-hidden="true" /></Link></section>
 
-          <LandingSection id="places" number="04" eyebrow="Closer than you think" title="Your city is your playground." href="/places" linkLabel="All places">
-            {featuredPlaces.length ? <div className="landing-card-rail landing-three-grid mobile-rail">{featuredPlaces.map(place => <PlaceCard key={place.id} place={place} />)}</div> : <EmptyHome message="Venue details are on the way." href="/discover" label="Explore the directory" />}
-          </LandingSection>
-
-          <LandingSection id="weekend" number="05" eyebrow="Make time for you" title="Your weekend, outside." href="/events?date=weekend" linkLabel="This weekend">
-            {weekend.length ? <div className="landing-card-rail landing-three-grid mobile-rail">{weekend.map(event => <EventCard key={event.id} event={event} />)}</div> : <EmptyHome message="No weekend sessions listed yet. Explore another day or find a regular group." href="/events" label="Browse events" />}
-          </LandingSection>
-
-          <Reveal><section className="landing-organizers" aria-labelledby="organizer-heading"><div data-reveal-item><p className="landing-kicker">For the people who bring people together</p><h2 id="organizer-heading">You bring the group.<br />We’ll help people find it.</h2></div><div data-reveal-item><p>Share your regular run, ride, class or game for a listing review.</p><Link href="/for-organizers" className="landing-text-link">List your group<ArrowUpRight size={18} aria-hidden="true" /></Link></div></section></Reveal>
+          <section className="landing-organizers" aria-labelledby="organizer-heading"><div data-reveal-item><p className="landing-kicker">For the people who bring people together</p><h2 id="organizer-heading">You bring the group.<br />We’ll help people find it.</h2></div><div data-reveal-item data-reveal-style="right"><p>Share your regular run, ride, class or game for a listing review.</p><Link href="/for-organizers" className="landing-text-link">List your group<ArrowUpRight size={18} aria-hidden="true" /></Link></div></section>
         </div>
-        <Reveal><section className="landing-finale" aria-labelledby="finale-heading"><div className="landing-container landing-finale-inner"><div data-reveal-item><p>Find your people. Show up.</p><h2 id="finale-heading">YOUR NEXT MOVE<br />STARTS OUTSIDE.</h2></div><Link data-reveal-item href="/events" className="landing-finale-link">Find a session<ArrowUpRight size={24} aria-hidden="true" /></Link></div><span className="landing-finale-arrow" aria-hidden="true">↗</span></section></Reveal>
+        <section className="landing-finale" aria-labelledby="finale-heading" data-parallax-scene><div className="landing-container landing-finale-inner"><div><p data-reveal-item>Find your people. Show up.</p><h2 id="finale-heading"><span className="landing-reveal-line"><span data-reveal-item data-reveal-style="line">YOUR NEXT MOVE</span></span><span className="landing-reveal-line"><span data-reveal-item data-reveal-style="line" data-reveal-order="1">STARTS OUTSIDE.</span></span></h2></div><Link data-reveal-item data-reveal-style="right" href="/events" className="landing-finale-link">Find a session<ArrowUpRight size={24} aria-hidden="true" /></Link></div><span className="landing-finale-arrow landing-parallax-layer" data-parallax="-90" data-parallax-turn="12" aria-hidden="true">↗</span></section>
       </LandingMotion>
     </main>
     <Footer />
   </>;
-}
-
-interface LandingSectionProps {
-  id: string;
-  number: string;
-  eyebrow: string;
-  title: string;
-  href: string;
-  linkLabel: string;
-  children: ReactNode;
-}
-function LandingSection({ id, number, eyebrow, title, href, linkLabel, children }: LandingSectionProps) {
-  return <Reveal><section id={id} className="landing-section" aria-labelledby={`${id}-heading`}>
-    <header className="landing-section-heading"><div data-reveal-item><p className="landing-kicker"><span aria-hidden="true">{number} /</span>{eyebrow}</p><h2 id={`${id}-heading`}>{title}</h2></div><Link data-reveal-item href={href} className="landing-text-link">{linkLabel}<ArrowUpRight size={16} aria-hidden="true" /></Link></header>
-    {children}
-  </section></Reveal>;
-}
-function EmptyHome({ message, href, label }: { message: string; href: string; label: string }) {
-  return <div className="landing-empty"><p>{message}</p><Link href={href} className="landing-text-link">{label}<ArrowUpRight size={16} aria-hidden="true" /></Link></div>;
 }

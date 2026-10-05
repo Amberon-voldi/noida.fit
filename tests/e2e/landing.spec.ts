@@ -14,6 +14,11 @@ for (const width of [320, 390, 768, 1440]) {
     await expect(page.getByRole("navigation", { name: "Quick plans" }).getByRole("link", { name: "This weekend", exact: true })).toHaveAttribute("href", "/events?date=weekend");
     await expect(page.getByRole("button", { name: "Pause parallax motion" })).toBeVisible();
     await expect.poll(() => page.locator(".landing-hero-photo img").evaluate(node => (node as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
+    await expect(page.locator(".landing-card-rail, .landing-activities-grid, .landing-three-grid")).toHaveCount(0);
+    await expect(page.locator(".landing-activity-menu > a")).toHaveCount(6);
+    await expect(page.locator(".landing-collection-item")).toHaveCount(2);
+    await expect(page.locator(".landing-place-row")).toHaveCount(3);
+    expect(await page.locator(".base-card").count()).toBeLessThanOrEqual(2);
     if (process.env.E2E_LANDING_SCREENSHOTS) await page.screenshot({ path: `/tmp/noidafit-landing-hero-${width}.png` });
     for (const control of [page.getByRole("link", { name: /Explore Noida fitness/i }), page.getByRole("button", { name: "Pause parallax motion" }), ...await page.getByRole("navigation", { name: "Quick plans" }).getByRole("link").all()]) {
       const box = (await control.boundingBox())!;
@@ -107,5 +112,6 @@ test("server-rendered landing response contains the primary journey", async ({ r
   expect(body).toContain("FIND YOUR");
   expect(body).toContain("/discover");
   expect(body).toContain("/communities");
-  expect(body).toContain("Your next seven days.");
+  expect(body).toContain("Your next");
+  expect(body).toContain("seven days.");
 });
