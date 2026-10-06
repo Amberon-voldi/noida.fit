@@ -1,0 +1,62 @@
+export const adminModules = [
+  { path: "/admin", name: "Overview", purpose: "Live content inventory, intent/attendance counts, privacy adoption, backend configuration presence and recent audit history.", workflow: "Use missing organizer assignments and demo inventory to prioritize review. Counts are not analytics predictions; unavailable reads are labelled." },
+  { path: "/admin/content/events", name: "Events", purpose: "Create, edit, publish, draft, cancel, feature and assign an organizer to a session.", workflow: "Choose or create a record. Complete schedule, activity, club, venue and capacity. Validate references before publishing. organizerUserId grants that account event-scoped access, not admin rights." },
+  { path: "/admin/content/communities", name: "Clubs / communities", purpose: "Manage club identity, captains, weekly schedule, channels, home venue, featured placement and verification.", workflow: "Create as a draft, confirm real-world details, then publish. Mark fictional content as demo. Only verify a real club after an editorial check; follows are not real-world club membership." },
+  { path: "/admin/content/places", name: "Places", purpose: "Manage venues, meeting information, coordinates, amenities, access notes and illustrative media.", workflow: "Confirm permission, pin, hours and access before publication. Linked places cannot be hard-deleted while events or bookmarks reference them." },
+  { path: "/admin/content/activities", name: "Activities", purpose: "Manage the activity taxonomy used by discovery and listings.", workflow: "Keep stable IDs and slugs. Referenced activities cannot be deleted. Publishing updates the live directory; no redeployment is needed for data changes." },
+  { path: "/admin/members", name: "Members & access", purpose: "Paginated account search, suspend/restore access, revoke sessions, grant/remove admin labels and hide unsafe public profiles.", workflow: "Select a member, enter a reason and type their account ID. Your own account cannot be targeted. These controls do not erase history, reset passwords or change email verification. Admin promotion is a security-sensitive audited action." },
+  { path: "/admin/attendance", name: "Attendance recovery", purpose: "Event-scoped RSVP/check-in reconciliation, current-page CSV export and trusted-check-in passport repair.", workflow: "Load an event and compare intent versus physical attendance records. Repair only when a trusted check-in exists. Repair preserves its original timestamp and is permitted after cancellation. No fabricated attendance or arbitrary credit is added." },
+  { path: "/organizer", name: "Live attendance desk", purpose: "Generate event-wide signed QR codes and view privacy-safe attendee states.", workflow: "Check-in opens 30 minutes before start, closes one hour after end. Codes expire after 15 minutes (or the close boundary). Members need confirmed RSVPs. The QR is a bearer credential, not proof of location; do not publish it online." },
+  { path: "/admin/audit", name: "Audit trail", purpose: "Paginated durable action intent, target, reason and completion/failure state.", workflow: "A started entry can indicate interruption or an unknown outcome. Inspect the target before retrying. Writes fail closed if the audit intent cannot be recorded. Store contains actor attribution; the UI does not reveal auth session material." },
+];
+
+export const pageGuide = [
+  ["/", "Public", "Motion-enhanced discovery landing with real directory links."],
+  ["/discover, /search", "Public", "Search and URL filters: activity, type, sector, date, time and price."],
+  ["/activities, /activities/[slug]", "Public", "Activity directory and related published listings."],
+  ["/events, /event/[slug]", "Public", "Session directory, details, RSVP/save/share and calendar download."],
+  ["/communities, /community/[slug]", "Public", "Club directory, schedule, captains, channels, follow and save."],
+  ["/places, /place/[slug]", "Public", "Venue information and associated clubs/sessions."],
+  ["/stories, /about, /for-organizers", "Public", "Editorial, mission and email listing-review guidance."],
+  ["/signup, /login", "Guest", "Appwrite email/password onboarding and sign-in."],
+  ["/account, /fitness-id", "Account owner", "Private profile, Fitness ID, plans, saved items, follows, passport and privacy settings."],
+  ["/@username", "Opt-in public", "Public profile allowlist. Private or nonexistent profiles return not found."],
+  ["/fitness-id/[slug]", "Legacy redirect", "Redirects to canonical /@username."],
+  ["/check-in?token=…", "Signed-in confirmed RSVP", "Native-camera or paste signed-code verification; never share live tokens in reports."],
+  ["/robots.txt, /sitemap.xml, /opengraph-image", "Public", "Crawl policy, published content sitemap and generated social image."],
+] as const;
+
+export const endpointGuide = [
+  ["GET", "/api/admin/content/[kind]", "Admin", "List and open activities/communities/events/places; no-store."],
+  ["POST", "/api/admin/content/[kind]", "Admin + audit", "Create a validated content record. Conflict if the ID is already occupied."],
+  ["PUT", "/api/admin/content/[kind]", "Admin + audit", "Edit/publish/draft/cancel/feature/verify/assign via a validated record; rejects stale versions."],
+  ["DELETE", "/api/admin/content/[kind]", "Admin + audit", "Typed-ID confirmation, reason and reference guards; prefer draft/unpublish."],
+  ["GET", "/api/admin/members?q=&offset=", "Admin", "25-account support page; no passwords, email addresses, prefs or sessions."],
+  ["POST", "/api/admin/members", "Admin + audit", "suspend / restore / revoke-sessions / grant-admin / remove-admin / hide-profile."],
+  ["GET", "/api/admin/attendance?eventId=&offset=", "Admin", "50-row event roster, RSVP/check-in counts and repair-needed states."],
+  ["POST", "/api/admin/attendance", "Admin + audit", "Repair derived verified participation from an existing trusted check-in."],
+  ["GET", "/api/admin/audit?offset=", "Admin", "50 newest action records per page."],
+  ["POST", "/api/auth/signup", "Guest + same origin", "Create account/session and private profile/ID; repair interrupted setup."],
+  ["POST", "/api/auth/login", "Guest + same origin", "Verify credentials and establish HttpOnly session."],
+  ["POST", "/api/auth/logout", "Same origin", "Revoke current session and clear cookie."],
+  ["GET / PATCH", "/api/profile", "Account owner", "Read/update allowlisted profile settings."],
+  ["GET", "/api/profile/public?username=", "Public opt-in", "Read explicit public DTO, never email or private history."],
+  ["GET", "/api/participation?view=controls", "Account owner", "RSVP/save/follow state only. Without view=controls also returns private participation history."],
+  ["POST / DELETE", "/api/participation/rsvp", "Account owner + same origin", "Reserve/release a seat before start; cannot cancel recorded attendance."],
+  ["POST / DELETE", "/api/participation/saved", "Account owner + same origin", "Save/remove an event, community or place."],
+  ["POST / DELETE", "/api/participation/follow", "Account owner + same origin", "Follow/unfollow a community; this is interest, not club enrollment."],
+  ["POST", "/api/check-in/organizer", "Event owner or admin", "Generate HMAC-signed event code within the attendance window."],
+  ["POST", "/api/check-in", "Confirmed RSVP owner", "Verify signed token, record check-in and repair verified participation idempotently."],
+] as const;
+
+export const adminFailures = [
+  ["401 AUTH_REQUIRED", "Sign in again. No private data is returned without a valid Appwrite session."],
+  ["403 ADMIN_REQUIRED", "Your account lacks the exact Appwrite admin label. A public profile field cannot grant it."],
+  ["403 ORIGIN_MISMATCH / ORIGIN_REQUIRED", "Match NEXT_PUBLIC_SITE_URL to the actual HTTPS origin. Do not disable CSRF checks."],
+  ["409 conflict / stale record", "Reload the latest record before editing. Concurrent saves are detected by updatedAt checks, but Appwrite does not provide a transactional compare-and-swap here."],
+  ["429 RATE_LIMITED", "Wait for Retry-After. Application limits are process-local; use an edge limiter for multiple workers."],
+  ["503 AUDIT_NOT_CONFIGURED / AUDIT_UNAVAILABLE", "No operation runs if durable audit intent cannot be stored. Provision the private audit store and verify document scopes."],
+  ["503 AUDIT_COMPLETION_PENDING", "The operation may have succeeded. Reload the target and inspect started audit records before retrying."],
+  ["503 REQUEST_FAILED", "Check backend reachability and scoped credentials in server logs. Do not paste raw SDK errors or keys into reports."],
+  ["CHECKIN_TOKEN_EXPIRED / CHECKIN_CLOSED", "Ask the host for a new code or review event times. Do not invent attendance outside the window."],
+] as const;

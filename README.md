@@ -33,8 +33,10 @@ The current seed contains **24 events, 12 fictional communities, 18 places, and 
 - `/account` — Fitness ID, upcoming RSVPs, saved plans, followed groups, history and settings
 - `/fitness-id` — the current user's private card
 - `/@username` — opt-in public profile; legacy `/fitness-id/[slug]` redirects here
-- `/organizer` — authorized event organizers generate short-lived check-in QR codes
+- `/organizer` — authorized event organizers manage attendance and short-lived QR codes
 - `/check-in` — RSVPed members verify an organizer-provided check-in code
+- `/admin` — protected administrator overview and navigation to content, member access, attendance and audit modules
+- `/admin/guide` — complete operator handbook: module workflows, page routes, API endpoints, permissions and troubleshooting
 
 Profiles start **private**. Public sharing, activity totals and community sharing are separately controlled. Public DTOs do not include email, Appwrite user ID, private history, saves, RSVPs or provider tokens.
 
@@ -58,7 +60,7 @@ There is no runtime seed fallback or device-only RSVP storage. Backend outages s
 
 ## Backend and permissions
 
-See [Appwrite operations and schema](docs/engineering/appwrite.md) for environment variables, API-key scopes, content management and check-in setup.
+See [Appwrite operations and schema](docs/engineering/appwrite.md) for environment variables, API-key scopes, content management and check-in setup. The [admin dashboard operations guide](docs/engineering/admin-dashboard.md) covers `/admin`, durable audit setup and privileged browser controls.
 
 - Public published content: read-only documents.
 - Accounts/participation: owner-readable, not directly client-writable.
@@ -77,6 +79,8 @@ npm run content -- events put ./event.json
 npm run content -- events unpublish DOCUMENT_ID
 npm run content -- events delete DOCUMENT_ID --confirm
 ```
+
+Administrators can also manage these four content kinds through `/admin/content/[kind]`, with guided fields, full JSON editing, published-reference validation, stale-form checks, deletion guards and required audit reasons. Configure the optional private `APPWRITE_ADMIN_AUDIT_COLLECTION_ID` and explicitly run `npm run appwrite:admin-audit` before browser writes are unlocked. This dedicated provisioning command does not change other collection permissions. Member search/access controls additionally need appropriate Appwrite Users API scopes.
 
 The same commands support `places`, `communities`, and `activities`. `put` validates a complete domain record and synchronizes its payload, queryable columns and visibility permissions. Prefer unpublishing over deletion to preserve linked history. Assign `organizerUserId` on an event to authorize an organizer; an Appwrite user label of `admin` grants all-event check-in access. Never give clients collection-wide write permissions.
 

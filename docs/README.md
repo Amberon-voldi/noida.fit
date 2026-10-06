@@ -100,7 +100,8 @@ Welcome to the central documentation hub for **NOIDA.FIT** (`noida.fit` / `@noid
 │   ├── data-model.md                      # Entity models & TypeScript interfaces
 │   ├── performance.md                     # Core Web Vitals, image optimization & caching
 │   ├── security.md                        # UGC sanitization, rate limiting & trust controls
-│   └── analytics.md                       # Telemetry schemas & Weekly Active Participants (WAP)
+│   ├── analytics.md                       # Telemetry schemas & Weekly Active Participants (WAP)
+│   └── admin-dashboard.md                 # Protected admin modules, audit setup, API map & safety
 │
 ├── presentations/
 │   └── noida-fit-product-deck.md          # Presentation-ready Markdown / Marp-style product deck

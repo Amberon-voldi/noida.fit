@@ -5,10 +5,12 @@ import { NAV_LINKS } from "@/lib/config";
 import { MobileNav } from "@/components/layout/MobileNav";
 import { auth } from "@/lib/auth";
 import { SignOutButton } from "@/components/auth/SignOutButton";
+import { isAdminUser } from "@/lib/services/participation";
 
 export async function Navbar() {
   const session = await auth();
   const user = session?.user;
+  const admin = user ? isAdminUser(user) : false;
 
   return (
     <header className="app-topbar sticky top-0 z-[500] w-full border-b border-border-subtle bg-background/95 backdrop-blur-md">
@@ -20,9 +22,9 @@ export async function Navbar() {
         </ul>
         <div className="hidden items-center gap-2 lg:flex">
           <Link href="/search" aria-label="Search the directory" className="flex h-11 w-11 items-center justify-center rounded-lg text-text-secondary hover:bg-surface-hover hover:text-white"><Search className="h-5 w-5" aria-hidden="true" /></Link>
-          {user ? <><Link href="/account" className="button-secondary text-xs">My account</Link><SignOutButton /></> : <><Link href="/fitness-id" className="inline-flex min-h-11 items-center px-2 text-xs font-semibold text-text-secondary hover:text-white">Fitness ID</Link><Link href="/login" className="button-primary text-xs">Sign in</Link></>}
+          {user ? <><Link href="/account" className="button-secondary text-xs">My account</Link>{admin && <Link href="/admin" className="inline-flex min-h-11 items-center px-2 text-xs font-semibold text-velocity hover:text-velocity-glow">Admin</Link>}<SignOutButton /></> : <><Link href="/fitness-id" className="inline-flex min-h-11 items-center px-2 text-xs font-semibold text-text-secondary hover:text-white">Fitness ID</Link><Link href="/login" className="button-primary text-xs">Sign in</Link></>}
         </div>
-        <MobileNav signedIn={!!user} />
+        <MobileNav signedIn={!!user} admin={admin} />
       </nav>
     </header>
   );

@@ -4,11 +4,11 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowUpRight, Dumbbell, MapPin, Menu, Newspaper, UsersRound, Info, X } from "lucide-react";
+import { ArrowUpRight, Dumbbell, MapPin, Menu, Newspaper, UsersRound, Info, ShieldCheck, X } from "lucide-react";
 
 const subscribe = () => () => {};
 
-export function MobileNav({ signedIn = false }: { signedIn?: boolean }) {
+export function MobileNav({ signedIn = false, admin = false }: { signedIn?: boolean; admin?: boolean }) {
   const [open, setOpen] = useState(false);
   const dialogRef = useRef<HTMLDialogElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -41,6 +41,7 @@ export function MobileNav({ signedIn = false }: { signedIn?: boolean }) {
     { href: "/places", label: "Places to move", icon: MapPin },
     { href: "/stories", label: "Local stories", icon: Newspaper },
     { href: "/for-organizers", label: "For organizers", icon: UsersRound },
+    ...(admin ? [{ href: "/admin", label: "Admin console", icon: ShieldCheck }] : []),
     { href: "/about", label: "About NOIDA.FIT", icon: Info },
   ];
 

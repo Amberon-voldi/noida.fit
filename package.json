@@ -18,6 +18,7 @@
     "appwrite:setup": "tsx scripts/setup-appwrite.ts",
     "appwrite:seed": "tsx scripts/seed-appwrite.ts",
     "appwrite:verify": "tsx scripts/verify-appwrite.ts",
+    "appwrite:admin-audit": "tsx scripts/setup-admin-audit.ts",
     "appwrite:permissions": "tsx scripts/sync-appwrite-permissions.ts",
     "content": "tsx scripts/content.ts",
     "security:client": "tsx scripts/check-client-secrets.ts",

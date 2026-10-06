@@ -1,0 +1,35 @@
+.admin-shell { min-width: 0; }
+.admin-nav { display: flex; flex-wrap: wrap; gap: 4px; padding: 12px 16px; border-bottom: 1px solid var(--border-subtle); background: var(--surface); }
+.admin-nav a { display: inline-flex; align-items: center; min-height: 44px; padding: 8px 14px; border-radius: var(--radius-md); font-size: 13px; font-weight: 650; color: var(--text-secondary); }
+.admin-nav a:hover, .admin-nav a[aria-current="page"] { color: var(--accent-velocity); background: var(--surface-elevated); }
+.admin-page { max-width: 1280px; margin: 0 auto; padding: 40px 16px 64px; min-width: 0; }
+.admin-title { margin: 8px 0 12px; font-size: clamp(28px, 4vw, 44px); font-weight: 800; letter-spacing: -.04em; line-height: 1.15; }
+.admin-intro { max-width: 74ch; margin-bottom: 28px; color: var(--text-secondary); font-size: 14px; line-height: 1.7; }
+.admin-panel { min-width: 0; padding: 20px; border: 1px solid var(--border-subtle); border-radius: var(--radius-xl); background: var(--surface); }
+.admin-field { display: block; width: 100%; min-width: 0; min-height: 44px; margin-top: 8px; padding: 10px 12px; border: 1px solid var(--border-strong); border-radius: var(--radius-md); color: var(--foreground); background: var(--surface-elevated); font: inherit; font-size: 14px; }
+label.admin-field { padding: 0; border: 0; background: transparent; }
+label.admin-field > span { display: block; margin-bottom: 8px; color: var(--text-secondary); font-size: 12px; font-weight: 650; }
+label.admin-field > input, label.admin-field > select, label.admin-field > textarea { width: 100%; min-width: 0; min-height: 44px; padding: 10px 12px; color: var(--foreground); background: var(--surface-elevated); border: 1px solid var(--border-strong); border-radius: var(--radius-md); }
+.admin-field:focus-visible, label.admin-field > input:focus-visible, label.admin-field > select:focus-visible, label.admin-field > textarea:focus-visible { outline: 2px solid var(--accent-velocity); outline-offset: 2px; }
+.admin-field:disabled { opacity: .6; }
+.admin-actions { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 10px; min-width: 0; }
+.admin-actions > label { min-width: min(100%, 240px); }
+.admin-table-wrap { overflow-x: auto; max-width: 100%; border: 1px solid var(--border-subtle); border-radius: var(--radius-xl); }
+.admin-table { width: 100%; min-width: 760px; border-collapse: collapse; font-size: 13px; text-align: left; background: var(--surface); }
+.admin-table caption { padding: 16px; text-align: left; color: var(--text-secondary); font-size: 12px; }
+.admin-table th, .admin-table td { padding: 14px 16px; border-bottom: 1px solid var(--border-subtle); vertical-align: top; }
+.admin-table thead { color: var(--text-secondary); font-size: 11px; text-transform: uppercase; letter-spacing: .07em; }
+.admin-error, .admin-warning { padding: 16px; border-radius: var(--radius-lg); font-size: 13px; line-height: 1.6; }
+.admin-error { border: 1px solid rgba(251,113,133,.4); color: #fda4af; background: rgba(251,113,133,.08); }
+.admin-warning { border: 1px solid rgba(252,211,77,.3); color: #fde68a; background: rgba(252,211,77,.08); }
+.admin-guide { display: grid; gap: 24px; }
+.admin-guide section { scroll-margin-top: 100px; }
+.admin-guide h2 { margin-bottom: 12px; font-size: 22px; font-weight: 750; }
+.admin-guide h3 { margin: 18px 0 10px; font-size: 16px; font-weight: 700; }
+.admin-guide p, .admin-guide li { color: var(--text-secondary); line-height: 1.7; font-size: 14px; }
+.admin-guide ul { padding-left: 20px; list-style: disc; }
+.admin-guide code { overflow-wrap: anywhere; color: var(--accent-velocity); font-size: 12px; }
+.admin-guide pre { overflow-x: auto; padding: 16px; background: var(--background); border-radius: var(--radius-md); }
+.admin-guide a { display: inline-flex; align-items: center; min-height: 44px; color: var(--accent-velocity); }
+@media (min-width: 768px) { .admin-nav { padding-inline: max(24px, calc((100vw - 1280px) / 2)); } .admin-page { padding-inline: 24px; } }
+@media (prefers-reduced-motion: reduce) { .admin-shell *, .admin-shell *::before, .admin-shell *::after { scroll-behavior: auto; } }

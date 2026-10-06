@@ -86,7 +86,7 @@ export function assertRateLimit(request: Request, bucket: string, userId?: strin
 }
 
 /** Bound the actual streamed body too; Content-Length alone is client controlled. */
-export async function readJson<T>(request: Request, schema: z.ZodType<T>): Promise<T> {
+export async function readJson<T>(request: Request, schema: z.ZodType<T>, maxBytes = 8192): Promise<T> {
   if (request.headers.get("content-type")?.split(";")[0].trim() !== "application/json") {
     throw new HttpError(415, "JSON_REQUIRED", "Send JSON to this endpoint");
   }
@@ -99,7 +99,7 @@ export async function readJson<T>(request: Request, schema: z.ZodType<T>): Promi
       const { done, value } = await reader.read();
       if (done) break;
       size += value.byteLength;
-      if (size > 8192) {
+      if (size > maxBytes) {
         await reader.cancel();
         throw new HttpError(413, "BODY_TOO_LARGE", "Request body is too large");
       }

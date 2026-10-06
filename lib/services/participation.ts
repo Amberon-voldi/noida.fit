@@ -302,6 +302,17 @@ async function ensureVerifiedParticipation(userId: string, event: AppwriteDocume
   }
 }
 
+/** Administrator recovery only: derives history from an existing trusted check-in, never creates attendance. */
+export async function repairRecordedCheckIn(actor: Pick<AuthUser, "id" | "labels">, eventId: string, userId: string): Promise<void> {
+  if (!isAdminUser(actor)) throw new HttpError(403, "ADMIN_REQUIRED", "Administrator access is required");
+  documentIdSchema.parse(userId);
+  const event = await getEvent(eventId, false);
+  validateCheckInEvent(event);
+  const recorded = await getAppwriteDocument<Row<CheckIn>>(collections.checkins, checkInDocumentId(eventId, userId));
+  if (!recorded || recorded.eventId !== eventId || recorded.userId !== userId) throw new HttpError(404, "CHECKIN_NOT_FOUND", "No trusted attendance exists to repair");
+  await ensureVerifiedParticipation(userId, event, checkinDto(recorded));
+}
+
 export async function checkInAttendee(userId: string, token: string): Promise<{ checkin: CheckIn; repaired: boolean }> {
   documentIdSchema.parse(userId);
   const payload = decodeSignedToken(token);
