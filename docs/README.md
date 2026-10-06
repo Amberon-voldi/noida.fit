@@ -14,6 +14,8 @@ Welcome to the central documentation hub for **NOIDA.FIT** (`noida.fit` / `@noid
 > Before modifying or implementing any component, feature, or route in this repository, you **MUST** read this `README.md` and the relevant specification documents linked below.  
 > The documents in `/docs` represent the **single source of truth** for product, design, UX, engineering, and brand decisions. Do not make arbitrary assumptions or introduce conflicting styles/architectures.
 
+> **Current product note:** Some roadmap and UX documents below describe the earlier seed-only V1 plan. The running implementation now includes authenticated participation, saves, follows, RSVPs, organizer check-in, and the Fitness ID. Use [the current product explanation](product/noida-fit-product-explanation.md), [MVP scope](product/noida-fit-mvp-scope.md), and the root `README.md` for the current behavior; treat older phase labels as historical intent unless code confirms them.
+
 ### Implementation Agent Ground Rules
 
 1. **Read Before Coding:** Always consult the feature's corresponding UX and engineering docs before implementation.
@@ -56,7 +58,9 @@ Welcome to the central documentation hub for **NOIDA.FIT** (`noida.fit` / `@noid
 │   ├── vision.md                          # North star, vision statement & evolution ladder
 │   ├── positioning.md                     # Target audience, geographic focus & boundaries
 │   ├── product-principles.md              # 6 foundational product principles
-│   └── roadmap.md                         # Phased implementation roadmap (V1 -> Future)
+│   ├── roadmap.md                         # Phased implementation roadmap (V1 -> Future)
+│   ├── noida-fit-product-explanation.md   # Current platform, goals, MVP, Fitness ID & roadmap
+│   └── noida-fit-mvp-scope.md              # MVP capabilities, boundaries, states & launch checklist
 │
 ├── brand/
 │   ├── brand-guidelines.md                # Brand personality, voice, vocabulary & tone
@@ -97,6 +101,9 @@ Welcome to the central documentation hub for **NOIDA.FIT** (`noida.fit` / `@noid
 │   ├── performance.md                     # Core Web Vitals, image optimization & caching
 │   ├── security.md                        # UGC sanitization, rate limiting & trust controls
 │   └── analytics.md                       # Telemetry schemas & Weekly Active Participants (WAP)
+│
+├── presentations/
+│   └── noida-fit-product-deck.md          # Presentation-ready Markdown / Marp-style product deck
 │
 └── strategy/
     ├── competitive-positioning.md         # Strategic differentiation matrix
