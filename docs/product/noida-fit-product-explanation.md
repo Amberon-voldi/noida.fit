@@ -165,7 +165,7 @@ A signed-in member can turn interest into a plan:
 
 ### Layer 3 — Show up
 
-Attendance is not inferred from a page view, save, or RSVP. An authorized organizer creates a short-lived signed check-in QR/link. A confirmed attendee checks in during the event window.
+Attendance is not inferred from a page view, save, or RSVP. The participant shows their own short-lived signed check-in QR. An assigned club/venue operator scans it for the selected event; the server verifies account/Fitness ID status, confirmed RSVP and the event window.
 
 ### Layer 4 — Remember
 
@@ -196,7 +196,7 @@ The current codebase is more advanced than the original early roadmap documents.
 | Public profile controls | Implemented | Lets members choose whether and what to share |
 | Organizer check-in | Implemented for authorized organizers | Creates a trusted attendance signal |
 | Participation passport | Implemented privately | Shows the member’s recorded history and verification status |
-| Organizer workspace | Implemented for assigned organizers/admins | Generates check-in codes and shows privacy-safe event attendance |
+| Organizer workspace | Implemented for assigned organizers/admins | Scans participant check-in QRs and shows privacy-safe event attendance |
 | Self-serve listing management | Not implemented | Organizer intake remains email/review based |
 | Payments/ticketing | Not implemented | Listed prices are informational; RSVP does not charge |
 | GPS/performance tracking | Not implemented by design | Keeps the product focused on community discovery |
@@ -212,7 +212,7 @@ Open noida.fit
   → Sign in or create an account
   → RSVP
   → Arrive at the meeting point
-  → Scan organizer’s check-in QR
+  → Show participant QR to the club/venue operator for scanning
   → See verified participation on the private passport
 ```
 
@@ -312,8 +312,8 @@ A check-in requires:
 
 1. A NOIDA.FIT account.
 2. A confirmed RSVP.
-3. A valid organizer-issued signed token/QR.
-4. A check-in within the event window.
+3. A valid participant identity QR scanned by the assigned event operator or trusted admin.
+4. An active account/Fitness ID and check-in within the event window.
 
 The system prevents duplicate attendance records for the same event/member pair and can repair an incomplete derived participation record on retry.
 
@@ -322,9 +322,9 @@ The system prevents duplicate attendance records for the same event/member pair 
 | QR | Purpose | Who creates it | Meaning |
 | --- | --- | --- | --- |
 | Profile QR | Opens a public member profile | Generated for a public Fitness ID | “View this member’s public profile” |
-| Event check-in QR | Records attendance for one event | Authorized organizer/admin | “Verify my attendance at this event” |
+| Participant check-in QR | Identifies the attendee to an authorized operator for the selected event | Issued only for the signed-in participant at `/check-in` | “Scan me at the club/venue attendance desk” |
 
-The profile QR is not an entry ticket or attendance pass. The event check-in QR is not a public profile link.
+The profile QR is not an entry ticket or attendance pass. Participant QRs expire after 15 minutes, work with private profiles, and are not included in public-profile output. Showing a QR alone does not record attendance: the operator must be authorized for the event and server eligibility checks must pass.
 
 ---
 
@@ -399,7 +399,7 @@ Authorized organizers/admins can:
 
 - View assigned events.
 - See confirmed RSVP counts.
-- Generate a time-limited event check-in QR/link during the event window.
+- Select an assigned event and use the camera scanner or paste fallback to check in each participant’s signed QR during the event window.
 - See a privacy-safe attendee list with display names and attendance state.
 
 The workspace does not currently provide self-serve event publishing, content editing, payments, or broad messaging.
@@ -440,8 +440,8 @@ Create account
   → Private Fitness ID is created
   → RSVP to an event
   → Attend the event
-  → Organizer displays check-in QR
-  → Member checks in with confirmed RSVP
+  → Member opens /check-in and shows their participant QR
+  → Club/venue operator scans it for the event with confirmed RSVP
   → Verified participation record is created
   → Private passport and aggregate totals update
   → Member may later choose public visibility and sharing controls
@@ -453,9 +453,10 @@ Create account
 Authorized organizer signs in
   → /organizer
   → Select assigned event
-  → Generate signed QR during allowed window
-  → Attendees scan/use /check-in
-  → System validates token, event, RSVP, and time window
+  → Start camera scanner (native detection or on-device decoder fallback)
+  → Attendee shows their own QR from /check-in
+  → Operator scans it or pastes the participant code
+  → System validates operator authorization, participant signature/account, event, RSVP, and time window
   → Attendance is recorded once
 ```
 

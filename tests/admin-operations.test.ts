@@ -14,7 +14,7 @@ let target = { $id: "member", name: "Test Member", email: "must-not-escape@examp
 
 before(async () => {
   Object.assign(process.env, {
-    NEXT_PUBLIC_APPWRITE_ENDPOINT: "https://appwrite.test/v1", NEXT_PUBLIC_APPWRITE_PROJECT_ID: "operations-test", APPWRITE_KEY: "synthetic-admin-key", NEXT_PUBLIC_APPWRITE_DATABASE_ID: "operations-test", APPWRITE_ADMIN_AUDIT_COLLECTION_ID: "audit",
+    NEXT_PUBLIC_APPWRITE_ENDPOINT: "https://appwrite.test/v1", NEXT_PUBLIC_APPWRITE_PROJECT_ID: "operations-test", APPWRITE_KEY: "synthetic-admin-key", NEXT_PUBLIC_APPWRITE_DATABASE_ID: "operations-test", NEXT_PUBLIC_APPWRITE_ADMIN_AUDIT_COLLECTION_ID: "audit",
     ...Object.fromEntries(["PROFILES", "FITNESS_IDS", "EVENTS", "RSVPS", "CHECKINS", "ACTIVITIES", "PLACES", "COMMUNITIES", "MEMBERSHIPS", "SAVED_ITEMS", "PARTICIPATIONS"].map(key => [`NEXT_PUBLIC_APPWRITE_COLLECTION_${key}`, key.toLowerCase()])),
   });
   globalThis.fetch = async (input, init) => {
@@ -53,7 +53,7 @@ before(async () => {
   members = await import("../lib/admin/members"); attendance = await import("../lib/admin/attendance"); summary = await import("../lib/services/admin");
 });
 after(() => { globalThis.fetch = originalFetch; });
-function reset() { rows = new Map(); calls = []; auditFailure = false; auditFinishFailure = false; process.env.APPWRITE_ADMIN_AUDIT_COLLECTION_ID = "audit"; target = { ...target, labels: ["captain", "admin"], status: true }; }
+function reset() { rows = new Map(); calls = []; auditFailure = false; auditFinishFailure = false; process.env.NEXT_PUBLIC_APPWRITE_ADMIN_AUDIT_COLLECTION_ID = "audit"; target = { ...target, labels: ["captain", "admin"], status: true }; }
 
 test("member DTO is minimized; access writes preserve unrelated labels and are durably audited", async t => {
   t.mock.method(console, "info", () => {}); reset();
@@ -116,6 +116,19 @@ test("summary handles private collection projections and exposes only aggregate 
   const data = await summary.getAdminDashboardData(actor);
   assert.equal(data.participation.savedItems, 1); assert.equal(data.users.total, 1);
   assert.equal(data.backendError, undefined);
+  assert.equal(data.audit.configured, true); assert.equal(data.audit.readable, true);
   assert.doesNotMatch(JSON.stringify(data), /must-not-escape@example|private-person|synthetic-admin-key/);
   await assert.rejects(summary.getAdminDashboardData({ id: "ordinary", labels: [] }), /Administrator/);
+});
+
+test("summary reports audit read failure independently from valid platform metrics", async t => {
+  t.mock.method(console, "info", () => {}); reset(); auditFailure = true;
+  const unavailable = await summary.getAdminDashboardData(actor);
+  assert.equal(unavailable.backendError, undefined);
+  assert.equal(unavailable.users.total, 1);
+  assert.deepEqual(unavailable.audit, { configured: true, readable: false, entries: [] });
+  auditFailure = false; delete process.env.NEXT_PUBLIC_APPWRITE_ADMIN_AUDIT_COLLECTION_ID;
+  const missing = await summary.getAdminDashboardData(actor);
+  assert.deepEqual(missing.audit, { configured: false, readable: false, entries: [] });
+  reset();
 });

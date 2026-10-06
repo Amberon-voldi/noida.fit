@@ -11,15 +11,15 @@ test("administrator access requires the exact Appwrite admin label", () => {
 });
 
 test("privileged mutations fail closed when the audit collection is not configured", async () => {
-  const previous = process.env.APPWRITE_ADMIN_AUDIT_COLLECTION_ID;
-  delete process.env.APPWRITE_ADMIN_AUDIT_COLLECTION_ID;
+  const previous = process.env.NEXT_PUBLIC_APPWRITE_ADMIN_AUDIT_COLLECTION_ID;
+  delete process.env.NEXT_PUBLIC_APPWRITE_ADMIN_AUDIT_COLLECTION_ID;
   try {
     await assert.rejects(
       runAdminMutation({ id: "admin-user", labels: ["admin"] }, "content.test", "synthetic-record", "test action", async () => "must not run"),
       (error: unknown) => error instanceof HttpError && error.status === 503 && error.code === "AUDIT_NOT_CONFIGURED",
     );
   } finally {
-    if (previous === undefined) delete process.env.APPWRITE_ADMIN_AUDIT_COLLECTION_ID;
-    else process.env.APPWRITE_ADMIN_AUDIT_COLLECTION_ID = previous;
+    if (previous === undefined) delete process.env.NEXT_PUBLIC_APPWRITE_ADMIN_AUDIT_COLLECTION_ID;
+    else process.env.NEXT_PUBLIC_APPWRITE_ADMIN_AUDIT_COLLECTION_ID = previous;
   }
 });

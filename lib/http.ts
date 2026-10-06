@@ -68,12 +68,14 @@ export function getClientKey(request: Request): string {
   return "untrusted-network";
 }
 
-/** Process-local sliding window; put a shared limiter at the edge for multiple workers. */
-export function assertRateLimit(request: Request, bucket: string, userId?: string): void {
+/** Process-local sliding window; put a shared limiter at the edge for multiple workers.
+ * Only server callers can select a higher bound (the event-authorized scanner desk uses 120).
+ * All ordinary mutation callers retain the default five requests per ten minutes. */
+export function assertRateLimit(request: Request, bucket: string, userId?: string, maxRequests = 5): void {
   const key = createHash("sha256").update(`${bucket}:${userId || getClientKey(request)}`).digest("hex");
   const now = Date.now();
   const recent = (requests.get(key) ?? []).filter((time) => now - time < RATE_WINDOW_MS);
-  if (recent.length >= 5) {
+  if (recent.length >= maxRequests) {
     throw new HttpError(429, "RATE_LIMITED", "Too many requests. Try again shortly.", Math.ceil((recent[0] + RATE_WINDOW_MS - now) / 1000));
   }
   if (requests.size >= MAX_BUCKETS && !requests.has(key)) {
@@ -123,11 +125,11 @@ export async function requireAuthUser() {
   return session.user;
 }
 
-export async function requireMutationUser(request: Request, bucket: string) {
+export async function requireMutationUser(request: Request, bucket: string, maxRequests = 5) {
   // Authentication first guarantees unauthenticated actions return 401, not a backend detail.
   const user = await requireAuthUser();
   assertSameOrigin(request);
-  assertRateLimit(request, bucket, user.id);
+  assertRateLimit(request, bucket, user.id, maxRequests);
   return user;
 }
 

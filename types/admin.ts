@@ -52,6 +52,6 @@ export interface AdminDashboardData {
   entries: { activities: AdminContentEntry[]; communities: AdminContentEntry[]; places: AdminContentEntry[]; events: AdminEventEntry[] };
   participation: { confirmedRsvps: number; cancelledRsvps: number; waitlistedRsvps: number; checkins: number; verifiedParticipations: number; pendingParticipations: number; activeMemberships: number; savedItems: number };
   operational: { upcomingEvents: number; pastEvents: number; cancelledEvents: number; assignedEvents: number; unassignedPublishedEvents: number; verifiedCommunities: number; demoListings: number };
-  audit: { configured: boolean; entries: AdminAuditEntry[] };
+  audit: { configured: boolean; readable: boolean; entries: AdminAuditEntry[] };
   backendError?: "unavailable" | "not_configured";
 }

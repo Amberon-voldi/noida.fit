@@ -33,8 +33,8 @@ The MVP is meaningful when all of the following are true:
 - A member can save an event, community, or place.
 - A member can follow a community.
 - A member can RSVP to an event with capacity and timing rules.
-- An authorized organizer can create a time-limited check-in QR/link.
-- A confirmed attendee can check in during the event window.
+- A member can show a short-lived participant check-in QR, including with a private profile.
+- An authorized club/venue operator scans that QR for an assigned event during the event window; the participant needs a confirmed RSVP.
 - A successful check-in creates one verified participation record.
 - The member can see the private participation passport and truthful totals.
 - The member can choose whether their profile, activity totals, and followed communities are public.
@@ -183,7 +183,7 @@ The passport does not invent achievements, turn RSVPs into attendance, or publis
 
 ### Module G — Organizer check-in
 
-**Routes:** `/organizer`, `/check-in`, `/api/check-in`, `/api/check-in/organizer`
+**Routes:** `/organizer`, `/check-in`, `/api/check-in/pass`, `/api/check-in/organizer` (legacy `/api/check-in` self-check-in is retired)
 
 **Purpose:** provide a small, trustworthy bridge from a gathering to a participation record.
 
@@ -193,9 +193,10 @@ The passport does not invent achievements, turn RSVPs into attendance, or publis
 - Assigned-event view.
 - RSVP and checked-in counts.
 - Privacy-safe attendee list.
-- Signed event check-in token/QR.
-- Token validity limited to the event window and maximum TTL.
-- Attendee account and confirmed RSVP requirement.
+- Participant shows a signed 15-minute check-in QR; club/venue operator selects an assigned event and scans it.
+- Native camera detection with a lazily loaded on-device QR decoder fallback; paste-code fallback.
+- Private profiles can check in without enabling public sharing.
+- Active participant account/Fitness ID, confirmed RSVP and event-window enforcement.
 - Duplicate-safe check-in.
 - Participation repair on retry.
 
@@ -238,9 +239,10 @@ The passport does not invent achievements, turn RSVPs into attendance, or publis
 
 ### Check-in
 
-- Organizer token not yet valid → reject.
-- Expired token → reject new attendance.
-- Wrong event token → reject.
+- Participant QR not yet valid → reject.
+- Expired participant QR → reject new attendance.
+- Operator not assigned to selected event → reject before resolving participant.
+- Public-profile QR or retired event token → reject.
 - No confirmed RSVP → reject.
 - Valid attendee and event window → record once.
 - Existing check-in → do not duplicate; repair derived participation if needed.
@@ -252,6 +254,7 @@ The passport does not invent achievements, turn RSVPs into attendance, or publis
 - Activity and followed communities are independently shareable.
 - Private profile has no public QR.
 - Public profile QR opens a profile only; it is not event check-in.
+- Private or public members can show a separate signed participant check-in QR at `/check-in`; it is never included in public profile output.
 
 ## 6. MVP data relationships
 

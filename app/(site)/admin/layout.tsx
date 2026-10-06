@@ -4,5 +4,5 @@ import "@/components/admin/admin.css";
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   await requireAdminPage();
-  return <div className="admin-shell"><AdminNav />{children}</div>;
+  return <div className="admin-shell"><AdminNav /><div className="admin-workspace">{children}</div></div>;
 }

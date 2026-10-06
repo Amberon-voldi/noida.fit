@@ -1,81 +1,53 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { refreshParticipation } from "./useParticipation";
-import { CheckInScanner } from "./CheckInScanner";
+import { QRCodeSVG } from "qrcode.react";
+import { participantQrValue } from "@/lib/check-in-qr";
 
-interface CheckInFormProps {
-  initialToken?: string;
-}
+export interface ParticipantPass { token: string; expiresAt: string; }
+interface Props { initialPass: ParticipantPass | null; displayName: string; fitnessId: string; initialError?: string; }
 
-function tokenFromInput(value: string): string {
-  const input = value.trim();
-  if (!input) return "";
-  try {
-    const parsed = new URL(input);
-    if (parsed.pathname !== "/check-in" || parsed.origin !== window.location.origin) throw new Error("Use the signed link from this NOIDA.FIT event.");
-    return parsed.searchParams.get("token")?.trim() || "";
-  } catch (error) {
-    if (error instanceof Error && error.message.startsWith("Use the signed")) throw error;
-    return input;
-  }
-}
-
-export function CheckInForm({ initialToken = "" }: CheckInFormProps) {
+/** Participants SHOW a short-lived QR. Camera/attendance writes belong only to authorized operators. */
+export function CheckInForm({ initialPass, displayName, fitnessId, initialError = "" }: Props) {
   const router = useRouter();
-  const [token, setToken] = useState(initialToken);
+  const [pass, setPass] = useState(initialPass);
+  const [expired, setExpired] = useState(false);
   const [pending, setPending] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState(false);
+  const [error, setError] = useState(initialError);
+  const [message, setMessage] = useState("");
 
-  async function submitToken(value: string): Promise<void> {
+  useEffect(() => {
+    if (!pass) return;
+    const timeout = window.setTimeout(() => setExpired(true), Math.max(0, Date.parse(pass.expiresAt) - Date.now()));
+    return () => window.clearTimeout(timeout);
+  }, [pass]);
+
+  async function refresh() {
     if (pending) return;
-    setPending(true);
-    setMessage(null);
-    setError(false);
+    setPending(true); setError(""); setMessage("");
     try {
-      const signedToken = tokenFromInput(value);
-      if (!signedToken) throw new Error("Paste or scan a signed check-in link first.");
-      const response = await fetch("/api/check-in", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token: signedToken }),
-      });
-      if (response.status === 401) {
-        router.push(`/login?callbackUrl=${encodeURIComponent(window.location.pathname + window.location.search)}`);
-        return;
-      }
-      const data = await response.json().catch(() => null) as { eventId?: string; repaired?: boolean; error?: string } | null;
-      if (!response.ok) throw new Error(data?.error || "Check-in could not be completed. Try again.");
-      setMessage(data?.repaired ? "You’re already checked in. Your Fitness ID is up to date." : "You’re checked in. Your participation is now recorded on your Fitness ID.");
-      setToken("");
-      if (window.location.search) window.history.replaceState(null, "", "/check-in");
-      await refreshParticipation();
-      router.refresh();
-    } catch (reason) {
-      setError(true);
-      setMessage(reason instanceof Error ? reason.message : "Check-in could not be completed. Try again.");
-    } finally {
-      setPending(false);
-    }
+      const response = await fetch("/api/check-in/pass", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: "{}" });
+      if (response.status === 401) { router.push("/login?callbackUrl=/check-in"); return; }
+      const data = await response.json().catch(() => null) as (ParticipantPass & { error?: string }) | null;
+      if (!response.ok || !data?.token || !Number.isFinite(Date.parse(data.expiresAt))) throw new Error(data?.error || "Your check-in QR could not be refreshed. Try again.");
+      setPass({ token: data.token, expiresAt: data.expiresAt }); setExpired(false);
+      setMessage("New check-in QR ready. Show it to the club or venue operator.");
+    } catch (reason) { setError(reason instanceof Error ? reason.message : "Your QR could not be refreshed."); }
+    finally { setPending(false); }
   }
 
-  async function checkIn(event: React.FormEvent<HTMLFormElement>): Promise<void> {
-    event.preventDefault();
-    await submitToken(token);
-  }
-
-  return <form onSubmit={checkIn} className="space-y-4">
-    <CheckInScanner onToken={value => { setToken(value); void submitToken(value); }} />
-    <div>
-      <label htmlFor="check-in-token" className="block text-xs font-semibold text-text-secondary">Signed check-in link or token</label>
-      <textarea id="check-in-token" value={token} onChange={event => setToken(event.target.value)} required rows={4} maxLength={4096} aria-invalid={error} className="mt-2 w-full resize-y rounded-xl border border-border-strong bg-surface-elevated px-3 py-2.5 font-mono text-xs text-white outline-none focus:border-velocity focus:ring-2 focus:ring-velocity/40" placeholder="Paste the QR link or signed token" />
-    </div>
-    <button type="submit" disabled={pending} className="inline-flex min-h-11 items-center justify-center rounded-xl bg-velocity px-4 py-2 text-sm font-bold text-slate-950 disabled:opacity-60">{pending ? "Checking in…" : "Verify my check-in"}</button>
-    {message && <p className={error ? "text-sm text-rose-300" : "text-sm text-velocity"} role={error ? "alert" : "status"} aria-live="polite">{message}</p>}
-    {message && !error && <Link href="/account#activity" className="block min-h-11 pt-3 text-sm underline">View my Fitness ID and activity</Link>}
-  </form>;
+  return <section className="min-w-0 space-y-4" aria-label="Your participant check-in QR">
+    <div><h2 className="break-words text-xl font-bold text-white">{displayName}</h2><p className="mt-1 font-mono text-xs text-text-secondary">Fitness ID · {fitnessId}</p></div>
+    {pass && !expired ? <>
+      <div className="mx-auto w-fit max-w-full rounded-xl bg-white p-4"><QRCodeSVG value={participantQrValue(pass.token)} size={240} marginSize={4} bgColor="#ffffff" fgColor="#090a0f" className="h-auto max-w-full" role="img" aria-label="Your participant check-in QR code" /></div>
+      <p className="text-sm text-text-secondary">Valid until <time dateTime={pass.expiresAt}>{new Date(pass.expiresAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })} IST</time>.</p>
+      <details className="rounded-lg border border-border-subtle px-3"><summary className="flex min-h-11 cursor-pointer items-center text-sm font-semibold text-velocity">Operator camera unavailable?</summary><p className="mb-3 text-xs leading-relaxed text-text-secondary">The operator can paste this code into their attendance desk. Do not post it publicly.</p><label className="block pb-3 text-sm">Participant check-in code<textarea readOnly rows={4} value={participantQrValue(pass.token)} onFocus={event => event.target.select()} className="mt-2 w-full min-w-0 rounded-lg border border-border-strong bg-surface-elevated p-3 font-mono text-xs text-white" /></label></details>
+    </> : <p className="rounded-lg border border-border-strong p-4 text-sm text-text-secondary" role="status">{expired ? "Your QR has expired. Refresh it before the operator scans." : "Your check-in QR is not available yet."}</p>}
+    <button type="button" onClick={() => void refresh()} disabled={pending} className="button-primary min-h-11 px-4">{pending ? "Refreshing…" : pass ? "Refresh my check-in QR" : "Create my check-in QR"}</button>
+    {error && <p className="text-sm text-rose-300" role="alert">{error}</p>}{message && <p className="text-sm text-velocity" role="status">{message}</p>}
+    <p className="text-sm leading-relaxed text-text-secondary">The club or venue operator scans this QR for the selected event. You still need a confirmed RSVP. Showing a QR alone does not record attendance or make your profile public.</p>
+    <Link href="/account#passport" className="inline-flex min-h-11 items-center text-sm font-semibold text-velocity">View my participation</Link>
+  </section>;
 }

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowUpRight, Bookmark, CalendarDays, Clock3, Footprints, Link2, LockKeyhole, Mail, MapPin, ShieldCheck, UsersRound } from "lucide-react";
+import { ArrowUpRight, Bookmark, CalendarDays, Clock3, Footprints, Link2, LockKeyhole, Mail, MapPin, QrCode, ShieldCheck, UsersRound } from "lucide-react";
 import type { FitnessProfile, ProfileSettings } from "@/types/user";
 import type { Event } from "@/types/event";
 import type { Community } from "@/types/community";
@@ -46,7 +46,7 @@ export function AccountWorkspace({ profile, settings, email, canOrganize, partic
       <section className="member-id" aria-labelledby="fitness-id-heading">
         <h2 id="fitness-id-heading" className="sr-only">Your Fitness ID</h2>
         <MemberIdentity profile={profile}>
-          <div className="identity-owner-links"><a href="#settings" aria-label="Privacy settings">Privacy</a>{isPublic && <Link href={`/@${profile.slug}`} className="identity-preview" aria-label="Preview public profile" title="Preview public profile"><ArrowUpRight size={16} aria-hidden="true" /></Link>}</div>
+          <div className="identity-owner-links"><Link href="/check-in"><QrCode size={16} aria-hidden="true" />Show check-in QR</Link><a href="#settings" aria-label="Privacy settings">Privacy</a>{isPublic && <Link href={`/@${profile.slug}`} className="identity-preview" aria-label="Preview public profile" title="Preview public profile"><ArrowUpRight size={16} aria-hidden="true" /></Link>}</div>
         </MemberIdentity>
       </section>
 

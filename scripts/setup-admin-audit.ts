@@ -6,8 +6,8 @@ loadScriptEnv();
 
 /** Explicit opt-in provisioning; never touches existing content/private table ACLs. */
 async function main() {
-  const id = process.env.APPWRITE_ADMIN_AUDIT_COLLECTION_ID;
-  if (!id || !/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,35}$/.test(id)) throw new Error("Set APPWRITE_ADMIN_AUDIT_COLLECTION_ID to your chosen private collection ID first");
+  const id = process.env.NEXT_PUBLIC_APPWRITE_ADMIN_AUDIT_COLLECTION_ID;
+  if (!id || !/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,35}$/.test(id)) throw new Error("Set NEXT_PUBLIC_APPWRITE_ADMIN_AUDIT_COLLECTION_ID to your chosen private collection ID first");
   const { databaseId } = getScriptConfig();
   const db = getScriptDatabases();
   let collection;

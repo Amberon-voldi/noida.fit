@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, ArrowUpRight } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, QrCode } from "lucide-react";
 import { getCurrentAppwriteUser } from "@/lib/appwrite/server";
 import { ensureProfileForUser, toFitnessProfile } from "@/lib/appwrite/profiles";
 import { getAccountParticipation } from "@/lib/participation";
@@ -22,7 +22,7 @@ export default async function MyFitnessIdPage() {
     <Link href="/account" className="fitness-id-return"><ArrowLeft size={14} aria-hidden="true" />Account</Link>
     <section className="fitness-id-showcase" aria-label="Your member card">
       <MemberIdentity profile={profile}>
-        <div className="identity-owner-links"><Link href="/account#settings" aria-label="Privacy settings">Privacy</Link>{isPublic && <Link href={`/@${profile.slug}`} className="identity-preview" aria-label="Preview public profile" title="Preview public profile"><ArrowUpRight size={16} aria-hidden="true" /></Link>}</div>
+        <div className="identity-owner-links"><Link href="/check-in"><QrCode size={16} aria-hidden="true" />Show check-in QR</Link><Link href="/account#settings" aria-label="Privacy settings">Privacy</Link>{isPublic && <Link href={`/@${profile.slug}`} className="identity-preview" aria-label="Preview public profile" title="Preview public profile"><ArrowUpRight size={16} aria-hidden="true" /></Link>}</div>
       </MemberIdentity>
     </section>
     <section className="fitness-id-totals" aria-label="Your participation totals"><div><h2 className="text-lg font-semibold text-white">Participation</h2><Link href="/account#passport" className="fitness-id-owner-link">Movement passport<ArrowUpRight size={14} aria-hidden="true" /></Link></div><ActivitySummary stats={profile.stats} /></section>

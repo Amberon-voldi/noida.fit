@@ -95,7 +95,7 @@ function emptyDashboard(configuration: AdminDashboardData["configuration"], erro
     entries: { activities: [], communities: [], places: [], events: [] },
     participation: { confirmedRsvps: 0, cancelledRsvps: 0, waitlistedRsvps: 0, checkins: 0, verifiedParticipations: 0, pendingParticipations: 0, activeMemberships: 0, savedItems: 0 },
     operational: { upcomingEvents: 0, pastEvents: 0, cancelledEvents: 0, assignedEvents: 0, unassignedPublishedEvents: 0, verifiedCommunities: 0, demoListings: 0 },
-    audit: { configured: false, entries: [] },
+    audit: { configured: false, readable: false, entries: [] },
     backendError: error,
   };
 }
@@ -108,8 +108,8 @@ export async function getAdminDashboardData(user: AdminActor): Promise<AdminDash
   try {
     requireAppwriteServerConfig();
     const { users } = getAdminServices();
-    let audit: AdminDashboardData["audit"] = { configured: false, entries: [] };
-    try { audit = await listAdminAudit(user); } catch { audit = { configured: true, entries: [] }; }
+    let audit: AdminDashboardData["audit"] = { configured: false, readable: false, entries: [] };
+    try { audit = await listAdminAudit(user); } catch { audit = { configured: true, readable: false, entries: [] }; }
     const [userPage, profiles, activities, communities, events, places, rsvps, checkins, participations, memberships, savedItems] = await Promise.all([
       users.list({ queries: [Query.limit(1)] }).catch(() => null),
       listAppwriteDocuments<ProfileRow>(appwriteCollections.profiles, [Query.select(["visibility", "showActivity", "showCommunities"])]),

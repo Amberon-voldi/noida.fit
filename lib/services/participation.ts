@@ -10,6 +10,7 @@ import {
 } from "@/lib/appwrite/database";
 import { HttpError } from "@/lib/http";
 import type { AuthUser } from "@/lib/auth";
+import { getAdminServices } from "@/lib/appwrite/server";
 import type { RSVP, SavedItem, Membership, Participation, CheckIn } from "@/types/platform";
 
 export type { RSVP, SavedItem, Membership, Participation, CheckIn } from "@/types/platform";
@@ -37,7 +38,7 @@ export const documentIdSchema = z.string().trim().min(1).max(36).regex(/^[a-zA-Z
 export const eventInputSchema = z.object({ eventId: documentIdSchema }).strict();
 export const savedInputSchema = z.object({ itemType: z.enum(["event", "place", "community"]), itemId: documentIdSchema }).strict();
 export const followInputSchema = z.object({ communityId: documentIdSchema }).strict();
-export const checkInInputSchema = z.object({ token: z.string().trim().min(20).max(2048) }).strict();
+export const checkInInputSchema = z.object({ eventId: documentIdSchema, token: z.string().trim().min(20).max(2048) }).strict();
 
 function idFor(...parts: string[]): string {
   return createHash("sha256").update(JSON.stringify(parts)).digest("hex").slice(0, 36);
@@ -220,7 +221,9 @@ function secret(): string {
   return value;
 }
 
-const tokenSchema = z.object({ v: z.literal(1), purpose: z.literal("event-checkin"), eventId: documentIdSchema, iat: z.number().int().nonnegative(), exp: z.number().int().positive() }).strict();
+const fitnessIdSchema = z.string().regex(/^NF-[A-F0-9]{16}$/);
+const tokenSchema = z.object({ v: z.literal(1), purpose: z.literal("participant-checkin"), fitnessId: fitnessIdSchema, iat: z.number().int().nonnegative(), exp: z.number().int().positive() }).strict();
+interface FitnessIdRecord { userId: string; publicId: string; status: string; }
 export const CHECKIN_TOKEN_TTL = 15 * 60_000;
 
 export function isAdminUser(user: Pick<AuthUser, "labels">): boolean {
@@ -239,18 +242,17 @@ function validateCheckInEvent(event: EventRecord): { opensAt: number; closesAt: 
   return eventWindow(event);
 }
 
-export async function createEventCheckInToken(eventId: string, organizer: Pick<AuthUser, "id" | "labels">): Promise<{ token: string; expiresAt: string }> {
-  const event = await getEvent(eventId);
-  if (!isAdminUser(organizer) && event.organizerUserId !== organizer.id) {
-    throw new HttpError(403, "ORGANIZER_REQUIRED", "Only this event’s organizer or an admin can create a check-in code");
+/** Issued only for the authenticated owner; privacy/public-profile settings do not govern attendance. */
+export async function createParticipantCheckInToken(userId: string): Promise<{ token: string; expiresAt: string }> {
+  documentIdSchema.parse(userId);
+  const identity = await getAppwriteDocument<FitnessIdRecord>(collections.fitnessIds, userId);
+  if (!identity || identity.userId !== userId || identity.status !== "active" || !fitnessIdSchema.safeParse(identity.publicId).success) {
+    throw new HttpError(409, "FITNESS_ID_UNAVAILABLE", "Your active Fitness ID could not be found. Sign in again to finish account setup.");
   }
-  const { opensAt, closesAt } = validateCheckInEvent(event);
   const now = Date.now();
-  if (now < opensAt || now >= closesAt) {
-    throw new HttpError(409, "CHECKIN_CLOSED", "QR codes are available from 30 minutes before the event until one hour after it ends");
-  }
-  const exp = Math.min(now + CHECKIN_TOKEN_TTL, closesAt);
-  const payload = Buffer.from(JSON.stringify({ v: 1, purpose: "event-checkin", eventId, iat: now, exp })).toString("base64url");
+  const exp = now + CHECKIN_TOKEN_TTL;
+  // No account ID, contact details, profile settings or private history in the QR payload.
+  const payload = Buffer.from(JSON.stringify({ v: 1, purpose: "participant-checkin", fitnessId: identity.publicId, iat: now, exp })).toString("base64url");
   const signature = createHmac("sha256", secret()).update(payload).digest("base64url");
   return { token: `${payload}.${signature}`, expiresAt: new Date(exp).toISOString() };
 }
@@ -274,10 +276,9 @@ function decodeSignedToken(token: string) {
   }
 }
 
-export function verifyEventCheckInToken(token: string, expectedEventId?: string) {
+export function verifyParticipantCheckInToken(token: string) {
   const parsed = decodeSignedToken(token);
-  if (parsed.exp <= Date.now()) throw new HttpError(410, "CHECKIN_TOKEN_EXPIRED", "This check-in code has expired. Ask the organizer for a new one.");
-  if (expectedEventId && parsed.eventId !== expectedEventId) throw new HttpError(400, "CHECKIN_TOKEN_MISMATCH", "This check-in code is for another event");
+  if (parsed.exp <= Date.now()) throw new HttpError(410, "CHECKIN_TOKEN_EXPIRED", "This participant QR has expired. Ask the participant to refresh their check-in QR.");
   return parsed;
 }
 
@@ -298,7 +299,7 @@ async function ensureVerifiedParticipation(userId: string, event: AppwriteDocume
     await createAppwriteDocument<Row<Participation>>(collections.participations, data, id, userDocumentPermissions(userId));
   } catch {
     // Do not roll back the trusted attendance record; retries repair the second write.
-    throw new HttpError(503, "PARTICIPATION_REPAIR_REQUIRED", "Check-in recorded. Tap verify again to finish updating your activity.");
+    throw new HttpError(503, "PARTICIPATION_REPAIR_REQUIRED", "Attendance was recorded, but the passport update was interrupted. Scan the same participant again to finish the update; do not create another attendance record.");
   }
 }
 
@@ -313,32 +314,44 @@ export async function repairRecordedCheckIn(actor: Pick<AuthUser, "id" | "labels
   await ensureVerifiedParticipation(userId, event, checkinDto(recorded));
 }
 
-export async function checkInAttendee(userId: string, token: string): Promise<{ checkin: CheckIn; repaired: boolean }> {
-  documentIdSchema.parse(userId);
-  const payload = decodeSignedToken(token);
-  // A previously recorded check-in can still repair its derived passport row if
-  // editorial status changed between the two writes. No new attendance is
-  // allowed for an unpublished or cancelled event.
-  const event = await getEvent(payload.eventId, false);
+/** Operator-scanned attendance. Possessing a participant QR never authorizes its holder to write attendance. */
+export async function checkInParticipant(organizer: Pick<AuthUser, "id" | "labels">, eventId: string, token: string) {
+  documentIdSchema.parse(organizer.id);
+  const event = await getEvent(eventId, false);
+  if (!isAdminUser(organizer) && event.organizerUserId !== organizer.id) {
+    throw new HttpError(403, "ORGANIZER_REQUIRED", "Only this event’s assigned operator or an administrator can check in participants");
+  }
   const window = validateCheckInEvent(event);
+  const payload = decodeSignedToken(token);
+  const identities = await listAppwriteDocuments<FitnessIdRecord>(collections.fitnessIds, [Query.equal("publicId", payload.fitnessId), Query.limit(1)]);
+  const identity = identities[0];
+  if (!identity || identity.status !== "active" || identity.publicId !== payload.fitnessId) {
+    throw new HttpError(403, "FITNESS_ID_UNAVAILABLE", "This participant’s Fitness ID is not active");
+  }
+  const userId = documentIdSchema.parse(identity.userId);
+  const member = await getAdminServices().users.get({ userId });
+  if (!member.status) throw new HttpError(403, "MEMBER_UNAVAILABLE", "This participant’s account is not active");
+  const profile = await getAppwriteDocument<{ displayName?: string }>(collections.profiles, userId);
+  const displayName = profile?.displayName?.trim().slice(0, 120) || "NOIDA.FIT member";
   const id = checkInDocumentId(event.$id, userId);
   const existing = await getAppwriteDocument<Row<CheckIn>>(collections.checkins, id);
   if (existing) {
-    // A signed but expired code may repair an already committed trusted check-in;
-    // it cannot create attendance after expiry or change the original timestamp.
+    if (existing.userId !== userId || existing.eventId !== event.$id) throw new HttpError(409, "CHECKIN_DATA_INVALID", "The stored attendance needs administrator review");
+    // A validly signed, expired identity QR can repair prior trusted attendance,
+    // even after cancellation. It can never mint new attendance or alter its time.
     const checkin = checkinDto(existing);
     await ensureVerifiedParticipation(userId, event, checkin);
-    return { checkin, repaired: true };
+    return { eventId: event.$id, displayName, checkedInAt: checkin.timestamp, alreadyCheckedIn: true };
   }
-  verifyEventCheckInToken(token, event.$id);
+  verifyParticipantCheckInToken(token);
   if (event.status !== "published") throw new HttpError(409, "EVENT_UNAVAILABLE", "This event is not available for new check-ins");
   const now = Date.now();
   if (now < window.opensAt || now >= window.closesAt) throw new HttpError(409, "CHECKIN_CLOSED", "Check-in is outside the event window");
   const rsvp = await getUserRsvp(event.$id, userId);
-  if (rsvp?.status !== "confirmed") throw new HttpError(403, "RSVP_REQUIRED", "A confirmed RSVP is required to check in");
+  if (rsvp?.status !== "confirmed") throw new HttpError(403, "RSVP_REQUIRED", "This participant needs a confirmed RSVP for the selected event");
   const checkin = checkinDto(await createOnce<Row<CheckIn>>(collections.checkins, id, {
     eventId: event.$id, userId, timestamp: new Date().toISOString(), verificationMethod: "organizer_qr",
   }, userId));
   await ensureVerifiedParticipation(userId, event, checkin);
-  return { checkin, repaired: false };
+  return { eventId: event.$id, displayName, checkedInAt: checkin.timestamp, alreadyCheckedIn: false };
 }

@@ -15,7 +15,11 @@ test("Cloudflare uses explicit OpenNext output and no nonexistent self binding",
   assert.equal(config.keep_vars, true);
   assert.equal(config.workers_dev, false);
   assert.equal(config.preview_urls, false);
+  // Resource identifiers are public configuration; audit records and credentials remain private.
   assert.ok(Object.keys(config.vars).every(key => key.startsWith("NEXT_PUBLIC_")));
+  assert.equal(config.vars.NEXT_PUBLIC_APPWRITE_ADMIN_AUDIT_COLLECTION_ID, "admin_audit");
+  assert.equal(config.vars.APPWRITE_KEY, undefined);
+  assert.equal(config.vars.APPWRITE_CHECKIN_SECRET, undefined);
   assert.equal(config.vars.NEXT_PUBLIC_APPWRITE_DATABASE_ID, "noida_fit");
   assert.equal(config.vars.NEXT_PUBLIC_SITE_URL, "https://noida.fit");
 });

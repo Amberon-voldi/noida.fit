@@ -3,7 +3,7 @@ import { ArrowUpRight, CalendarDays, CheckCircle2, ClipboardCheck, UsersRound, t
 import type { Community } from "@/types/community";
 import type { Event } from "@/types/event";
 import type { OrganizerClubSummary, OrganizerEventSummary } from "@/types/organizer";
-import { OrganizerTokenForm } from "@/components/participation/OrganizerTokenForm";
+import { OrganizerCheckInForm } from "@/components/participation/OrganizerCheckInForm";
 import { eventIsUpcomingForOrganizer } from "@/lib/services/organizer";
 
 export interface OrganizerWorkspaceProps {
@@ -73,7 +73,7 @@ export function OrganizerWorkspace({ events, summaries, communities, isAdmin }: 
     <header className="max-w-3xl">
       <p className="font-mono text-xs uppercase tracking-widest text-velocity">{isAdmin ? "Admin operations" : "Organizer workspace"}</p>
       <h1 className="mt-2 text-4xl font-extrabold tracking-tight text-white sm:text-5xl">Run the session, not the spreadsheet.</h1>
-      <p className="mt-4 text-base leading-relaxed text-text-secondary">Manage the events assigned to your account, open a time-limited check-in code, and see attendance without exposing private contact details.</p>
+      <p className="mt-4 text-base leading-relaxed text-text-secondary">Manage your assigned events, scan participants’ check-in QRs at the club or venue, and see attendance without exposing private contact details.</p>
     </header>
 
     <section className="mt-8 grid gap-3 sm:grid-cols-2 lg:grid-cols-4" aria-label="Organizer overview">
@@ -100,7 +100,7 @@ export function OrganizerWorkspace({ events, summaries, communities, isAdmin }: 
         </div>
       </section>
 
-      <section className="mt-12 rounded-2xl border border-border-strong bg-surface p-5 sm:p-7" aria-labelledby="check-in-tools-heading"><p className="eyebrow">Attendance desk</p><h2 id="check-in-tools-heading" className="mt-2 text-2xl font-bold text-white">Open event check-in</h2><p className="mt-2 max-w-2xl text-sm leading-relaxed text-text-secondary">Codes work only during the event window. Display the QR at the meeting point; attendees still need a confirmed RSVP and their own account.</p><div className="mt-6"><OrganizerTokenForm events={formEvents} /></div></section>
+      <section className="mt-12 rounded-2xl border border-border-strong bg-surface p-5 sm:p-7" aria-labelledby="check-in-tools-heading"><p className="eyebrow">Attendance desk</p><h2 id="check-in-tools-heading" className="mt-2 text-2xl font-bold text-white">Open event check-in</h2><p className="mt-2 max-w-2xl text-sm leading-relaxed text-text-secondary">New attendance is recorded only during the event window. Select the event and scan each participant’s QR at the meeting point. Participants show their own check-in QR; a confirmed RSVP is still required.</p><div className="mt-6"><OrganizerCheckInForm events={formEvents} /></div></section>
     </> : <section className="mt-10 rounded-2xl border border-dashed border-border-strong p-7"><h2 className="text-xl font-bold text-white">No managed sessions yet</h2><p className="mt-2 max-w-xl text-sm leading-relaxed text-text-secondary">Your account does not have an assigned event. Listing review and organizer assignment are still handled by the NOIDA.FIT team.</p><Link href="/for-organizers" className="mt-5 inline-flex min-h-11 items-center font-semibold text-velocity">Read organizer guidance <ArrowUpRight size={15} aria-hidden="true" /></Link></section>}
   </div>;
 }

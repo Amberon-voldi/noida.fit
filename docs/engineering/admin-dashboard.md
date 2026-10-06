@@ -4,7 +4,9 @@
 
 Sign in with an Appwrite account carrying the exact `admin` label, then visit `/admin`. The desktop navigation and mobile menu show Admin only to administrators. Every admin page and API checks the session and label independently; the layout check is not the sole security boundary. Guests go to login; non-admin pages are not found; APIs return 401/403. Admin routes are excluded from the sitemap/search indexing.
 
-The permanent **Complete admin guide** link opens `/admin/guide`. It includes module workflows, all page routes and API methods, setup, permissions, common failures and launch checks. A shorter guide remains on the overview.
+The workspace uses grouped desktop navigation and a single mobile module switcher with an active-route label, keyboard support and Escape dismissal. A permanent guide link remains alongside navigation. The overview starts with four headline metrics, actionable attention rows and a compact inventory table. Event and audit previews show three entries; the remaining returned records, secondary metrics, configuration, tools and endpoint references remain in native expandable sections. No operational controls or counts were removed.
+
+The permanent **Complete admin guide** link opens `/admin/guide`. It includes module workflows, all page routes and API methods, setup, permissions, common failures and launch checks. A shorter guide remains on the overview. Tables scroll within keyboard-focusable regions, not the page; forms retain 44px targets, grouped fields, advanced JSON and typed destructive-action confirmations.
 
 ## Implemented modules
 
@@ -17,7 +19,7 @@ The permanent **Complete admin guide** link opens `/admin/guide`. It includes mo
 | Activities | `/admin/content/activities` | Activity taxonomy, description and imagery |
 | Members | `/admin/members` | Paginated search, suspend/restore, revoke sessions, grant/remove admin, hide public profile |
 | Attendance | `/admin/attendance` | Event roster, check-in versus RSVP reconciliation, current-page CSV, derived participation repair |
-| Live QR | `/organizer` | Existing authorized event QR desk and privacy-safe attendee state |
+| Live check-in | `/organizer` | Club/venue operator scans each participant’s signed QR for an assigned event; privacy-safe attendee state |
 | Audit | `/admin/audit` | Newest-first durable admin action intent/completion/failure, 50 entries per page |
 | Guide | `/admin/guide` | Operator handbook with routes, API endpoints, workflows and security boundaries |
 
@@ -43,7 +45,9 @@ All reads require admin sessions and return private/no-store. Writes also requir
 
 ## Audit setup (explicit opt-in)
 
-Add a private `APPWRITE_ADMIN_AUDIT_COLLECTION_ID` to ignored local/deployment configuration. It is not a public variable and is not required for normal member/discovery behavior.
+Set `NEXT_PUBLIC_APPWRITE_ADMIN_AUDIT_COLLECTION_ID=admin_audit` in ignored local configuration and build/deployment environments. It is a public collection identifier, not a credential; publishing its ID does not grant access to the private audit records. Next.js inlines `NEXT_PUBLIC_` values at build time, so rebuild/redeploy after changing it. It is not required for normal member/discovery behavior. The Worker configuration declares this identifier; `APPWRITE_KEY` and `APPWRITE_CHECKIN_SECRET` remain separate server-only deployment secrets. No audit collection rename or permission change is needed.
+
+The existing `noida_fit` database's `admin_audit` collection was explicitly provisioned using the Appwrite CLI. Its seven fields, ready timestamp index, empty client permissions and enabled document security were read back. No other table schema or ACL policy was changed. For a new project, the dedicated idempotent SDK setup remains available:
 
 ```sh
 # After setting your chosen collection ID, using a schema-management key:
@@ -56,7 +60,7 @@ Schema: actorId string(36), action(80), target(160), reason(300), status(20), re
 
 The application records **started** before running any change. If that write fails, the action does not run. After the action it records completed/failed. If completion storage fails, the response warns that the operation may already have succeeded: inspect the target and started entry before retrying. No raw content, passwords, keys or session values are written by the application to audit rows. Reasons are operator-supplied; do not enter credentials or private contact details. Actor ID stays in the private audit store for attribution, not in the UI DTO.
 
-The audit covers browser admin mutations. Historical CLI edits, Appwrite Console edits and QR generation are not retroactively audited by this new store. Configure retention, backups and access monitoring operationally.
+The audit covers browser admin mutations. Historical CLI edits, Appwrite Console edits and operational participant QR/check-in actions are not covered by this editorial/admin mutation audit store; trusted attendance remains in its own check-in records. Configure retention, backups and access monitoring operationally.
 
 ## Runtime scopes and bootstrap
 
@@ -78,6 +82,8 @@ Payments/refunds, provider integrations, broadcast messaging, club staff invitat
 
 Deterministic tests use a synthetic Appwrite transport for authorization, minimized DTOs, audited CRUD, stale forms, references, capacity, member access and repair. Browser fixtures exercise the real components with synthetic already-authorized props; they do not claim hosted authentication or real Appwrite persistence. Guest route/API tests exercise denial using the running application.
 
-Local implementation verification: `npm test` passed 84 cases; `npm run lint` passed with one unrelated pre-existing reel-script warning; `npm run typecheck` and `npm run build` passed; the post-build secret scan checked 61 files. The focused Playwright run of `admin.spec.ts`, `admin-workspace.spec.ts`, `account-workspace.spec.ts`, `landing.spec.ts`, and `motion.spec.ts` passed 32 tests, including 320/390/768/1440px overview checks, 320px content/member/attendance no-overflow checks, guest API denial, typed confirmation and stale-save behavior. `git diff --check` passed.
+Local implementation verification: `npm test` passed 85 cases; `npm run lint` passed with one unrelated pre-existing reel-script warning; `npm run typecheck` and `npm run build` passed; the post-build secret scan checked 61 files. The focused Playwright run of `admin.spec.ts`, `admin-workspace.spec.ts`, `account-workspace.spec.ts`, `landing.spec.ts`, and `motion.spec.ts` passed 38 tests. Coverage includes the real navigation shell at 320/390/768/1440px, 200% text with every overview disclosure expanded, all nine module active states, keyboard/Escape behavior, 320px content/member/attendance no-overflow checks, audit read-failure versus empty state, unavailable metrics, guest API denial, typed confirmation and stale-save behavior. `git diff --check` passed.
 
-Audit provisioning and privileged writes against a real hosted Appwrite project were not performed. Before launch, provision audit on staging and verify an admin and non-admin account, persistence/read-back, user-label/session changes, every content kind, CSV, QR/check-in, origin cookies, hosted Appwrite scopes and native mobile QR behavior. No schema/ACL tool should be executed against production solely to make a test pass.
+Live provisioning verification used the Appwrite CLI, followed by an isolated runtime-SDK audit create → complete → ordered-read/read-back check. Anonymous audit read/write requests were denied, `users.read` was available, and the temporary audit verification record was removed. The overview now distinguishes a readable empty store from a configured but unreadable store; configuration presence alone is not reported as backend health or write permission.
+
+This does not establish hosted browser authentication or every production admin workflow. Before launch, verify an admin and non-admin account, user-label/session changes, every content kind, CSV, QR/check-in, origin cookies, hosted Appwrite scopes and native mobile QR behavior. The new Worker configuration must be deployed before it affects the hosted app. The observed Appwrite server remains `1.8.0-RC2`, which produces an SDK compatibility warning; an operator-managed stable upgrade remains advisable. No general schema/ACL tool should be executed against production solely to make a test pass.

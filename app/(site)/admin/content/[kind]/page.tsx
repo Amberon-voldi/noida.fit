@@ -16,5 +16,5 @@ export default async function AdminContentPage({ params }: { params: Promise<{ k
   let initialError = "";
   try { records = await listAdminContent(user, kind); }
   catch { initialError = "Content could not be loaded. Retry without losing an open draft."; }
-  return <div className="admin-page"><AdminContentManager key={kind} kind={kind as typeof contentKinds[number]} initialRecords={records} initialError={initialError} template={contentTemplates[kind as typeof contentKinds[number]]} writesEnabled={auditConfigured()} /></div>;
+  return <AdminContentManager key={kind} kind={kind as typeof contentKinds[number]} initialRecords={records} initialError={initialError} template={contentTemplates[kind as typeof contentKinds[number]]} writesEnabled={auditConfigured()} />;
 }

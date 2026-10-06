@@ -1,12 +1,12 @@
 export const adminModules = [
-  { path: "/admin", name: "Overview", purpose: "Live content inventory, intent/attendance counts, privacy adoption, backend configuration presence and recent audit history.", workflow: "Use missing organizer assignments and demo inventory to prioritize review. Counts are not analytics predictions; unavailable reads are labelled." },
+  { path: "/admin", name: "Overview", purpose: "Live content inventory, intent/attendance counts, privacy adoption, backend configuration presence and recent audit history.", workflow: "Use attention rows and the compact inventory to prioritize review. Expand secondary counts, labels, event/audit records, configuration and references when needed. Counts are not analytics predictions; unreadable audit storage is distinguished from an empty readable store." },
   { path: "/admin/content/events", name: "Events", purpose: "Create, edit, publish, draft, cancel, feature and assign an organizer to a session.", workflow: "Choose or create a record. Complete schedule, activity, club, venue and capacity. Validate references before publishing. organizerUserId grants that account event-scoped access, not admin rights." },
   { path: "/admin/content/communities", name: "Clubs / communities", purpose: "Manage club identity, captains, weekly schedule, channels, home venue, featured placement and verification.", workflow: "Create as a draft, confirm real-world details, then publish. Mark fictional content as demo. Only verify a real club after an editorial check; follows are not real-world club membership." },
   { path: "/admin/content/places", name: "Places", purpose: "Manage venues, meeting information, coordinates, amenities, access notes and illustrative media.", workflow: "Confirm permission, pin, hours and access before publication. Linked places cannot be hard-deleted while events or bookmarks reference them." },
   { path: "/admin/content/activities", name: "Activities", purpose: "Manage the activity taxonomy used by discovery and listings.", workflow: "Keep stable IDs and slugs. Referenced activities cannot be deleted. Publishing updates the live directory; no redeployment is needed for data changes." },
   { path: "/admin/members", name: "Members & access", purpose: "Paginated account search, suspend/restore access, revoke sessions, grant/remove admin labels and hide unsafe public profiles.", workflow: "Select a member, enter a reason and type their account ID. Your own account cannot be targeted. These controls do not erase history, reset passwords or change email verification. Admin promotion is a security-sensitive audited action." },
   { path: "/admin/attendance", name: "Attendance recovery", purpose: "Event-scoped RSVP/check-in reconciliation, current-page CSV export and trusted-check-in passport repair.", workflow: "Load an event and compare intent versus physical attendance records. Repair only when a trusted check-in exists. Repair preserves its original timestamp and is permitted after cancellation. No fabricated attendance or arbitrary credit is added." },
-  { path: "/organizer", name: "Live attendance desk", purpose: "Generate event-wide signed QR codes and view privacy-safe attendee states.", workflow: "Check-in opens 30 minutes before start, closes one hour after end. Codes expire after 15 minutes (or the close boundary). Members need confirmed RSVPs. The QR is a bearer credential, not proof of location; do not publish it online." },
+  { path: "/organizer", name: "Live attendance desk", purpose: "Scan participants’ signed check-in QRs for an assigned event and view privacy-safe attendee states.", workflow: "The club/venue operator selects an assigned event and scans each participant’s QR from /check-in. Camera uses native detection or an on-device decoder fallback; paste is available. New attendance requires a confirmed RSVP and the window from 30 minutes before start until one hour after end. Participant QRs expire after 15 minutes; public-profile QRs cannot check in. Existing trusted attendance can be repaired without duplicate credit." },
   { path: "/admin/audit", name: "Audit trail", purpose: "Paginated durable action intent, target, reason and completion/failure state.", workflow: "A started entry can indicate interruption or an unknown outcome. Inspect the target before retrying. Writes fail closed if the audit intent cannot be recorded. Store contains actor attribution; the UI does not reveal auth session material." },
 ];
 
@@ -22,7 +22,7 @@ export const pageGuide = [
   ["/account, /fitness-id", "Account owner", "Private profile, Fitness ID, plans, saved items, follows, passport and privacy settings."],
   ["/@username", "Opt-in public", "Public profile allowlist. Private or nonexistent profiles return not found."],
   ["/fitness-id/[slug]", "Legacy redirect", "Redirects to canonical /@username."],
-  ["/check-in?token=…", "Signed-in confirmed RSVP", "Native-camera or paste signed-code verification; never share live tokens in reports."],
+  ["/check-in", "Account owner", "Show/refresh your participant check-in QR, including for private profiles. The operator scans it; no participant camera or self-check-in."],
   ["/robots.txt, /sitemap.xml, /opengraph-image", "Public", "Crawl policy, published content sitemap and generated social image."],
 ] as const;
 
@@ -45,8 +45,9 @@ export const endpointGuide = [
   ["POST / DELETE", "/api/participation/rsvp", "Account owner + same origin", "Reserve/release a seat before start; cannot cancel recorded attendance."],
   ["POST / DELETE", "/api/participation/saved", "Account owner + same origin", "Save/remove an event, community or place."],
   ["POST / DELETE", "/api/participation/follow", "Account owner + same origin", "Follow/unfollow a community; this is interest, not club enrollment."],
-  ["POST", "/api/check-in/organizer", "Event owner or admin", "Generate HMAC-signed event code within the attendance window."],
-  ["POST", "/api/check-in", "Confirmed RSVP owner", "Verify signed token, record check-in and repair verified participation idempotently."],
+  ["POST", "/api/check-in/pass", "Account owner + same origin", "Issue a 15-minute signed participant QR for the authenticated owner only; no client-selected member ID."],
+  ["POST", "/api/check-in/organizer", "Event owner or admin + same origin", "Scan eventId + participant token; verify active account/Fitness ID, RSVP and time; record attendance/passport once. Operator limit: 120 requests per 10 minutes."],
+  ["POST", "/api/check-in", "Authenticated + same origin", "Retired attendee self-check-in returns 410 CHECKIN_FLOW_CHANGED. No attendance is written."],
 ] as const;
 
 export const adminFailures = [
@@ -58,5 +59,5 @@ export const adminFailures = [
   ["503 AUDIT_NOT_CONFIGURED / AUDIT_UNAVAILABLE", "No operation runs if durable audit intent cannot be stored. Provision the private audit store and verify document scopes."],
   ["503 AUDIT_COMPLETION_PENDING", "The operation may have succeeded. Reload the target and inspect started audit records before retrying."],
   ["503 REQUEST_FAILED", "Check backend reachability and scoped credentials in server logs. Do not paste raw SDK errors or keys into reports."],
-  ["CHECKIN_TOKEN_EXPIRED / CHECKIN_CLOSED", "Ask the host for a new code or review event times. Do not invent attendance outside the window."],
+  ["CHECKIN_TOKEN_EXPIRED / CHECKIN_CLOSED", "Ask the participant to refresh their QR or review the selected event times. Do not invent attendance outside the window."],
 ] as const;

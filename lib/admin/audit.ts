@@ -15,11 +15,11 @@ export interface AuditRow {
 }
 
 export function auditConfigured(): boolean {
-  return Boolean(process.env.APPWRITE_ADMIN_AUDIT_COLLECTION_ID);
+  return Boolean(process.env.NEXT_PUBLIC_APPWRITE_ADMIN_AUDIT_COLLECTION_ID);
 }
 
 function auditCollection(): string {
-  const id = process.env.APPWRITE_ADMIN_AUDIT_COLLECTION_ID;
+  const id = process.env.NEXT_PUBLIC_APPWRITE_ADMIN_AUDIT_COLLECTION_ID;
   if (!id) throw new HttpError(503, "AUDIT_NOT_CONFIGURED", "Admin writes are locked. Configure the private audit collection first; see the Admin guide.");
   return id;
 }
@@ -55,7 +55,7 @@ export async function runAdminMutation<T>(user: AdminActor, action: string, targ
 
 export async function listAdminAudit(user: AdminActor, offset = 0) {
   assertAdmin(user);
-  if (!auditConfigured()) return { configured: false, entries: [] };
+  if (!auditConfigured()) return { configured: false, readable: false, entries: [] };
   const rows = await listAppwriteDocuments<AuditRow>(auditCollection(), [Query.orderDesc("occurredAt"), Query.limit(50), Query.offset(offset)]);
-  return { configured: true, entries: rows.map(row => ({ id: row.$id, actor: "Administrator" as const, action: row.action, target: row.target, reason: row.reason, status: row.status, occurredAt: row.occurredAt, finishedAt: row.finishedAt })) };
+  return { configured: true, readable: true, entries: rows.map(row => ({ id: row.$id, actor: "Administrator" as const, action: row.action, target: row.target, reason: row.reason, status: row.status, occurredAt: row.occurredAt, finishedAt: row.finishedAt })) };
 }

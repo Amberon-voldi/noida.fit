@@ -23,7 +23,7 @@ before(async () => {
   require.cache[navigationPath] = { id: navigationPath, filename: navigationPath, loaded: true, exports: require("next/dist/client/components/navigation.react-server") } as NodeJS.Module;
   Object.assign(process.env, {
     NEXT_PUBLIC_APPWRITE_ENDPOINT: "https://appwrite.test/v1", NEXT_PUBLIC_APPWRITE_PROJECT_ID: "content-test",
-    APPWRITE_KEY: "synthetic-key", NEXT_PUBLIC_APPWRITE_DATABASE_ID: "content-test", APPWRITE_ADMIN_AUDIT_COLLECTION_ID: "audit",
+    APPWRITE_KEY: "synthetic-key", NEXT_PUBLIC_APPWRITE_DATABASE_ID: "content-test", NEXT_PUBLIC_APPWRITE_ADMIN_AUDIT_COLLECTION_ID: "audit",
     ...Object.fromEntries(["PROFILES", "FITNESS_IDS", "EVENTS", "RSVPS", "CHECKINS", "ACTIVITIES", "PLACES", "COMMUNITIES", "MEMBERSHIPS", "SAVED_ITEMS", "PARTICIPATIONS"].map(key => [`NEXT_PUBLIC_APPWRITE_COLLECTION_${key}`, key.toLowerCase()])),
   });
   globalThis.fetch = async (input, init) => {
@@ -67,7 +67,7 @@ after(() => {
   const require = createRequire(import.meta.url);
   if (navigationCache) require.cache[navigationPath] = navigationCache; else delete require.cache[navigationPath];
 });
-function fixture() { rows = new Map(); writes = []; sequence = 0; failCollection = ""; process.env.APPWRITE_ADMIN_AUDIT_COLLECTION_ID = "audit"; }
+function fixture() { rows = new Map(); writes = []; sequence = 0; failCollection = ""; process.env.NEXT_PUBLIC_APPWRITE_ADMIN_AUDIT_COLLECTION_ID = "audit"; }
 function put(kind: keyof typeof contentSchemas, id: string, changes: Record<string, unknown> = {}): Record<string, unknown> {
   const record = { ...contentTemplates[kind], id, ...changes };
   const row = { ...record, payload: JSON.stringify(record), $id: id, $updatedAt: version, $permissions: ["private"], unknownColumn: "must-not-escape" };
@@ -154,9 +154,9 @@ test("authorization and audit failure prevent backend content writes", async t =
   await assert.rejects(service.listAdminContent({ id: "member", labels: [] }, "events"), /Administrator/);
   await assert.rejects(service.createAdminContent({ id: "member", labels: [] }, "activities", contentTemplates.activities, "Create new draft"), /Administrator/);
   await assert.rejects(service.createAdminContent(actor, "activities", contentTemplates.activities, ""), /reason/);
-  delete process.env.APPWRITE_ADMIN_AUDIT_COLLECTION_ID;
+  delete process.env.NEXT_PUBLIC_APPWRITE_ADMIN_AUDIT_COLLECTION_ID;
   await assert.rejects(service.createAdminContent(actor, "activities", contentTemplates.activities, "Create new draft"), /audit/);
-  process.env.APPWRITE_ADMIN_AUDIT_COLLECTION_ID = "audit"; failCollection = "audit";
+  process.env.NEXT_PUBLIC_APPWRITE_ADMIN_AUDIT_COLLECTION_ID = "audit"; failCollection = "audit";
   await assert.rejects(service.createAdminContent(actor, "activities", contentTemplates.activities, "Create new draft"), /audit/);
   assert.deepEqual(contentWrites(), []);
 });

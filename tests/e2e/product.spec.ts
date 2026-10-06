@@ -206,10 +206,16 @@ test("signup → save/follow/RSVP → organizer check-in → private/public Fitn
     await expect(page.getByText("Verification session — temporary test").first()).toBeVisible();
     await page.getByRole("button",{name:/Open Fitness ID for/}).click();await page.getByRole("button",{name:"Card details",exact:true}).click();
     await expect(page.getByText("Your profile is private",{exact:true})).toBeVisible();
+    const codeResponse=await mutation(ctx,"/api/check-in/pass",{});expect(codeResponse.status()).toBe(200);
+    const {token}=await codeResponse.json();
+    await page.goto("/check-in");
+    await expect(page.getByRole("heading", {name:"Show your check-in QR"})).toBeVisible();
+    await expect(page.getByRole("img", {name:"Your participant check-in QR code"})).toBeVisible();
+    await expect(page.getByRole("button", {name:"Start camera scanner"})).toHaveCount(0);
     const second=await testAccount();const third=await testAccount();
     try {
       expect((await mutation(second.context,"/api/participation/rsvp",{eventId:event.id})).status()).toBe(409);
-      expect((await mutation(second.context,"/api/check-in/organizer",{eventId:event.id})).status()).toBe(403);
+      expect((await mutation(second.context,"/api/check-in/organizer",{eventId:event.id,token})).status()).toBe(403);
       const race=await makeEvent(user.$id,1);
       const racing=await Promise.all([mutation(second.context,"/api/participation/rsvp",{eventId:race.id}),mutation(third.context,"/api/participation/rsvp",{eventId:race.id})]);
       expect(racing.map(r=>r.status()).sort()).toEqual([200,409]);
@@ -217,16 +223,16 @@ test("signup → save/follow/RSVP → organizer check-in → private/public Fitn
       await expect(page.getByRole("heading", {name:"Run the session, not the spreadsheet."})).toBeVisible();
       await expect(page.getByRole("heading", {name:"Open event check-in"})).toBeVisible();
       await expect(page.getByText("privacy-safe attendee list", {exact:false}).first()).toBeVisible();
-      const codeResponse=await mutation(ctx,"/api/check-in/organizer",{eventId:event.id});expect(codeResponse.status()).toBe(200);
-      const {token}=await codeResponse.json();
-      expect((await mutation(second.context,"/api/check-in",{token})).status()).toBe(403);
-      expect((await mutation(ctx,"/api/check-in",{token:token.slice(0,-2)+"xx"})).status()).toBe(400);
+      expect((await mutation(second.context,"/api/check-in",{token})).status()).toBe(410);
+      expect((await mutation(ctx,"/api/check-in/organizer",{eventId:event.id,token:token.slice(0,-2)+"xx"})).status()).toBe(400);
       await db.createDocument({databaseId:config.databaseId,collectionId:collections.participations,documentId:participationDocumentId(event.id,user.$id),permissions:[Permission.read(Role.user(user.$id))],data:{userId:user.$id,eventId:event.id,activityId:"activity_test",title:"Pending attendance",occurredAt:new Date().toISOString(),source:"self_reported",status:"pending"}});
-      expect((await mutation(ctx,"/api/check-in",{token})).status()).toBe(200);
+      expect((await mutation(ctx,"/api/check-in/organizer",{eventId:event.id,token})).status()).toBe(200);
       const repairedParticipation=await db.getDocument({databaseId:config.databaseId,collectionId:collections.participations,documentId:participationDocumentId(event.id,user.$id)});
       expect(repairedParticipation.status).toBe("verified");
       expect(repairedParticipation.source).toBe("organizer_checkin");
-      expect((await mutation(ctx,"/api/check-in",{token})).status()).toBe(200);
+      expect((await mutation(ctx,"/api/check-in/organizer",{eventId:event.id,token})).status()).toBe(200);
+      const checked=await db.listDocuments({databaseId:config.databaseId,collectionId:collections.checkins,queries:[Query.equal("eventId",event.id),Query.equal("userId",user.$id)]});
+      expect(checked.documents).toHaveLength(1);
       expect((await mutation(ctx,"/api/participation/rsvp",{eventId:event.id},"DELETE")).status()).toBe(409);
     } finally {await second.context.dispose();await third.context.dispose();}
     expect((await guest.get("/api/participation?view=controls")).status()).toBe(401);

@@ -33,8 +33,8 @@ The current seed contains **24 events, 12 fictional communities, 18 places, and 
 - `/account` — Fitness ID, upcoming RSVPs, saved plans, followed groups, history and settings
 - `/fitness-id` — the current user's private card
 - `/@username` — opt-in public profile; legacy `/fitness-id/[slug]` redirects here
-- `/organizer` — authorized event organizers manage attendance and short-lived QR codes
-- `/check-in` — RSVPed members verify an organizer-provided check-in code
+- `/organizer` — assigned club/venue operators select an event and scan participant QRs to record attendance
+- `/check-in` — members show/refresh their own short-lived participant QR, including with private profiles
 - `/admin` — protected administrator overview and navigation to content, member access, attendance and audit modules
 - `/admin/guide` — complete operator handbook: module workflows, page routes, API endpoints, permissions and troubleshooting
 
@@ -66,7 +66,7 @@ See [Appwrite operations and schema](docs/engineering/appwrite.md) for environme
 - Accounts/participation: owner-readable, not directly client-writable.
 - All mutations: server authenticated, ownership derived from the session, validated input, same-origin checks and bounded requests.
 - RSVP uniqueness: unique event/user and event/seat indexes; allocation uses atomic creates, not unsafe read-then-count writes.
-- Check-in: assigned organizer or Appwrite `admin` label creates an HMAC-signed 15-minute code. Confirmed RSVP and the event time window are required. Retries do not duplicate attendance and repair incomplete participation writes.
+- Check-in: the participant shows a signed 15-minute QR; the assigned club/venue operator or Appwrite `admin` scans it for the selected event. Active account/Fitness ID, confirmed RSVP and the event window are required. Operator cameras use native QR detection or a lazily loaded on-device decoder; paste fallback is retained. Participant self-check-in and old event codes are retired. Retries do not duplicate attendance and repair incomplete participation writes.
 - Verified counts: derived from stored check-ins/verified participation, never marketing constants or RSVP totals.
 
 ## Content management
@@ -80,7 +80,7 @@ npm run content -- events unpublish DOCUMENT_ID
 npm run content -- events delete DOCUMENT_ID --confirm
 ```
 
-Administrators can also manage these four content kinds through `/admin/content/[kind]`, with guided fields, full JSON editing, published-reference validation, stale-form checks, deletion guards and required audit reasons. Configure the optional private `APPWRITE_ADMIN_AUDIT_COLLECTION_ID` and explicitly run `npm run appwrite:admin-audit` before browser writes are unlocked. This dedicated provisioning command does not change other collection permissions. Member search/access controls additionally need appropriate Appwrite Users API scopes.
+Administrators can also manage these four content kinds through `/admin/content/[kind]`, with guided fields, full JSON editing, published-reference validation, stale-form checks, deletion guards and required audit reasons. Configure `NEXT_PUBLIC_APPWRITE_ADMIN_AUDIT_COLLECTION_ID` during build and deployment (public identifier, private audit records), and explicitly run `npm run appwrite:admin-audit` before browser writes are unlocked. This dedicated provisioning command does not change other collection permissions. Member search/access controls additionally need appropriate Appwrite Users API scopes.
 
 The same commands support `places`, `communities`, and `activities`. `put` validates a complete domain record and synchronizes its payload, queryable columns and visibility permissions. Prefer unpublishing over deletion to preserve linked history. Assign `organizerUserId` on an event to authorize an organizer; an Appwrite user label of `admin` grants all-event check-in access. Never give clients collection-wide write permissions.
 

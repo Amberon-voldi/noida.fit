@@ -82,6 +82,7 @@ for (const width of [320, 390, 768, 1440]) {
     // One integrated introduction: no separate greeting, marketing copy or
     // duplicate metrics above it. Navigation follows the overview, not the banner.
     await expect(page.getByRole("heading", { name: props.profile.name, exact: true })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Show check-in QR", exact: true })).toHaveAttribute("href", "/check-in");
     await expect(page.locator(".identity-profile")).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
     await expect(page.locator(".identity-name-row h2")).toHaveCSS("color", "rgb(248, 250, 252)");
     await expect(page.locator(".member-space-header, .member-edition, .identity-facts, .identity-banner-caption, .identity-bio")).toHaveCount(0);

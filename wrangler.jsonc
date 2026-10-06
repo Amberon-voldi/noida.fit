@@ -33,6 +33,7 @@
     "NEXT_PUBLIC_APPWRITE_COLLECTION_MEMBERSHIPS": "community_memberships",
     "NEXT_PUBLIC_APPWRITE_COLLECTION_SAVED_ITEMS": "saved_items",
     "NEXT_PUBLIC_APPWRITE_COLLECTION_PARTICIPATIONS": "participations",
-    "NEXT_PUBLIC_SITE_URL": "https://noida.fit"
+    "NEXT_PUBLIC_SITE_URL": "https://noida.fit",
+    "NEXT_PUBLIC_APPWRITE_ADMIN_AUDIT_COLLECTION_ID": "admin_audit"
   }
 }

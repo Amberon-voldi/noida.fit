@@ -1,24 +1,39 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { createHmac } from "node:crypto";
-import { verifyEventCheckInToken, eventWindow, rsvpDocumentId, savedItemDocumentId, checkInInputSchema, CHECKIN_TOKEN_TTL } from "../lib/services/participation";
-import { assertSameOrigin, safeCallbackUrl, readJson, HttpError } from "../lib/http";
+import { verifyParticipantCheckInToken, eventWindow, rsvpDocumentId, savedItemDocumentId, checkInInputSchema, CHECKIN_TOKEN_TTL } from "../lib/services/participation";
+import { assertSameOrigin, assertRateLimit, safeCallbackUrl, readJson, HttpError } from "../lib/http";
+import { participantQrValue, participantTokenFromQr } from "../lib/check-in-qr";
 import { z } from "zod";
 
 const secret="test-only-check-in-signing-key-".repeat(3);
 process.env.APPWRITE_CHECKIN_SECRET=secret;
 function signed(payload: object) {const value=Buffer.from(JSON.stringify(payload)).toString("base64url");return `${value}.${createHmac("sha256",secret).update(value).digest("base64url")}`;}
 
-test("signed check-in rejects forged, expired, cross-event and oversized tokens",()=>{
+test("signed participant check-in rejects forged, expired, wrong-purpose and oversized tokens",()=>{
   const now=Date.now();
-  const payload={v:1,purpose:"event-checkin",eventId:"event-1",iat:now-100,exp:now+CHECKIN_TOKEN_TTL-100};
+  const payload={v:1,purpose:"participant-checkin",fitnessId:"NF-0123456789ABCDEF",iat:now-100,exp:now+CHECKIN_TOKEN_TTL-100};
   const token=signed(payload);
-  assert.equal(verifyEventCheckInToken(token).eventId,"event-1");
-  assert.throws(()=>verifyEventCheckInToken(token,"event-2"),HttpError);
-  assert.throws(()=>verifyEventCheckInToken(token.slice(0,-2)+"xx"),HttpError);
-  assert.throws(()=>verifyEventCheckInToken(signed({...payload,iat:now-1000,exp:now-1})),HttpError);
-  assert.throws(()=>verifyEventCheckInToken(signed({...payload,exp:now+CHECKIN_TOKEN_TTL+1000})),HttpError);
-  assert.throws(()=>checkInInputSchema.parse({token:"x".repeat(2100)}));
+  assert.equal(verifyParticipantCheckInToken(token).fitnessId,payload.fitnessId);
+  assert.throws(()=>verifyParticipantCheckInToken(signed({...payload,purpose:"event-checkin"})),HttpError);
+  assert.throws(()=>verifyParticipantCheckInToken(token.slice(0,-2)+"xx"),HttpError);
+  assert.throws(()=>verifyParticipantCheckInToken(signed({...payload,iat:now-1000,exp:now-1})),HttpError);
+  assert.throws(()=>verifyParticipantCheckInToken(signed({...payload,exp:now+CHECKIN_TOKEN_TTL+1000})),HttpError);
+  assert.throws(()=>verifyParticipantCheckInToken(signed({...payload,iat:now+10000})),HttpError);
+  assert.throws(()=>checkInInputSchema.parse({eventId:"event",token:"x".repeat(2100)}));
+});
+test("participant QR framing never treats public profile links as attendance credentials",()=>{
+  const token=signed({v:1,purpose:"participant-checkin",fitnessId:"NF-0123456789ABCDEF",iat:Date.now(),exp:Date.now()+1000});
+  assert.equal(participantTokenFromQr(participantQrValue(token)),token);
+  assert.equal(participantTokenFromQr(` ${token} `),token);
+  for(const value of ["https://noida.fit/@member","https://noida.fit/check-in?token=old","NF-0123456789ABCDEF", "NF-CHECKIN:invalid"]) assert.throws(()=>participantTokenFromQr(value));
+});
+test("only the operator desk gets a bounded higher throughput; ordinary mutation limits remain unchanged",()=>{
+  const request=new Request("https://noida.fit/api/check-in/organizer");
+  for(let i=0;i<5;i++)assertRateLimit(request,"ordinary-checkin-test","member");
+  assert.throws(()=>assertRateLimit(request,"ordinary-checkin-test","member"),HttpError);
+  for(let i=0;i<120;i++)assertRateLimit(request,"operator-checkin-test","operator",120);
+  assert.throws(()=>assertRateLimit(request,"operator-checkin-test","operator",120),HttpError);
 });
 test("deterministic IDs stay private and separate users and entity types",()=>{
   const id=rsvpDocumentId("event-1","user-1");
