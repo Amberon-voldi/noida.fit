@@ -131,6 +131,17 @@ export async function upsertAppwriteDocument<T extends object = AppwriteData>(
   return result as unknown as AppwriteDocument<T>;
 }
 
+export async function updateAppwriteDocument<T extends object = AppwriteData>(
+  collectionId: string,
+  documentId: string,
+  data: AppwriteInput<T>,
+): Promise<AppwriteDocument<T>> {
+  const { databases } = getAdminServices();
+  const { databaseId } = getAppwriteDatabaseConfig();
+  const result = await databases.updateDocument({ databaseId, collectionId, documentId, data: cleanData(data) });
+  return result as unknown as AppwriteDocument<T>;
+}
+
 export async function deleteAppwriteDocument(collectionId: string, documentId: string): Promise<void> {
   const { databases } = getAdminServices();
   const { databaseId } = getAppwriteDatabaseConfig();

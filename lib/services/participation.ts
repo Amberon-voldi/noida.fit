@@ -4,7 +4,7 @@ import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import { appwriteCollections as collections } from "@/lib/appwrite/config";
 import {
-  createAppwriteDocument, deleteAppwriteDocument, getAppwriteDocument,
+  createAppwriteDocument, deleteAppwriteDocument, getAppwriteDocument, updateAppwriteDocument,
   listAppwriteDocuments, userDocumentPermissions, Query,
   type AppwriteDocument,
 } from "@/lib/appwrite/database";
@@ -232,12 +232,19 @@ export async function canManageEvent(user: Pick<AuthUser, "id" | "labels">, even
   return isAdminUser(user) || event.organizerUserId === user.id;
 }
 
+function validateCheckInEvent(event: EventRecord): { opensAt: number; closesAt: number } {
+  if (typeof event.title !== "string" || !event.title.trim() || typeof event.activityId !== "string" || !event.activityId.trim()) {
+    throw new HttpError(409, "EVENT_DATA_INVALID", "This event is missing details required to record attendance");
+  }
+  return eventWindow(event);
+}
+
 export async function createEventCheckInToken(eventId: string, organizer: Pick<AuthUser, "id" | "labels">): Promise<{ token: string; expiresAt: string }> {
   const event = await getEvent(eventId);
   if (!isAdminUser(organizer) && event.organizerUserId !== organizer.id) {
     throw new HttpError(403, "ORGANIZER_REQUIRED", "Only this event’s organizer or an admin can create a check-in code");
   }
-  const { opensAt, closesAt } = eventWindow(event);
+  const { opensAt, closesAt } = validateCheckInEvent(event);
   const now = Date.now();
   if (now < opensAt || now >= closesAt) {
     throw new HttpError(409, "CHECKIN_CLOSED", "QR codes are available from 30 minutes before the event until one hour after it ends");
@@ -275,11 +282,20 @@ export function verifyEventCheckInToken(token: string, expectedEventId?: string)
 }
 
 async function ensureVerifiedParticipation(userId: string, event: AppwriteDocument<EventRecord>, checkin: CheckIn): Promise<void> {
+  const id = participationDocumentId(event.$id, userId);
+  const data = {
+    userId, eventId: event.$id, activityId: event.activityId, title: event.title.slice(0, 200),
+    occurredAt: checkin.timestamp, source: "organizer_checkin", status: "verified",
+  } satisfies Row<Participation>;
   try {
-    await createOnce<Row<Participation>>(collections.participations, participationDocumentId(event.$id, userId), {
-      userId, eventId: event.$id, activityId: event.activityId, title: event.title.slice(0, 200),
-      occurredAt: checkin.timestamp, source: "organizer_checkin", status: "verified",
-    }, userId);
+    const existing = await getAppwriteDocument<Row<Participation>>(collections.participations, id);
+    if (existing) {
+      if (existing.status !== "verified" || existing.source !== "organizer_checkin" || existing.occurredAt !== checkin.timestamp) {
+        await updateAppwriteDocument<Row<Participation>>(collections.participations, id, data);
+      }
+      return;
+    }
+    await createAppwriteDocument<Row<Participation>>(collections.participations, data, id, userDocumentPermissions(userId));
   } catch {
     // Do not roll back the trusted attendance record; retries repair the second write.
     throw new HttpError(503, "PARTICIPATION_REPAIR_REQUIRED", "Check-in recorded. Tap verify again to finish updating your activity.");
@@ -289,8 +305,11 @@ async function ensureVerifiedParticipation(userId: string, event: AppwriteDocume
 export async function checkInAttendee(userId: string, token: string): Promise<{ checkin: CheckIn; repaired: boolean }> {
   documentIdSchema.parse(userId);
   const payload = decodeSignedToken(token);
-  const event = await getEvent(payload.eventId);
-  const window = eventWindow(event);
+  // A previously recorded check-in can still repair its derived passport row if
+  // editorial status changed between the two writes. No new attendance is
+  // allowed for an unpublished or cancelled event.
+  const event = await getEvent(payload.eventId, false);
+  const window = validateCheckInEvent(event);
   const id = checkInDocumentId(event.$id, userId);
   const existing = await getAppwriteDocument<Row<CheckIn>>(collections.checkins, id);
   if (existing) {
@@ -301,6 +320,7 @@ export async function checkInAttendee(userId: string, token: string): Promise<{ 
     return { checkin, repaired: true };
   }
   verifyEventCheckInToken(token, event.$id);
+  if (event.status !== "published") throw new HttpError(409, "EVENT_UNAVAILABLE", "This event is not available for new check-ins");
   const now = Date.now();
   if (now < window.opensAt || now >= window.closesAt) throw new HttpError(409, "CHECKIN_CLOSED", "Check-in is outside the event window");
   const rsvp = await getUserRsvp(event.$id, userId);

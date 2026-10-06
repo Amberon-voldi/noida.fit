@@ -1,6 +1,6 @@
 import { test, expect, request as makeRequest, type APIRequestContext } from "@playwright/test";
 import { Account, Client, Databases, ID, Permission, Query, Role, Users } from "node-appwrite";
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { getScriptCollections, getScriptConfig } from "../../scripts/lib/appwrite";
 
 const config = getScriptConfig();
@@ -12,6 +12,7 @@ const createdUsers: string[] = [];
 const createdEvents: string[] = [];
 const baseURL = process.env.E2E_BASE_URL || "http://localhost:3000";
 const origin = new URL(baseURL).origin;
+const participationDocumentId = (eventId: string, userId: string) => createHash("sha256").update(JSON.stringify(["participation", eventId, userId])).digest("hex").slice(0, 36);
 
 async function testAccount() {
   const email = `nf-test-${randomBytes(8).toString("hex")}@example.com`;
@@ -212,11 +213,19 @@ test("signup → save/follow/RSVP → organizer check-in → private/public Fitn
       const race=await makeEvent(user.$id,1);
       const racing=await Promise.all([mutation(second.context,"/api/participation/rsvp",{eventId:race.id}),mutation(third.context,"/api/participation/rsvp",{eventId:race.id})]);
       expect(racing.map(r=>r.status()).sort()).toEqual([200,409]);
+      await page.goto("/organizer");
+      await expect(page.getByRole("heading", {name:"Run the session, not the spreadsheet."})).toBeVisible();
+      await expect(page.getByRole("heading", {name:"Open event check-in"})).toBeVisible();
+      await expect(page.getByText("privacy-safe attendee list", {exact:false}).first()).toBeVisible();
       const codeResponse=await mutation(ctx,"/api/check-in/organizer",{eventId:event.id});expect(codeResponse.status()).toBe(200);
       const {token}=await codeResponse.json();
       expect((await mutation(second.context,"/api/check-in",{token})).status()).toBe(403);
       expect((await mutation(ctx,"/api/check-in",{token:token.slice(0,-2)+"xx"})).status()).toBe(400);
+      await db.createDocument({databaseId:config.databaseId,collectionId:collections.participations,documentId:participationDocumentId(event.id,user.$id),permissions:[Permission.read(Role.user(user.$id))],data:{userId:user.$id,eventId:event.id,activityId:"activity_test",title:"Pending attendance",occurredAt:new Date().toISOString(),source:"self_reported",status:"pending"}});
       expect((await mutation(ctx,"/api/check-in",{token})).status()).toBe(200);
+      const repairedParticipation=await db.getDocument({databaseId:config.databaseId,collectionId:collections.participations,documentId:participationDocumentId(event.id,user.$id)});
+      expect(repairedParticipation.status).toBe("verified");
+      expect(repairedParticipation.source).toBe("organizer_checkin");
       expect((await mutation(ctx,"/api/check-in",{token})).status()).toBe(200);
       expect((await mutation(ctx,"/api/participation/rsvp",{eventId:event.id},"DELETE")).status()).toBe(409);
     } finally {await second.context.dispose();await third.context.dispose();}

@@ -144,6 +144,26 @@ export async function getEvents(): Promise<Event[]> {
   return loadEvents();
 }
 
+/** Server-only operational view. Unlike public discovery, this includes an organizer's draft and cancelled records. */
+const loadOrganizerEvents = cache(async (userId: string, admin: boolean): Promise<Event[]> => {
+  await connection();
+  const [allDocuments, rsvps] = await Promise.all([
+    // Keep this compatible with already-provisioned projects; the organizer
+    // attribute was optional before the operational panel existed.
+    listAppwriteDocuments<ContentDocument>(appwriteCollections.events),
+    listAppwriteDocuments<{eventId: string; status: string}>(appwriteCollections.rsvps, [Query.select(["eventId", "status"])]),
+  ]);
+  const documents = admin ? allDocuments : allDocuments.filter(document => document.organizerUserId === userId);
+  const counts = new Map<string, number>();
+  for (const rsvp of rsvps) if (rsvp.status === "confirmed") counts.set(rsvp.eventId, (counts.get(rsvp.eventId) ?? 0) + 1);
+  return documents.map(document => ({ ...decodeEvent(document), attendeesCount: counts.get(document.$id) ?? 0 }))
+    .sort((a, b) => (a.startsAt ?? a.date).localeCompare(b.startsAt ?? b.date));
+});
+
+export async function getOrganizerEvents(userId: string, admin = false): Promise<Event[]> {
+  return loadOrganizerEvents(userId, admin);
+}
+
 export async function getUpcomingEvents(): Promise<Event[]> {
   return (await loadEvents()).filter((event) => Date.parse(event.endsAt ?? `${event.date}T23:59:59+05:30`) > Date.now() && event.status === "published");
 }

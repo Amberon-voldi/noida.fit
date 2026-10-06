@@ -108,12 +108,12 @@ On the inspected Appwrite RC, a no-op update with identical data can return succ
 1. Login/signup creates an Appwrite session, stored as an HttpOnly/SameSite=Lax cookie (Secure in production). Interrupted profile/ID setup is repaired by subsequent login without resetting privacy choices.
 2. Save/follow/RSVP routes validate input, infer userId from the session and reject cross-origin requests. Duplicate saves/follows are idempotent.
 3. RSVP chooses a seat within event capacity; Appwrite's unique seat index is the atomic arbiter during races. Unique user/event index and deterministic document ID prevent duplicate reservations. Cancellation deletes the reservation to free capacity.
-4. Event organizers use `/organizer`. Only an event's stored `organizerUserId` or a trusted Appwrite `admin` user label may generate a code.
-5. The code is HMAC-signed, bound to an event and expires in 15 minutes. Creation/attendance are allowed from 30 minutes before the event to one hour after its end. A confirmed RSVP is required.
-6. Check-in stores one trusted record and derives one verified participation. Repeated submissions are idempotent; a retry repairs the participation write if it failed after check-in was committed.
+4. Event organizers use `/organizer`, which provides club/event summaries, privacy-safe display-name attendance states, and the QR desk. Only an event's stored `organizerUserId` or a trusted Appwrite `admin` user label may access its operational data or generate a code.
+5. The code is HMAC-signed, bound to an event and expires in 15 minutes. Creation/attendance are allowed from 30 minutes before the event to one hour after its end. A confirmed RSVP is required. The attendee page supports native QR scanning where `BarcodeDetector` is available and retains paste-token fallback.
+6. Check-in stores one trusted record and derives one verified participation. Repeated submissions are idempotent; an existing non-verified participation row is promoted to `verified`, and a retry can repair the derived row even if editorial event status changes after the trusted check-in. New attendance remains blocked for unpublished/cancelled events.
 7. The account/Fitness ID computes verified activities, attended events, followed communities and consecutive IST calendar weeks from actual records. Pending, self-reported, future records and RSVPs never inflate verified totals. Public totals and communities are separately opt-in.
 
-Event QR is a bearer code intended to be shown at the venue; it is not cryptographic proof of physical location. No geolocation claim is made. Keep codes out of recordings and public posts.
+Event QR is a bearer code intended to be shown at the venue; it is not cryptographic proof of physical location. No geolocation claim is made. Keep codes out of recordings and public posts. Organizer attendance views expose only display names and RSVP/check-in state; emails, account IDs and private profile fields remain server-side. After a successful attendee check-in, the signed token is removed from browser history.
 
 ## Content operations
 
