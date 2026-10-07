@@ -27,6 +27,9 @@
 .DS_Store
 *.pem
 
+# Local video generation workspace
+/vid-gen/
+
 # Local agent state and instructions (any directory, any filename casing)
 __agent__/
 [Aa][Gg][Ee][Nn][Tt][Ss].[Mm][Dd]
