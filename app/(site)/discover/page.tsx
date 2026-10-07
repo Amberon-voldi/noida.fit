@@ -9,5 +9,5 @@ export const metadata: Metadata = {
 };
 
 export default async function DiscoverPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
-  return <DirectoryView params={await searchParams} path="/discover" title="Find your next move." eyebrow="NOIDA & GREATER NOIDA" description="A session, a group, or a place that fits your day. Start with what you enjoy, then narrow it down to your neighbourhood." />;
+  return <DirectoryView params={await searchParams} path="/discover" title="Discover" />;
 }

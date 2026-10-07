@@ -26,6 +26,8 @@ const FOOTER_COLUMNS = [
   {
     heading: "Platform",
     links: [
+      { label: "Home", href: "/home" },
+      { label: "Meet NOIDA.FIT", href: "/" },
       { label: "Communities", href: "/communities" },
       { label: "Events", href: "/events" },
       { label: "Places", href: "/places" },
@@ -74,6 +76,7 @@ export function Footer() {
         </div>
 
         <nav className="mb-4 flex flex-wrap gap-x-5 sm:hidden" aria-label="About the platform">
+          <Link href="/home" className="inline-flex min-h-11 items-center text-sm text-text-secondary">Home</Link>
           <Link href="/about" className="inline-flex min-h-11 items-center text-sm text-text-secondary">About</Link>
           <Link href="/for-organizers" className="inline-flex min-h-11 items-center text-sm text-text-secondary">For organizers</Link>
           <Link href="/stories" className="inline-flex min-h-11 items-center text-sm text-text-secondary">Stories</Link>

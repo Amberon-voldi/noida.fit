@@ -19,11 +19,12 @@ npm run dev
 
 Existing infrastructure is reused by configured IDs. Setup inspects resources before creation, validates schemas/indexes, and refuses to create same-named duplicates under a different ID. Secrets stay in ignored environment files; never commit `.env`, API keys, session cookies or the generated check-in signing secret.
 
-The current seed contains **24 events, 12 fictional communities, 18 places, and 26 activities**. Dates are fixed at seed time. No demo users/passwords, attendance or verified statistics are created. Real landmarks are discovery examples only; every listing is labelled demo and must not be used for travel or payment decisions.
+The current seed contains **24 events, 12 fictional communities, 18 places, and 26 activities**. Dates are fixed at seed time. No demo users/passwords, attendance or verified statistics are created. Real landmarks are discovery examples only; sample listings must not be used for travel or payment decisions. The compact home uses one illustrative-listings notice instead of repeated card badges; standard directory/detail views retain per-listing provenance.
 
 ## Product routes
 
-- `/` — discovery-first home, next seven days, activities, communities, places and weekend sessions
+- `/` — navbar-free, motion-led community introduction with a clear invitation into the platform
+- `/home` — compact public home hub: a small greeting, search, quick plans, activities, and bounded event/community/place cards
 - `/discover`, `/search` — URL-based search, activity/type/sector/date/time/price filters
 - `/activities`, `/activities/[slug]` — activity directory and relevant listings
 - `/events`, `/event/[slug]` — events, RSVP/cancel, save, share and calendar export

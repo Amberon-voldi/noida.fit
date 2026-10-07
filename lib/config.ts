@@ -19,6 +19,7 @@ export const CATEGORY_EMOJIS: Record<ActivityCategory, string> = {
 };
 
 export const NAV_LINKS = [
+  { label: "Home", href: "/home" },
   { label: "Discover", href: "/discover" },
   { label: "Activities", href: "/activities" },
   { label: "Communities", href: "/communities" },

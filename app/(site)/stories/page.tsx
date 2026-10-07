@@ -11,23 +11,11 @@ export const metadata: Metadata = {
 export default function StoriesPage() {
   return (
     <div className="min-h-full">
-      {/* Page Header */}
-      <div className="bg-surface border-b border-border-subtle">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-12 sm:py-16">
-          <span className="text-xs font-mono font-bold uppercase tracking-widest text-velocity">
-            Stories from the City
-          </span>
-          <h1
-            className="mt-2 text-3xl sm:text-4xl font-extrabold text-white tracking-tight"
-            style={{ letterSpacing: "-0.03em" }}
-          >
-            The Noida Fitness Chronicle
-          </h1>
-          <p className="mt-3 text-text-secondary leading-relaxed max-w-xl">
-            Runner profiles, club spotlights, route guides, and dispatches from Noida&apos;s growing fitness culture.
-          </p>
+      <header className="public-page-header border-b border-border-subtle px-4 py-4 sm:px-6 sm:py-5 lg:px-8">
+        <div className="mx-auto max-w-7xl">
+          <h1 className="text-2xl font-bold tracking-tight">Stories</h1>
         </div>
-      </div>
+      </header>
 
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-20">
         <div className="flex flex-col items-center justify-center text-center py-12">

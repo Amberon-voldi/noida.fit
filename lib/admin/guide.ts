@@ -11,7 +11,8 @@ export const adminModules = [
 ];
 
 export const pageGuide = [
-  ["/", "Public", "Motion-enhanced discovery landing with real directory links."],
+  ["/", "Public", "Community-led introductory landing; enter the platform through /home."],
+  ["/home", "Public", "Compact home hub: greeting, search, upcoming event/community/place cards; real published directory data and an illustrative-listings notice when needed."],
   ["/discover, /search", "Public", "Search and URL filters: activity, type, sector, date, time and price."],
   ["/activities, /activities/[slug]", "Public", "Activity directory and related published listings."],
   ["/events, /event/[slug]", "Public", "Session directory, details, RSVP/save/share and calendar download."],

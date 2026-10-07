@@ -55,8 +55,9 @@ body {
 }
 
 @media (max-width: 1023px) {
-  /* Reserve space on every screen, including auth and error pages. */
+  /* Reserve app-dock space, including auth and error pages; root intro has no dock. */
   body { padding-bottom: calc(5.5rem + env(safe-area-inset-bottom)); }
+  body:has(.intro-landing) { padding-bottom: 0; }
   html { scroll-padding-bottom: calc(6rem + env(safe-area-inset-bottom)); }
 }
 

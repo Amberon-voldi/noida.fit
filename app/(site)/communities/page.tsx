@@ -9,5 +9,5 @@ export const metadata: Metadata = {
 };
 
 export default async function CommunitiesPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
-  return <DirectoryView params={await searchParams} path="/communities" type="communities" title="Find your people." eyebrow="LOCAL GROUPS, SHARED ROUTINES" description="A weekly rhythm beats a perfect plan. Find a community that fits your pace, schedule, and neighbourhood — then see how to join its next session." />;
+  return <DirectoryView params={await searchParams} path="/communities" type="communities" title="Communities" />;
 }

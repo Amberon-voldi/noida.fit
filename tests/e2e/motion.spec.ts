@@ -47,7 +47,7 @@ test("card reveals are bounded, dialogs reopen cleanly, and reduced motion remai
     };
   });
   const records = () => page.evaluate(() => (window as unknown as { revealRecords: { duration: number; delay: number }[] }).revealRecords);
-  await page.goto("/");
+  await page.goto("/places");
   await expect.poll(async () => (await records()).length).toBeGreaterThan(1);
   expect((await records()).every(item => item.duration + item.delay <= 400)).toBe(true);
   await page.goto("/discover");
@@ -62,7 +62,7 @@ test("card reveals are bounded, dialogs reopen cleanly, and reduced motion remai
     expect(await page.evaluate(() => document.body.style.overflow)).not.toBe("hidden");
   }
   await page.emulateMedia({ reducedMotion: "reduce" });
-  await page.goto("/");
+  await page.goto("/places");
   await expect(page.locator("h1")).toBeVisible();
   expect(await records()).toEqual([]);
   await page.goto("/discover");

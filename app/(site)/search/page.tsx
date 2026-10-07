@@ -10,5 +10,5 @@ export const metadata: Metadata = {
 };
 
 export default async function SearchPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
-  return <DirectoryView params={await searchParams} path="/search" title="A local lead is all you need." eyebrow="SEARCH THE CITY DIRECTORY" description="Try “running”, “Sector 137”, or “Noida Stadium”. Search covers names, activities, meeting points, and descriptions. Filters make your results easy to share." />;
+  return <DirectoryView params={await searchParams} path="/search" title="Search" />;
 }

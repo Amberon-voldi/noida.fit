@@ -4,7 +4,7 @@ import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowUpRight, Dumbbell, MapPin, Menu, Newspaper, UsersRound, Info, ShieldCheck, X } from "lucide-react";
+import { ArrowUpRight, CalendarDays, Compass, House, Dumbbell, MapPin, Menu, Newspaper, UsersRound, Info, ShieldCheck, X } from "lucide-react";
 
 const subscribe = () => () => {};
 
@@ -37,6 +37,10 @@ export function MobileNav({ signedIn = false, admin = false }: { signedIn?: bool
 
   const close = () => setOpen(false);
   const links = [
+    { href: "/home", label: "Home", icon: House },
+    { href: "/discover", label: "Discover", icon: Compass },
+    { href: "/communities", label: "Communities", icon: UsersRound },
+    { href: "/events", label: "Events", icon: CalendarDays },
     { href: "/activities", label: "All activities", icon: Dumbbell },
     { href: "/places", label: "Places to move", icon: MapPin },
     { href: "/stories", label: "Local stories", icon: Newspaper },

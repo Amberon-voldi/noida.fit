@@ -13,6 +13,8 @@ const eslintConfig = defineConfig([
     ".wrangler/**",
     "out/**",
     "build/**",
+    // Separate local video-generation workspace; excluded from this app/repository.
+    "vid-gen/**",
     "next-env.d.ts",
   ]),
 ]);

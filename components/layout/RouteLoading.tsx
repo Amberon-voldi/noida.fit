@@ -2,13 +2,13 @@ import { LoaderCircle } from "lucide-react";
 
 export default function Loading() {
   return (
-    <main id="main-content" className="page-loading mx-auto w-full max-w-7xl flex-1 px-4 py-16 sm:px-6 lg:px-8" aria-busy="true">
+    <div className="page-loading mx-auto w-full max-w-7xl flex-1 px-4 py-16 sm:px-6 lg:px-8" aria-busy="true">
       <p role="status" className="flex items-center gap-2 text-sm text-text-secondary"><LoaderCircle className="h-4 w-4 animate-spin text-velocity" aria-hidden="true" />Loading your page…</p>
       <div aria-hidden="true">
         <div className="loading-heading mt-6 max-w-2xl"><div className="skeleton h-3 w-36 rounded" /><div className="skeleton mt-5 h-12 w-3/4 rounded" /><div className="skeleton mt-3 h-5 w-full max-w-xl rounded" /></div>
         <div className="loading-grid mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3"><LoadingCard /><LoadingCard /><LoadingCard /></div>
       </div>
-    </main>
+    </div>
   );
 }
 

@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { CalendarDays, Compass, House, LoaderCircle, UserRound, Users, type LucideIcon } from "lucide-react";
 
 const LINKS = [
-  { href: "/", label: "Home", icon: House, prefixes: ["/"] },
+  { href: "/home", label: "Home", icon: House, prefixes: ["/home"] },
   { href: "/discover", label: "Discover", icon: Compass, prefixes: ["/discover", "/search", "/activities", "/places", "/place"] },
   { href: "/events", label: "Events", icon: CalendarDays, prefixes: ["/events", "/event"] },
   { href: "/communities", label: "Groups", icon: Users, prefixes: ["/communities", "/community"] },
@@ -27,6 +27,7 @@ function DockItem({ icon: Icon, label }: { icon: LucideIcon; label: string }) {
 
 export function MobileBottomNav() {
   const pathname = usePathname();
+  if (pathname === "/") return null;
   const activeIndex = LINKS.findIndex(({ prefixes }) => prefixes.some(prefix => pathname === prefix || (prefix !== "/" && pathname.startsWith(`${prefix}/`))));
 
   return (

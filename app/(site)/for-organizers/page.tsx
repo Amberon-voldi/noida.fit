@@ -55,46 +55,31 @@ const FAQS = [
 export default function ForOrganizersPage() {
   return (
     <div className="min-h-full">
-      {/* Hero */}
-      <div className="bg-surface border-b border-border-subtle">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16 sm:py-20">
+      <header className="public-page-header border-b border-border-subtle">
+        <div className="mx-auto max-w-7xl px-4 py-4 sm:px-6 sm:py-5 lg:px-8">
           <div className="max-w-3xl">
-            <span className="text-xs font-mono font-bold uppercase tracking-widest text-velocity">
-              For Organizers
-            </span>
-            <h1
-              className="mt-2 text-4xl sm:text-5xl font-extrabold text-white tracking-tight leading-tight"
-              style={{ letterSpacing: "-0.035em" }}
-            >
-              You organize,
-              <br />
-              <span className="text-velocity">we amplify.</span>
-            </h1>
-            <p className="mt-5 text-lg text-text-secondary leading-relaxed max-w-xl">
-              Help people in Noida and Greater Noida find your group. Send your meeting
-              details for review, and make the first visit clearer for someone new.
-              Sample listings are not partnerships or confirmed sessions.
-            </p>
-            <div className="mt-8 flex flex-col sm:flex-row gap-4">
+            <h1 className="text-2xl font-bold tracking-tight">For organizers</h1>
+            <div className="mt-3 flex flex-col gap-3 sm:flex-row">
               <Link
                 href="mailto:hello@noida.fit?subject=List My Community on NOIDA.FIT"
                 id="organizer-submit-cta"
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-velocity px-8 py-3.5 text-base font-bold text-slate-950 hover:bg-velocity-glow transition-colors"
+                className="button-primary"
               >
                 Email a listing request
               </Link>
               <a
                 href="#faq"
-                className="inline-flex items-center justify-center gap-2 rounded-lg border border-border-strong bg-surface px-8 py-3.5 text-base font-bold text-white hover:bg-surface-hover transition-colors"
+                className="button-secondary"
               >
                 Read FAQ
               </a>
             </div>
           </div>
         </div>
-      </div>
+      </header>
 
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16 space-y-20">
+        <p className="max-w-3xl text-sm leading-relaxed text-text-secondary">Send listing details for review, not automatic publication. Sample listings are not partnerships or confirmed sessions.</p>
         {/* How It Works */}
         <section aria-labelledby="how-it-works-heading">
           <h2

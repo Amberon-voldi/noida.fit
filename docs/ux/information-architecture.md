@@ -2,10 +2,11 @@
 
 ## 1. Route Map (V1 Scope)
 
-The V1 information architecture is deliberately streamlined to maximize discovery velocity and ensure zero empty states. Every route serves a clear, practical purpose.
+The current app separates the introductory `/` landing from the practical `/home` hub. Home navigation and logos lead to `/home`; both remain public. Empty/unavailable data is labelled honestly rather than filled with fabricated content. Older V1/deferred-route notes below are historical; authenticated account, participant QR, organizer and admin routes are implemented. Every route serves a clear, practical purpose.
 
 ```text
-/
+/                               # Introductory community landing
+├── home                         # Practical search, sessions, clubs, places and account shortcuts
 ├── discover                     # Unified multi-faceted discovery hub
 ├── communities                  # Directory of clubs and groups
 │   └── [slug]                   # Dynamic community hub (e.g. /community/noida-runners-club)
@@ -30,7 +31,8 @@ The V1 information architecture is deliberately streamlined to maximize discover
 
 | Route Path | Page Title / Purpose | Target Audience | Key Components | SEO Keyword Intent | Primary CTA | Secondary Action |
 | :--- | :--- | :--- | :--- | :--- | :--- | :--- |
-| `/` | **NOIDA.FIT Homepage**<br>The living hub of Noida fitness. | All active & aspiring Noida residents. | `Hero`, `FeaturedEvents`, `CommunityCarousel`, `ActivityPills`, `CityMapPreview`, `StoryGrid`. | *Fitness in Noida, Noida fitness communities, running clubs in Noida*. | **Explore Noida Fitness** | Find Your Community |
+| `/` | **NOIDA.FIT Landing**<br>Introduction to the local community and participation loop. | First-time and returning visitors. | Community-led intro, illustrative imagery, brief participation explanation. | *Fitness in Noida, Noida fitness communities*. | **Explore the home hub** | Find Your Community |
+| `/home` | **NOIDA.FIT Home**<br>The practical starting point for a plan. | Guests and signed-in members. | Small greeting, search, quick date/activity links, bounded event/community/place cards. | *Fitness sessions Noida, local clubs and venues*. | **Search the directory** | Explore communities |
 | `/discover` | **Discover Hub**<br>Unified filter interface. | Users looking for workouts by sector/date. | `SearchBar`, `FilterSidebar`, `CategoryPills`, `UnifiedGrid`, `EmptyState`. | *Fitness events this weekend Noida, workout groups Sector 137*. | **View Event / Community** | Reset Filters |
 | `/communities` | **Community Directory**<br>All active clubs & groups. | Runners, cyclists, lifters seeking a group. | `CommunitySearchBar`, `CategoryFilters`, `CommunityCardGrid`. | *Running clubs Noida, cycling groups Noida, fitness groups Greater Noida*. | **Explore Community** | List Your Community |
 | `/community/[slug]` | **Community Hub**<br>Home turf for a local club. | Potential members evaluating the vibe. | `CommunityHeader`, `WeeklyScheduleTable`, `LeaderCards`, `UpcomingEventsList`, `SocialsRow`. | *[Community Name] Noida, join [Community Name]*. | **Join Community** (WhatsApp/Insta) | View Events |

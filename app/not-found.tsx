@@ -10,7 +10,7 @@ export default function NotFound() {
         <p className="eyebrow">404 · Not found</p>
         <h1 id="not-found-heading" className="mt-3 text-4xl font-extrabold tracking-tight">Lost on the route?</h1>
         <p className="mt-4 max-w-md leading-relaxed text-text-secondary">This page may have moved, or the listing is no longer published. Search the directory to find another way to move.</p>
-        <div className="mt-8 flex flex-wrap justify-center gap-3"><Link href="/discover" className="button-primary">Discover Noida Fitness</Link><Link href="/" className="button-secondary">Back to home</Link></div>
+        <div className="mt-8 flex flex-wrap justify-center gap-3"><Link href="/discover" className="button-primary">Discover Noida Fitness</Link><Link href="/home" className="button-secondary">Back to home</Link></div>
       </main>
       <Footer />
     </>

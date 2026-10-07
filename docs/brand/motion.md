@@ -68,3 +68,7 @@ All custom CSS keyframes and transitions must respect user system preferences:
 In Tailwind CSS v4 / React components:
 - Use `motion-reduce:transition-none` and `motion-reduce:transform-none` for interactive elements.
 - Ensure that opacity fades replace sliding transforms when reduced motion is preferred.
+
+## 5. Introductory root landing exception: native-scroll storytelling
+
+The introductory `/` uses bounded parallax, sliding curtains, a one-turn decorative Fitness ID preview, and a spinning/settling story wheel with staggered flying cards, controlled directly by native scroll position. These are not time-based delays before using the product: the first `/home` CTA is immediately available, and the practical home hub has no pinned storytelling scenes. Wheel/touch input is never intercepted, scrolling is never locked, and no continuous requestAnimationFrame loop is used. On-scroll text reveals stay within the 400ms budget. A visible pause control, system reduced motion, short-viewport/enlarged-text static flow, focus-safe curtains and a readable no-JavaScript baseline are required. Do not apply the spinning preview behavior to actual member cards or check-in QR credentials.

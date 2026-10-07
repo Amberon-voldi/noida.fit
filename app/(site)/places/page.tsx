@@ -9,5 +9,5 @@ export const metadata: Metadata = {
 };
 
 export default async function PlacesPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
-  return <DirectoryView params={await searchParams} path="/places" type="places" title="Where the city moves." eyebrow="TRACKS, PARKS, COURTS & STUDIOS" description="Start with a landmark you know. Explore local training grounds, read the visit notes, and find the communities that call them home." />;
+  return <DirectoryView params={await searchParams} path="/places" type="places" title="Places" />;
 }

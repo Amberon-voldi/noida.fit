@@ -9,5 +9,5 @@ export const metadata: Metadata = {
 };
 
 export default async function EventsPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
-  return <DirectoryView params={await searchParams} path="/events" type="events" title="Make a little room to move." eyebrow="THE COMMUNITY CALENDAR" description="Clear start times, meeting points, and the people hosting each session. Browse upcoming events or choose a day that works for you." />;
+  return <DirectoryView params={await searchParams} path="/events" type="events" title="Events" />;
 }

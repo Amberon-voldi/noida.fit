@@ -55,7 +55,7 @@ test("discovery is usable at mobile and desktop widths with a real backend",asyn
   const errors:string[]=[];page.on("pageerror",e=>errors.push(e.name));
   for(const width of [320,390,768,1440]){
     await page.setViewportSize({width,height:900});
-    for(const path of ["/","/discover?q=running","/activities","/places","/communities","/events"]){
+    for(const path of ["/","/home","/discover?q=running","/activities","/places","/communities","/events"]){
       const response=await page.goto(path);
       expect(response?.status()).toBe(200);
       await expect(page.locator("h1")).toBeVisible();
@@ -67,7 +67,7 @@ test("discovery is usable at mobile and desktop widths with a real backend",asyn
         expect((await page.locator(".directory-header").boundingBox())!.height).toBeLessThanOrEqual(64);
       }
       const bottomNav = page.getByRole("navigation", {name:"Quick navigation"});
-      if (width < 1024) {
+      if (width < 1024 && path !== "/") {
         await expect(bottomNav).toBeVisible();
         expect((await bottomNav.boundingBox())!.width).toBe(width);
         await expect(bottomNav.getByRole("link")).toHaveCount(5);
@@ -79,10 +79,13 @@ test("discovery is usable at mobile and desktop widths with a real backend",asyn
   }
   await page.setViewportSize({width:390,height:844});
   await page.goto("/");
+  await expect(page.getByRole("navigation",{name:"Primary navigation"})).toHaveCount(0);
+  await page.goto("/home");
   await page.getByRole("button",{name:"Open navigation menu"}).click();
   const menu = page.getByRole("dialog",{name:"Navigation menu"});
   await expect(menu).toBeVisible();
-  await expect(menu.getByRole("link", {name:"Events", exact:true})).toHaveCount(0);
+  await expect(menu.getByRole("link", {name:"Home", exact:true})).toHaveAttribute("href", "/home");
+  await expect(menu.getByRole("link", {name:"Events", exact:true})).toBeVisible();
   await expect(menu.getByRole("link", {name:"All activities", exact:true})).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(page.getByRole("button",{name:"Open navigation menu"})).toBeFocused();
@@ -93,7 +96,7 @@ test("discovery is usable at mobile and desktop widths with a real backend",asyn
   await expect(bottomNav).toBeVisible();
   await expect(bottomNav.getByRole("link", {name:"Account"})).toHaveAttribute("aria-current", "page");
   await bottomNav.getByRole("link", {name:"Home", exact:true}).click();
-  await expect(page).toHaveURL(`${origin}/`);
+  await expect(page).toHaveURL(`${origin}/home`);
   expect(errors).toEqual([]);
 });
 

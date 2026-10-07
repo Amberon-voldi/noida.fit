@@ -14,28 +14,23 @@ interface DirectoryViewProps {
   params: SearchParams;
   path: string;
   title: string;
-  description: string;
-  eyebrow: string;
   type?: DirectoryType;
 }
 
-export async function DirectoryView({ params, path, title, description, eyebrow, type }: DirectoryViewProps) {
+export async function DirectoryView({ params, path, title, type }: DirectoryViewProps) {
   const directory = await getDirectory();
   const filters = readFilters(params, type);
   const results = filterDirectory(directory, filters);
   const active = Object.entries(filters).filter(([key, value]) => value && !(key === "type" && type));
   const advancedCount = active.filter(([key]) => !["q", "type"].includes(key)).length;
-  const mobileTitle = type === "events" ? "Events" : type === "communities" ? "Groups" : type === "places" ? "Places" : path === "/search" ? "Search" : "Discover";
   const sectors = Array.from(new Set([...directory.events.map((item) => item.sector), ...directory.places.map((item) => item.sector)])).sort();
   const inputClass = "h-11 w-full min-w-0 rounded-lg border border-border-strong bg-background px-3 text-sm text-white";
 
   return (
     <div className={`directory-page pb-16 ${type ? "directory-single-type" : ""}`}>
-      <header className="directory-header hero-enter border-b border-border-subtle px-4 py-7 sm:px-6 sm:py-12 lg:px-8">
+      <header className="directory-header border-b border-border-subtle px-4 py-4 sm:px-6 sm:py-5 lg:px-8">
         <div className="mx-auto max-w-7xl">
-          <p className="eyebrow">{eyebrow}</p>
-          <h1 className="mt-2 text-3xl font-extrabold tracking-tight sm:mt-3 sm:text-5xl"><span className="md:hidden">{mobileTitle}</span><span className="hidden md:inline">{title}</span></h1>
-          <p className="directory-description mt-3 max-w-2xl text-sm leading-relaxed text-text-secondary sm:text-base">{description}</p>
+          <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
         </div>
       </header>
 

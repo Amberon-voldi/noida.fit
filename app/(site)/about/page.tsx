@@ -11,24 +11,11 @@ export const metadata: Metadata = {
 export default function AboutPage() {
   return (
     <div className="min-h-full">
-      {/* Hero */}
-      <div className="bg-surface border-b border-border-subtle">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16 sm:py-20">
-          <div className="max-w-3xl">
-            <span className="text-xs font-mono font-bold uppercase tracking-widest text-velocity">
-              About NOIDA.FIT
-            </span>
-            <h1
-              className="mt-2 text-4xl sm:text-5xl font-extrabold text-white tracking-tight leading-tight"
-              style={{ letterSpacing: "-0.035em" }}
-            >
-              The heartbeat of
-              <br />
-              <span className="text-velocity">Noida fitness.</span>
-            </h1>
-          </div>
+      <header className="public-page-header border-b border-border-subtle px-4 py-4 sm:px-6 sm:py-5 lg:px-8">
+        <div className="mx-auto max-w-7xl">
+          <h1 className="text-2xl font-bold tracking-tight">About</h1>
         </div>
-      </div>
+      </header>
 
       <div className="mx-auto max-w-4xl px-4 sm:px-6 lg:px-8 py-16 space-y-14">
         {/* Mission */}
