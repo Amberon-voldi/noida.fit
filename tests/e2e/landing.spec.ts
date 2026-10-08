@@ -17,7 +17,7 @@ for (const width of [320, 390, 768, 1440]) {
     const errors: string[] = []; page.on("pageerror", error => errors.push(error.message));
     const response = await page.goto("/"); expect(response?.status()).toBe(200);
     await expect(page.getByRole("heading", { level: 1 })).toHaveCount(1);
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("GO TOGETHER.");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("FIND YOUR PEOPLE.");
     expect(new URL((await page.locator('link[rel="canonical"]').getAttribute("href"))!).pathname).toBe("/");
     await expect(page.locator(".kinetic-landing")).toHaveAttribute("data-motion", "active");
     await expect(page.getByRole("link", { name: "Explore the home hub", exact: true }).first()).toHaveAttribute("href", "/home");
@@ -31,7 +31,17 @@ for (const width of [320, 390, 768, 1440]) {
     await expect(page.locator(".kinetic-steps > li")).toHaveCount(4);
     await expect(page.getByRole("button", { name: "Pause landing motion" })).toBeVisible();
     await expect.poll(() => page.locator(".kinetic-hero-image img").evaluate(node => (node as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
-    await expect(page.locator(".kinetic-hero-credit")).toContainText("Illustrative");
+    await expect(page.locator(".kinetic-hero-image img")).toHaveAttribute("alt", "");
+    await expect(page.locator(".kinetic-hero-image img")).toHaveAttribute("src", /hero-crew\.webp/);
+    await expect(page.locator(".kinetic-hero-image figcaption")).toContainText("Illustrative group-running photography");
+    await expect(page.locator(".hero-sculpture")).toHaveCount(0);
+    await expect(page.locator(".kinetic-hero-image figcaption")).toBeVisible();
+    const heroAction = page.getByRole("link", { name: "Explore the home hub", exact: true }).first();
+    await expect(heroAction).toBeInViewport();
+    // Copy remains outside the photo, so the photograph never hides the route into discovery.
+    const copy = (await page.locator(".kinetic-hero-copy").boundingBox())!;
+    const photo = (await page.locator(".kinetic-hero-art").boundingBox())!;
+    expect(copy.x + copy.width <= photo.x + 1 || copy.y + copy.height <= photo.y + 1).toBe(true);
     for (const selector of [".kinetic-hero", "#community-scene", "#fitness-id", "#how-it-works", ".kinetic-finale"]) {
       if (selector === "#community-scene" || selector === "#fitness-id") await scrollProgress(page, selector, .5);
       else await page.locator(selector).scrollIntoViewIfNeeded();
@@ -71,6 +81,16 @@ for (const width of [390, 1440]) {
     const before = await value(page, ".kinetic-hero-image", "--depth-shift");
     await page.evaluate(() => window.scrollTo({ top: 200, behavior: "instant" }));
     await expect.poll(async () => Math.abs((await value(page, ".kinetic-hero-image", "--depth-shift")) - before)).toBeGreaterThan(2);
+    // Only the photo moves; provenance stays steady and no uncovered edges appear.
+    expect(await page.locator(".kinetic-hero-image").evaluate(node => {
+      const image = node.querySelector("img")!;
+      const frame = node.getBoundingClientRect();
+      const photo = image.getBoundingClientRect();
+      const matrix = new DOMMatrixReadOnly(getComputedStyle(image).transform);
+      return getComputedStyle(node).transform === "none" && Math.abs(matrix.m42) <= 10
+        && photo.left <= frame.left && photo.right >= frame.right
+        && photo.top <= frame.top && photo.bottom >= frame.bottom;
+    })).toBe(true);
     await scrollProgress(page, "#community-scene", .05);
     await expect.poll(async () => await value(page, "#community-scene", "--curtain-open")).toBeLessThan(.1);
     const closed = await page.locator(".kinetic-curtain-left").evaluate(node => getComputedStyle(node).transform);
@@ -196,7 +216,7 @@ test("kinetic landing and the card preview stay readable without JavaScript", as
   const context = await browser.newContext({ javaScriptEnabled: false, viewport: { width: 390, height: 900 }, baseURL });
   try {
     const page = await context.newPage(); await page.goto("/");
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("GO TOGETHER.");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("FIND YOUR PEOPLE.");
     await expect(page.locator(".kinetic-landing")).toHaveAttribute("data-motion", "static");
     await page.locator("#fitness-id").scrollIntoViewIfNeeded();
     await expect(page.locator(".kinetic-id-figure figcaption")).toBeVisible();
@@ -250,5 +270,5 @@ test("native scroll handlers stay passive, do not run an idle loop, and clean up
 
 test("server-rendered landing contains the primary journey, safe preview and WebSite structured data", async ({ request }) => {
   const response = await request.get("/"); expect(response.status()).toBe(200); const html = await response.text();
-  for (const text of ["TOGETHER.", "/home", "/communities", "participant check-in QR", "private movement passport", "WebSite", "Design preview", "QR placeholder"]) expect(html).toContain(text);
+  for (const text of ["PEOPLE.", "/home", "/communities", "participant check-in QR", "private movement passport", "WebSite", "Design preview", "QR placeholder"]) expect(html).toContain(text);
 });

@@ -1,7 +1,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowDown, ArrowUpRight, CalendarDays, LockKeyhole, QrCode, UsersRound } from "lucide-react";
-import { IntroTrack, MovementBurst, StoryLoop } from "./IntroGraphics";
+import { StoryLoop } from "./IntroGraphics";
 import { LandingChoreography } from "./LandingChoreography";
 import { SampleFitnessId } from "./SampleFitnessId";
 
@@ -15,30 +15,32 @@ const steps = [
 export function IntroLanding() {
   return <LandingChoreography>
     <section className="kinetic-hero" aria-labelledby="intro-heading" data-depth-scene>
-      <div className="kinetic-hero-grid" aria-hidden="true" />
-      <div className="kinetic-hero-glow" aria-hidden="true" />
-      <div className="kinetic-hero-art" aria-hidden="true">
-        <div className="kinetic-hero-photo-frame"><figure className="kinetic-hero-image" data-depth="72"><Image src="/images/landing/running.webp" alt="" fill sizes="100vw" preload /></figure></div>
-        <div className="kinetic-orbit" data-depth="-44"><IntroTrack /></div>
-        <div className="kinetic-hero-burst" data-depth="-32"><MovementBurst /></div>
-        <span className="kinetic-hero-edge kinetic-hero-edge-left">Good people.</span><span className="kinetic-hero-edge">Great energy.</span>
-      </div>
       <div className="kinetic-wrap kinetic-hero-brand">
         <Link href="/home" aria-label="NOIDA.FIT home"><Image src="/images/logo.png" alt="NOIDA.FIT" width={178} height={63} /></Link>
       </div>
       <div className="kinetic-wrap kinetic-hero-body">
         <div className="kinetic-hero-copy">
+          <p className="kinetic-kicker kinetic-hero-eyebrow" data-scroll-reveal>Less solo. More together.</p>
           <h1 id="intro-heading">
-            <span className="kinetic-line kinetic-hero-lead"><span data-scroll-reveal>GO</span></span>{" "}
-            <span className="kinetic-line kinetic-hero-headline"><span data-scroll-reveal data-reveal-order="1">TOGETHER.</span></span>
+            <span className="kinetic-line"><span data-scroll-reveal>FIND</span></span>{" "}
+            <span className="kinetic-line kinetic-hero-middle"><span data-scroll-reveal data-reveal-order="1">YOUR</span></span>{" "}
+            <span className="kinetic-line kinetic-hero-headline"><span data-scroll-reveal data-reveal-order="2">PEOPLE.</span></span>
           </h1>
           <div data-scroll-reveal className="kinetic-hero-bottom">
+            <p className="kinetic-hero-description">A morning run. A weekend game.<br />A reason to show up again.</p>
             <div className="kinetic-actions"><Link href="/home" className="kinetic-button">Explore the home hub<ArrowUpRight size={20} aria-hidden="true" /></Link><Link href="/communities" className="kinetic-link">Find a community<ArrowUpRight size={18} aria-hidden="true" /></Link></div>
-            <span className="kinetic-note">Come as you are. No account needed to browse.</span>
+            <span className="kinetic-note">Your pace. Your people. No account needed to browse.</span>
           </div>
         </div>
+        <div className="kinetic-hero-art" aria-hidden="true">
+          <figure className="kinetic-hero-image" data-depth="48">
+            <Image src="/images/landing/hero-crew.webp" alt="" fill sizes="(min-width: 1440px) 710px, (min-width: 768px) 54vw, 100vw" preload />
+            <figcaption>Illustrative group-running photography · not a NOIDA.FIT event</figcaption>
+          </figure>
+          <span className="kinetic-hero-art-label">GOOD COMPANY.<br /><strong>GREAT ENERGY.</strong><ArrowUpRight size={32} /></span>
+        </div>
       </div>
-      <div className="kinetic-wrap kinetic-hero-footer"><span>Different paces. <strong>Shared energy.</strong></span><span className="kinetic-hero-credit">Illustrative photography · Pexels</span><a href="#community-scene" className="kinetic-link">Feel the movement<ArrowDown size={18} aria-hidden="true" /></a></div>
+      <div className="kinetic-wrap kinetic-hero-footer"><span className="kinetic-hero-mantra">MEET.<span>MOVE.</span>REPEAT.</span><a href="#community-scene" className="kinetic-link">Feel the movement<ArrowDown size={18} aria-hidden="true" /></a></div>
     </section>
 
     <section id="community-scene" className="kinetic-community-scene" aria-labelledby="community-heading" data-scroll-scene="curtain">
