@@ -30,18 +30,17 @@ for (const width of [320, 390, 768, 1440]) {
     await expect(page.locator(".home-hub, .base-card, .intro-hero")).toHaveCount(0);
     await expect(page.locator(".kinetic-steps > li")).toHaveCount(4);
     await expect(page.getByRole("button", { name: "Pause landing motion" })).toBeVisible();
-    await expect.poll(() => page.locator(".kinetic-hero-image img").evaluate(node => (node as HTMLImageElement).naturalWidth)).toBeGreaterThan(0);
-    await expect(page.locator(".kinetic-hero-image img")).toHaveAttribute("alt", "");
-    await expect(page.locator(".kinetic-hero-image img")).toHaveAttribute("src", /hero-crew\.webp/);
-    await expect(page.locator(".kinetic-hero-image figcaption")).toContainText("Illustrative group-running photography");
-    await expect(page.locator(".hero-sculpture")).toHaveCount(0);
-    await expect(page.locator(".kinetic-hero-image figcaption")).toBeVisible();
+    await expect(page.locator(".hero-energy-svg, .hero-vector-backdrop")).toHaveCount(2);
+    await expect(page.locator(".hero-energy-svg")).toHaveAttribute("aria-hidden", "true");
+    await expect(page.locator(".hero-energy")).toHaveAttribute("data-energy", "running");
+    await expect(page.getByRole("button", { name: "Send a pulse", exact: true })).toBeEnabled();
+    await expect(page.locator(".kinetic-hero-art img, .kinetic-hero-image, .hero-sculpture")).toHaveCount(0);
     const heroAction = page.getByRole("link", { name: "Explore the home hub", exact: true }).first();
     await expect(heroAction).toBeInViewport();
-    // Copy remains outside the photo, so the photograph never hides the route into discovery.
+    // The interactive field stays separate from the copy and discovery controls.
     const copy = (await page.locator(".kinetic-hero-copy").boundingBox())!;
-    const photo = (await page.locator(".kinetic-hero-art").boundingBox())!;
-    expect(copy.x + copy.width <= photo.x + 1 || copy.y + copy.height <= photo.y + 1).toBe(true);
+    const art = (await page.locator(".kinetic-hero-art").boundingBox())!;
+    expect(copy.x + copy.width <= art.x + 1 || copy.y + copy.height <= art.y + 1).toBe(true);
     for (const selector of [".kinetic-hero", "#community-scene", "#fitness-id", "#how-it-works", ".kinetic-finale"]) {
       if (selector === "#community-scene" || selector === "#fitness-id") await scrollProgress(page, selector, .5);
       else await page.locator(selector).scrollIntoViewIfNeeded();
@@ -54,7 +53,7 @@ for (const width of [320, 390, 768, 1440]) {
     await expect(page.locator(".kinetic-id-figure figcaption")).toContainText("Not a real member");
     await expect(page.locator(".sample-id-perspective")).toHaveAttribute("aria-hidden", "true");
     await expect(page.locator(".sample-id-perspective button, .sample-id-perspective a, .sample-id-perspective canvas")).toHaveCount(0);
-    for (const control of await page.locator(".kinetic-landing a, .kinetic-motion-toggle").all()) {
+    for (const control of await page.locator(".kinetic-landing a, .kinetic-motion-toggle, .hero-energy-control").all()) {
       const box = (await control.boundingBox())!; expect(Math.round(box.width * 1000) / 1000).toBeGreaterThanOrEqual(44); expect(Math.round(box.height * 1000) / 1000).toBeGreaterThanOrEqual(44);
     }
     if (process.env.E2E_LANDING_SCREENSHOTS) {
@@ -77,20 +76,10 @@ for (const width of [390, 1440]) {
   test(`parallax, sliding curtains and Fitness ID spin track scroll and reverse at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 }); await page.goto("/");
     await expect(page.locator(".kinetic-landing")).toHaveAttribute("data-motion", "active");
-    await expect.poll(async () => Number.isFinite(await value(page, ".kinetic-hero-image", "--depth-shift"))).toBe(true);
-    const before = await value(page, ".kinetic-hero-image", "--depth-shift");
+    await expect.poll(async () => Number.isFinite(await value(page, ".hero-energy-depth", "--depth-shift"))).toBe(true);
+    const before = await value(page, ".hero-energy-depth", "--depth-shift");
     await page.evaluate(() => window.scrollTo({ top: 200, behavior: "instant" }));
-    await expect.poll(async () => Math.abs((await value(page, ".kinetic-hero-image", "--depth-shift")) - before)).toBeGreaterThan(2);
-    // Only the photo moves; provenance stays steady and no uncovered edges appear.
-    expect(await page.locator(".kinetic-hero-image").evaluate(node => {
-      const image = node.querySelector("img")!;
-      const frame = node.getBoundingClientRect();
-      const photo = image.getBoundingClientRect();
-      const matrix = new DOMMatrixReadOnly(getComputedStyle(image).transform);
-      return getComputedStyle(node).transform === "none" && Math.abs(matrix.m42) <= 10
-        && photo.left <= frame.left && photo.right >= frame.right
-        && photo.top <= frame.top && photo.bottom >= frame.bottom;
-    })).toBe(true);
+    await expect.poll(async () => Math.abs((await value(page, ".hero-energy-depth", "--depth-shift")) - before)).toBeGreaterThan(2);
     await scrollProgress(page, "#community-scene", .05);
     await expect.poll(async () => await value(page, "#community-scene", "--curtain-open")).toBeLessThan(.1);
     const closed = await page.locator(".kinetic-curtain-left").evaluate(node => getComputedStyle(node).transform);
@@ -218,6 +207,8 @@ test("kinetic landing and the card preview stay readable without JavaScript", as
     const page = await context.newPage(); await page.goto("/");
     await expect(page.getByRole("heading", { level: 1 })).toHaveText("FIND YOUR PEOPLE.");
     await expect(page.locator(".kinetic-landing")).toHaveAttribute("data-motion", "static");
+    await expect(page.locator(".hero-energy-svg")).toBeVisible();
+    await expect(page.locator(".hero-energy-control")).toBeHidden();
     await page.locator("#fitness-id").scrollIntoViewIfNeeded();
     await expect(page.locator(".kinetic-id-figure figcaption")).toBeVisible();
     await expect(page.locator(".kinetic-curtain-left")).toBeHidden();

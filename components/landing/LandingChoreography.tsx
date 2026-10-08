@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Pause, Play } from "lucide-react";
 import { curtainFrame, identityFrame, scrollEntryProgress, scrollSceneProgress, storyCardFrame, storyWheelFrame } from "./choreography";
+import { createHeroInteraction } from "./hero-interaction";
 
 /** Small client boundary: event-driven transforms; all copy, images and links arrive as server children. */
 export function LandingChoreography({ children }: { children: ReactNode }) {
@@ -33,6 +34,7 @@ export function LandingChoreography({ children }: { children: ReactNode }) {
     let flow = false;
     let sceneTop = 0;
     const enabled = () => !pauseRef.current && !preference.matches && !document.hidden;
+    const heroInteraction = createHeroInteraction(root, () => enabled() && !flow);
     const reset = () => {
       scenes.forEach(node => node.removeAttribute("style"));
       journeyCards.forEach(node => node.removeAttribute("style"));
@@ -125,6 +127,7 @@ export function LandingChoreography({ children }: { children: ReactNode }) {
       if (flow !== nextFlow) { flow = nextFlow; reset(); }
       root.dataset.layout = flow ? "flow" : "scroll";
       root.dataset.motion = preference.matches ? "reduced" : pauseRef.current ? "paused" : "active";
+      heroInteraction.sync();
       if (!enabled()) {
         cancelAnimationFrame(frame); frame = 0; reset(); cancelReveals(); revealObserver?.disconnect();
       } else {
@@ -144,6 +147,7 @@ export function LandingChoreography({ children }: { children: ReactNode }) {
     modeChanged();
     return () => {
       syncMode.current = null;
+      heroInteraction.destroy();
       cancelAnimationFrame(frame); cancelReveals(); reset(); resize?.disconnect();
       sceneObserver?.disconnect(); revealObserver?.disconnect();
       root.removeEventListener("focusin", focused);
