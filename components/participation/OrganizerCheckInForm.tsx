@@ -46,6 +46,6 @@ export function OrganizerCheckInForm({ events }: { events: OperatorEvent[] }) {
       <button type="submit" disabled={pending || !input.trim()} className="button-primary min-h-11 px-4">{pending ? "Recording attendance…" : "Check in participant"}</button>
     </form>
     {error && <p id="operator-check-in-error" className="text-sm text-rose-300" role="alert">{error}</p>}
-    {result && <div className="rounded-lg border border-velocity/40 bg-velocity/5 p-4" role="status"><p className="break-words font-semibold text-velocity">{result.displayName} {result.alreadyCheckedIn ? "was already checked in. Passport is up to date." : "is checked in. Attendance and passport are recorded."}</p><p className="mt-1 text-xs text-text-secondary">{new Date(result.checkedInAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })} IST · {selected?.title}</p><p className="mt-2 text-sm text-text-secondary">Ready for the next participant. Start the scanner again.</p></div>}
+    {result && <div className="rounded-lg border border-velocity bg-velocity/5 p-4" role="status"><p className="break-words font-semibold text-velocity">{result.displayName} {result.alreadyCheckedIn ? "was already checked in. Passport is up to date." : "is checked in. Attendance and passport are recorded."}</p><p className="mt-1 text-xs text-text-secondary">{new Date(result.checkedInAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })} IST · {selected?.title}</p><p className="mt-2 text-sm text-text-secondary">Ready for the next participant. Start the scanner again.</p></div>}
   </div>;
 }

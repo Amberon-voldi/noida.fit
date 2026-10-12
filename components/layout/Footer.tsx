@@ -83,7 +83,13 @@ export function Footer() {
         </nav>
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border-subtle py-6 text-xs text-text-secondary">
           <p>&copy; {new Date().getFullYear()} NOIDA.FIT · Noida &amp; Greater Noida</p>
-          <Link href="/about#contact-heading" className="inline-flex min-h-11 items-center hover:text-white">Suggest a listing or correction →</Link>
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
+            <nav aria-label="Legal information" className="flex flex-wrap gap-x-4">
+              <Link href="/privacy" className="inline-flex min-h-11 items-center hover:text-white">Privacy</Link>
+              <Link href="/terms" className="inline-flex min-h-11 items-center hover:text-white">Terms</Link>
+            </nav>
+            <Link href="/about#contact-heading" className="inline-flex min-h-11 items-center hover:text-white">Suggest a listing or correction →</Link>
+          </div>
         </div>
       </div>
     </footer>

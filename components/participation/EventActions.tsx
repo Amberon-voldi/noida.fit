@@ -91,8 +91,8 @@ export function EventActions(props: EventActionsProps) {
   }
 
   const buttonClass = props.compact
-    ? "motion-press inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-[11px] font-semibold text-text-secondary transition-colors hover:border-white/25 hover:text-white"
-    : "motion-press inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-border-strong bg-surface-elevated px-3.5 py-2 text-xs font-semibold text-white transition-colors hover:border-white/30 hover:bg-surface-hover";
+    ? "motion-press inline-flex items-center gap-1.5 rounded-lg border border-border-strong bg-white/[0.03] px-2.5 py-1.5 text-[11px] font-semibold text-text-secondary transition-colors hover:border-velocity hover:text-white"
+    : "motion-press inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-border-strong bg-surface-elevated px-3.5 py-2 text-xs font-semibold text-white transition-colors hover:border-velocity hover:bg-surface-hover";
 
   return (
     <div className={props.compact ? "relative flex flex-wrap items-center gap-2" : "relative space-y-3"}>
@@ -103,7 +103,7 @@ export function EventActions(props: EventActionsProps) {
           onClick={toggleRsvp}
           disabled={pending || !state.loaded || started}
           aria-pressed={rsvped}
-          className={`${buttonClass} ${rsvped ? "border-velocity/50 bg-velocity text-slate-950 hover:bg-velocity-glow" : "bg-velocity text-slate-950 hover:bg-velocity-glow"}`}
+          className={`${buttonClass} ${rsvped ? "border-velocity bg-velocity text-slate-950 hover:bg-velocity-glow" : "bg-velocity text-slate-950 hover:bg-velocity-glow"}`}
         >
           {pending ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : rsvped ? <Check className="h-3.5 w-3.5" aria-hidden="true" /> : null}
           <span>{rsvped ? "You're going" : started ? "RSVP closed" : state.loaded && !state.authenticated && !state.error ? "Sign in to RSVP" : "RSVP"}</span>

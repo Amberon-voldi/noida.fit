@@ -10,6 +10,8 @@ const pages = [
   { path: "/activities/running", title: "Running", header: ".activity-guide-header", controls: true },
   { path: "/about", title: "About", header: ".public-page-header" },
   { path: "/stories", title: "Stories", header: ".public-page-header" },
+  { path: "/privacy", title: "Privacy Policy", header: ".public-page-header" },
+  { path: "/terms", title: "Terms & Conditions", header: ".public-page-header" },
   { path: "/for-organizers", title: "For organizers", header: ".public-page-header", controls: true },
 ];
 

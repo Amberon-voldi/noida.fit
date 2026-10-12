@@ -59,20 +59,20 @@ export function SignupForm({ callbackUrl }: { callbackUrl: string }) {
         {error && <p id="signup-error" role="alert" className="text-sm text-rose-400">{error}</p>}
         <div>
           <label htmlFor="name" className="text-sm text-text-secondary">Display name</label>
-          <input id="name" name="name" type="text" required minLength={2} maxLength={128} autoComplete="name" value={form.name} onChange={(e) => update("name", e.target.value)} className={inputClass} />
+          <input id="name" name="name" type="text" required minLength={2} maxLength={128} autoComplete="name" value={form.name} onChange={(e) => update("name", e.target.value)} aria-invalid={Boolean(error)} aria-describedby={error ? "signup-error" : undefined} className={inputClass} />
         </div>
         <div>
           <label htmlFor="username" className="text-sm text-text-secondary">Username</label>
-          <input id="username" name="username" type="text" required minLength={3} maxLength={40} pattern={USERNAME_PATTERN} aria-describedby="username-help" autoComplete="username" autoCapitalize="none" spellCheck={false} value={form.username} onChange={(e) => update("username", e.target.value.toLowerCase())} placeholder="your-handle" className={inputClass} />
+          <input id="username" name="username" type="text" required minLength={3} maxLength={40} pattern={USERNAME_PATTERN} aria-invalid={Boolean(error)} aria-describedby={error ? "username-help signup-error" : "username-help"} autoComplete="username" autoCapitalize="none" spellCheck={false} value={form.username} onChange={(e) => update("username", e.target.value.toLowerCase())} placeholder="your-handle" className={inputClass} />
           <p id="username-help" className="mt-1 text-xs text-text-secondary">3–40 characters. Start and end with a letter or number; dots, hyphens and underscores are allowed inside.</p>
         </div>
         <div>
           <label htmlFor="signup-email" className="text-sm text-text-secondary">Email</label>
-          <input id="signup-email" name="email" type="email" required maxLength={320} autoComplete="email" value={form.email} onChange={(e) => update("email", e.target.value)} className={inputClass} />
+          <input id="signup-email" name="email" type="email" required maxLength={320} autoComplete="email" value={form.email} onChange={(e) => update("email", e.target.value)} aria-invalid={Boolean(error)} aria-describedby={error ? "signup-error" : undefined} className={inputClass} />
         </div>
         <div>
           <label htmlFor="signup-password" className="text-sm text-text-secondary">Password</label>
-          <input id="signup-password" name="password" type="password" required minLength={8} maxLength={256} aria-describedby="password-help" autoComplete="new-password" value={form.password} onChange={(e) => update("password", e.target.value)} className={inputClass} />
+          <input id="signup-password" name="password" type="password" required minLength={8} maxLength={256} aria-invalid={Boolean(error)} aria-describedby={error ? "password-help signup-error" : "password-help"} autoComplete="new-password" value={form.password} onChange={(e) => update("password", e.target.value)} className={inputClass} />
           <p id="password-help" className="mt-1 text-xs text-text-secondary">At least 8 characters, including a letter and number.</p>
         </div>
         <AuthSubmitButton status={status} label="Create Fitness ID" submittingLabel="Creating your Fitness ID…" />

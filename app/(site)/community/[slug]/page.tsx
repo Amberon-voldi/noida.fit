@@ -39,7 +39,7 @@ export default async function CommunityPage({ params }: Props) {
           <div className="detail-cover relative mb-8 aspect-[16/7] overflow-hidden rounded-2xl border border-border-subtle sm:aspect-[3/1]"><ListingImage src={community.bannerUrl} category={community.category} alt={community.name} hero sizes="(max-width: 1280px) 100vw, 1200px" /></div>
           <div className="flex flex-wrap items-center gap-2">
             <Link href={activity ? `/activities/${activity.slug}` : `/communities?activity=${community.category}`} className="filter-chip text-velocity">{activity?.name ?? CATEGORY_LABELS[community.category]}</Link>
-            {community.verified && !community.demo && <span className="rounded-md border border-indigo-400/40 px-2 py-1 text-xs font-semibold text-indigo-200">Verified community</span>}
+            {community.verified && !community.demo && <span className="rounded-md border border-indigo-300 px-2 py-1 text-xs font-semibold text-indigo-200">Verified community</span>}
             {community.demo && <span className="text-xs font-semibold uppercase text-text-secondary">Demo listing</span>}
           </div>
           <h1 className="mt-4 text-4xl font-extrabold tracking-tight sm:text-5xl">{community.name}</h1>

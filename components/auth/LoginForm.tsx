@@ -52,11 +52,11 @@ export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
         {error && <p id="login-error" role="alert" className="text-sm text-rose-400">{error}</p>}
         <div>
           <label htmlFor="email" className="text-sm text-text-secondary">Email</label>
-          <input id="email" name="email" type="email" required maxLength={320} autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} className={inputClass} />
+          <input id="email" name="email" type="email" required maxLength={320} autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} aria-invalid={Boolean(error)} aria-describedby={error ? "login-error" : undefined} className={inputClass} />
         </div>
         <div>
           <label htmlFor="password" className="text-sm text-text-secondary">Password</label>
-          <input id="password" name="password" type="password" required minLength={8} maxLength={256} autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} className={inputClass} />
+          <input id="password" name="password" type="password" required minLength={8} maxLength={256} autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} aria-invalid={Boolean(error)} aria-describedby={error ? "login-error" : undefined} className={inputClass} />
         </div>
         <AuthSubmitButton status={status} label="Sign in" submittingLabel="Signing in…" />
       </form>

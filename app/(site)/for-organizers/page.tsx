@@ -92,7 +92,7 @@ export default function ForOrganizersPage() {
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-8">
             {STEPS.map((step) => (
               <div key={step.number} className="flex flex-col gap-4">
-                <div className="h-12 w-12 rounded-xl bg-velocity/10 border border-velocity/30 flex items-center justify-center">
+                <div className="h-12 w-12 rounded-xl bg-velocity/10 border border-velocity flex items-center justify-center">
                   <span className="font-mono text-sm font-bold text-velocity">{step.number}</span>
                 </div>
                 <h3 className="text-lg font-bold text-white">{step.title}</h3>

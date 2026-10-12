@@ -7,7 +7,8 @@
   --surface-elevated: #191e2c;
   --surface-hover: #22293c;
   --border-subtle: #1e2436;
-  --border-strong: #333c57;
+  /* Strong control boundaries need to remain visible against both dark surfaces. */
+  --border-strong: #64748b;
   --text-primary: #f8fafc;
   --text-secondary: #94a3b8;
   --text-muted: #94a3b8;
