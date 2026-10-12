@@ -22,7 +22,7 @@ export default function PrivacyPage() {
         <div className="mt-10 space-y-10 leading-relaxed text-text-secondary">
           <section aria-labelledby="privacy-scope">
             <h2 id="privacy-scope" className="text-xl font-bold text-white">About this policy</h2>
-            <p className="mt-3">This policy describes the information processed by NOIDA.FIT, a discovery and participation platform for fitness communities and activities in Noida and Greater Noida. It reflects the features currently available on the website. It should be reviewed by a qualified privacy professional before publication.</p>
+            <p className="mt-3">NOIDA.FIT is operated by Dot Fit Network, based in Noida. This policy describes the information processed by NOIDA.FIT, a discovery and participation platform for fitness communities and activities in Noida and Greater Noida. It reflects the features currently available on the website. It should be reviewed by a qualified privacy professional before publication.</p>
           </section>
 
           <section aria-labelledby="privacy-collect">
@@ -62,7 +62,7 @@ export default function PrivacyPage() {
           <section aria-labelledby="privacy-rights">
             <h2 id="privacy-rights" className="text-xl font-bold text-white">Your choices and requests</h2>
             <p className="mt-3">You can keep your profile private, separately control public activity and community sharing, and update available profile settings from your account. You may contact <a className="font-semibold text-velocity underline hover:text-velocity-glow" href="mailto:hello@noida.fit">hello@noida.fit</a> with a privacy question or request. Please include enough context for the operator to identify the relevant account without sending a password or session code.</p>
-            <p className="mt-3"><strong className="text-white">Owner action required:</strong> confirm the applicable legal entity, jurisdiction, privacy contact, grievance or complaint procedure, identity-verification process and response timelines before publication. NOIDA.FIT does not currently state a separate statutory grievance officer or registered address.</p>
+            <p className="mt-3"><strong className="text-white">Owner action required:</strong> supply the full business or registered address and confirm the applicable jurisdiction, grievance procedure and designated contact if required, identity-verification process and response timelines before publication.</p>
           </section>
 
           <section aria-labelledby="privacy-changes">

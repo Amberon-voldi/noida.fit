@@ -22,7 +22,7 @@ export default function TermsPage() {
         <div className="mt-10 space-y-10 leading-relaxed text-text-secondary">
           <section aria-labelledby="terms-review">
             <h2 id="terms-review" className="text-xl font-bold text-white">Please review</h2>
-            <p className="mt-3">These terms describe the current NOIDA.FIT discovery and participation features. They are not a substitute for legal advice. <strong className="text-white">Owner action required:</strong> confirm the operating legal entity, address, governing law, dispute process, effective date and complaint contact before publication.</p>
+            <p className="mt-3">NOIDA.FIT is operated by Dot Fit Network, based in Noida. These terms describe the current NOIDA.FIT discovery and participation features. They are not a substitute for legal advice.</p>
           </section>
 
           <section aria-labelledby="terms-purpose">
@@ -71,7 +71,7 @@ export default function TermsPage() {
           <section aria-labelledby="terms-complaints">
             <h2 id="terms-complaints" className="text-xl font-bold text-white">Questions and complaints</h2>
             <p className="mt-3">For listing corrections, account questions or complaints, contact <a className="font-semibold text-velocity underline hover:text-velocity-glow" href="mailto:hello@noida.fit">hello@noida.fit</a> with the relevant page link and details. Do not send passwords, participant QR codes or payment credentials by email.</p>
-            <p className="mt-3"><strong className="text-white">Owner action required:</strong> confirm the legal entity, contact address, governing law, dispute-resolution process and any statutory grievance procedure before publishing these terms.</p>
+            <p className="mt-3"><strong className="text-white">Owner action required:</strong> supply the full business or registered address and confirm the governing law, jurisdiction, dispute-resolution process and any statutory grievance procedure before publishing these terms.</p>
           </section>
         </div>
       </article>
