@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { CookieNotice } from "@/components/layout/CookieNotice";
 import { MobileBottomNav } from "@/components/layout/MobileBottomNav";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
@@ -98,6 +99,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col bg-background text-foreground">
         {children}
+        <CookieNotice />
         <MobileBottomNav />
       </body>
     </html>

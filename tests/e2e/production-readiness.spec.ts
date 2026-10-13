@@ -19,3 +19,15 @@ test("legal pages expose their effective dates and footer links", async ({ page 
   await expect(page.getByRole("navigation", { name: "Legal information" }).getByRole("link", { name: "Privacy", exact: true })).toHaveAttribute("href", "/privacy");
   await expect(page.getByRole("navigation", { name: "Legal information" }).getByRole("link", { name: "Terms", exact: true })).toHaveAttribute("href", "/terms");
 });
+
+test("cookie notice explains the essential session cookie and remembers dismissal", async ({ page }) => {
+  await page.goto("/about");
+  const notice = page.getByRole("complementary", { name: "Cookie notice" });
+  await expect(notice).toBeVisible();
+  await expect(notice).toContainText("essential session cookie");
+  await expect(notice.getByRole("link", { name: "Read our Privacy Policy" })).toHaveAttribute("href", "/privacy");
+  await notice.getByRole("button", { name: "Got it" }).click();
+  await expect(notice).toBeHidden();
+  await page.reload();
+  await expect(page.getByRole("complementary", { name: "Cookie notice" })).toBeHidden();
+});

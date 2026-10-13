@@ -50,7 +50,7 @@ export default function PrivacyPage() {
 
           <section aria-labelledby="privacy-cookies">
             <h2 id="privacy-cookies" className="text-xl font-bold text-white">Cookies and local choices</h2>
-            <p className="mt-3">The site uses an HttpOnly session cookie to maintain an authenticated Appwrite session. It also uses browser state for interface behavior such as open sections or motion preferences where a feature requires it. No advertising or cross-site tracking cookie has been identified in the current implementation.</p>
+            <p className="mt-3">The site uses an HttpOnly session cookie to maintain an authenticated Appwrite session. It also uses browser state for interface behavior such as open sections or motion preferences where a feature requires it. The cookie notice stores only its dismissal preference on the device. No advertising, analytics or cross-site tracking cookie has been identified in the current implementation.</p>
           </section>
 
           <section aria-labelledby="privacy-retention">
