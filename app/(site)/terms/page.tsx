@@ -1,12 +1,18 @@
 import type { Metadata } from "next";
+import {
+  EFFECTIVE_DATE,
+  LEGAL_ENTITY_DESCRIPTION,
+  LEGAL_ENTITY_NAME,
+  PRIVACY_CONTACT,
+  REGISTERED_ADDRESS,
+  TRADING_NAME,
+} from "@/lib/privacy";
 
 export const metadata: Metadata = {
   title: "Terms & Conditions",
   description: "Terms for using NOIDA.FIT to discover fitness communities, activities and events.",
   alternates: { canonical: "/terms" },
 };
-
-const EFFECTIVE_DATE = "13 October 2026";
 
 export default function TermsPage() {
   return (
@@ -20,9 +26,9 @@ export default function TermsPage() {
       <article className="mx-auto max-w-4xl px-4 py-12 sm:px-6 sm:py-16 lg:px-8">
         <p className="text-sm text-text-secondary">Effective date: {EFFECTIVE_DATE}</p>
         <div className="mt-10 space-y-10 leading-relaxed text-text-secondary">
-          <section aria-labelledby="terms-review">
-            <h2 id="terms-review" className="text-xl font-bold text-white">Please review</h2>
-            <p className="mt-3">NOIDA.FIT is operated by Dot Fit Network, based in Noida. These terms describe the current NOIDA.FIT discovery and participation features. They are not a substitute for legal advice.</p>
+          <section aria-labelledby="terms-who-we-are">
+            <h2 id="terms-who-we-are" className="text-xl font-bold text-white">Who we are</h2>
+            <p className="mt-3">NOIDA.FIT is operated by {LEGAL_ENTITY_NAME}, {LEGAL_ENTITY_DESCRIPTION}, trading as {TRADING_NAME}, {REGISTERED_ADDRESS}. These terms describe the current NOIDA.FIT discovery and participation features.</p>
           </section>
 
           <section aria-labelledby="terms-purpose">
@@ -33,7 +39,7 @@ export default function TermsPage() {
 
           <section aria-labelledby="terms-account">
             <h2 id="terms-account" className="text-xl font-bold text-white">Accounts and responsibilities</h2>
-            <p className="mt-3">You must provide accurate account details, keep your password and session access private, and promptly report suspected unauthorized access. You are responsible for activity carried out through your account. Profiles start private, and you control the available public-profile and sharing settings.</p>
+            <p className="mt-3">You must be 18 or older, provide accurate account details, keep your password and session access private, and promptly report suspected unauthorized access. You are responsible for activity carried out through your account. Profiles start private, and you control the available public-profile and sharing settings.</p>
           </section>
 
           <section aria-labelledby="terms-listings">
@@ -55,7 +61,7 @@ export default function TermsPage() {
 
           <section aria-labelledby="terms-third-party">
             <h2 id="terms-third-party" className="text-xl font-bold text-white">Organizers and third-party services</h2>
-            <p className="mt-3">Events and communities are independent of NOIDA.FIT unless a separate written arrangement says otherwise. Organizers are responsible for their sessions, instructions, permissions, safety practices, pricing and fulfillment. External services linked from the platform, including maps and social networks, have their own terms and privacy policies.</p>
+            <p className="mt-3">Events and communities are independent of NOIDA.FIT unless a separate written arrangement says otherwise. Organizers are responsible for their sessions, instructions, permissions, safety practices, pricing and fulfillment. An organizer who receives attendee information through NOIDA.FIT may use it only to operate the relevant event and must not copy, export, sell or share it outside that event. External services linked from the platform, including maps and social networks, have their own terms and privacy policies.</p>
           </section>
 
           <section aria-labelledby="terms-safety">
@@ -70,8 +76,13 @@ export default function TermsPage() {
 
           <section aria-labelledby="terms-complaints">
             <h2 id="terms-complaints" className="text-xl font-bold text-white">Questions and complaints</h2>
-            <p className="mt-3">For listing corrections, account questions or complaints, contact <a className="font-semibold text-velocity underline hover:text-velocity-glow" href="mailto:hello@noida.fit">hello@noida.fit</a> with the relevant page link and details. Do not send passwords, participant QR codes or payment credentials by email.</p>
-            <p className="mt-3"><strong className="text-white">Owner action required:</strong> supply the full business or registered address and confirm the governing law, jurisdiction, dispute-resolution process and any statutory grievance procedure before publishing these terms.</p>
+            <p className="mt-3">For listing corrections, account questions or complaints, contact <a className="font-semibold text-velocity underline hover:text-velocity-glow" href={`mailto:${PRIVACY_CONTACT}`}>{PRIVACY_CONTACT}</a> with the relevant page link and details. Do not send passwords, participant QR codes or payment credentials by email.</p>
+          </section>
+
+          <section aria-labelledby="terms-law">
+            <h2 id="terms-law" className="text-xl font-bold text-white">Governing law and contact</h2>
+            <p className="mt-3">These terms are governed by the laws of India. Courts in Noida, Gautam Buddha Nagar, Uttar Pradesh have jurisdiction, subject to your legal rights.</p>
+            <p className="mt-3">Contact: {LEGAL_ENTITY_NAME}, {LEGAL_ENTITY_DESCRIPTION}, trading as {TRADING_NAME}, {REGISTERED_ADDRESS}; <a className="font-semibold text-velocity underline hover:text-velocity-glow" href={`mailto:${PRIVACY_CONTACT}`}>{PRIVACY_CONTACT}</a>.</p>
           </section>
         </div>
       </article>

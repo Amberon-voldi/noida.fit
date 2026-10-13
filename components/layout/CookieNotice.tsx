@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState, useSyncExternalStore } from "react";
+import { COOKIE_DISCLOSURE } from "@/lib/privacy";
 
 const DISMISSAL_KEY = "noidafit:cookie-notice-dismissed";
 const DISMISSAL_EVENT = "noidafit:cookie-notice-dismissed";
@@ -46,7 +47,7 @@ export function CookieNotice() {
     >
       <div className="flex items-start gap-4">
         <p className="min-w-0 flex-1 text-sm leading-relaxed text-text-secondary">
-          NOIDA.FIT uses an essential session cookie to keep signed-in accounts working. We do not use advertising or analytics cookies. <Link href="/privacy" className="font-semibold text-velocity underline hover:text-velocity-glow">Read our Privacy Policy</Link>.
+          {COOKIE_DISCLOSURE} <Link href="/privacy" className="font-semibold text-velocity underline hover:text-velocity-glow">Read our Privacy Policy</Link>.
         </p>
         <button type="button" onClick={dismiss} className="button-secondary shrink-0 px-3 text-xs">
           Got it

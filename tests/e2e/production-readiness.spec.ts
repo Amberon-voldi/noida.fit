@@ -13,6 +13,10 @@ test("legal pages expose their effective dates and footer links", async ({ page 
     expect(response?.status()).toBe(200);
     await expect(page.getByRole("heading", { level: 1, name: heading, exact: true })).toBeVisible();
     await expect(page.getByText("Effective date: 13 October 2026", { exact: true })).toBeVisible();
+    await expect(page.locator("body")).toContainText("Noida.fit");
+    await expect(page.locator("body")).toContainText("hello@noida.fit");
+    await expect(page.locator("body")).not.toContainText("Owner action required");
+    await expect(page.locator("body")).not.toContainText("[");
     await expect(page.locator('link[rel="canonical"]')).toHaveAttribute("href", new RegExp(`${path}$`));
   }
   await page.goto("/about");
@@ -24,7 +28,8 @@ test("cookie notice explains the essential session cookie and remembers dismissa
   await page.goto("/about");
   const notice = page.getByRole("complementary", { name: "Cookie notice" });
   await expect(notice).toBeVisible();
-  await expect(notice).toContainText("essential session cookie");
+  await expect(notice).toContainText("essential HttpOnly session cookie");
+  await expect(notice).toContainText("does not use advertising, analytics or cross-site tracking cookies");
   await expect(notice.getByRole("link", { name: "Read our Privacy Policy" })).toHaveAttribute("href", "/privacy");
   await notice.getByRole("button", { name: "Got it" }).click();
   await expect(notice).toBeHidden();
