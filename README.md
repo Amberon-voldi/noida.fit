@@ -12,14 +12,14 @@ Requires Node.js 22+ and an Appwrite 1.8-compatible deployment.
 npm ci
 # Populate .env using .env.example, retaining your existing project credentials.
 npm run appwrite:setup
-npm run appwrite:seed       # optional: clearly marked fictional demo listings
+npm run appwrite:seed       # initial provisioning or still-demo IDs only; never production sync
 npm run appwrite:verify
 npm run dev
 ```
 
 Existing infrastructure is reused by configured IDs. Setup inspects resources before creation, validates schemas/indexes, and refuses to create same-named duplicates under a different ID. Secrets stay in ignored environment files; never commit `.env`, API keys, session cookies or the generated check-in signing secret.
 
-The current seed contains **24 events, 12 fictional communities, 18 places, and 26 activities**. Dates are fixed at seed time. No demo users/passwords, attendance or verified statistics are created. Real landmarks are discovery examples only; sample listings must not be used for travel or payment decisions. The compact home uses one illustrative-listings notice instead of repeated card badges; standard directory/detail views retain per-listing provenance.
+The current approved catalog contains **26 activities, 12 communities, 18 places, and 24 events** and has been synchronized to Appwrite. Four events are paid: **evt_06 Alpha doubles: rotate and rally — ₹199**, **evt_07 Sector 79 seven-a-side — ₹299**, **evt_12 Core & coffee: mat Pilates — ₹299**, and **evt_18 Alpha beginner doubles clinic — ₹199**; all other events are **FREE**. Venues, activities, and communities have no ticket pricing. Explicitly marked demo fixtures remain supported, but seed is for initial provisioning or updating still-demo IDs only: it preflights source IDs, refuses to overwrite any non-demo editorial record, preserves existing dates by refusing overwrite, and resolves dates for newly seeded records at seed-time Asia/Kolkata. No demo users/passwords, attendance or verified statistics are created. Displayed prices are informational; no payment checkout is included. The compact home uses one illustrative-listings notice instead of repeated card badges; standard directory/detail views retain per-listing provenance.
 
 ## Product routes
 
@@ -84,6 +84,8 @@ npm run content -- events delete DOCUMENT_ID --confirm
 Administrators can also manage these four content kinds through `/admin/content/[kind]`, with guided fields, full JSON editing, published-reference validation, stale-form checks, deletion guards and required audit reasons. Configure `NEXT_PUBLIC_APPWRITE_ADMIN_AUDIT_COLLECTION_ID` during build and deployment (public identifier, private audit records), and explicitly run `npm run appwrite:admin-audit` before browser writes are unlocked. This dedicated provisioning command does not change other collection permissions. Member search/access controls additionally need appropriate Appwrite Users API scopes.
 
 The same commands support `places`, `communities`, and `activities`. `put` validates a complete domain record and synchronizes its payload, queryable columns and visibility permissions. Prefer unpublishing over deletion to preserve linked history. Assign `organizerUserId` on an event to authorize an organizer; an Appwrite user label of `admin` grants all-event check-in access. Never give clients collection-wide write permissions.
+
+For future editorial changes, use the supported `npm run content -- ... put` flow or the audited admin UI. Do not use the seed as a production synchronization mechanism.
 
 ## Tests and quality checks
 
@@ -152,7 +154,7 @@ References: [OpenNext setup](https://opennext.js.org/cloudflare/get-started), [c
 
 ## Before a public launch
 
-1. Replace or unpublish demo listings with organizer-confirmed schedules, venue permissions and real imagery.
+1. Keep explicitly marked demo fixtures out of production; confirm future schedule changes, meeting points, venue permissions and imagery with organizers.
 2. Set `NEXT_PUBLIC_SITE_URL` to the deployed HTTPS origin and persist `APPWRITE_CHECKIN_SECRET` across deployments.
 3. Use a stable supported Appwrite release. The inspected server identifies itself as **1.8.0-RC2**; SDK20 targets 1.8.0, so the SDK warns about the release-candidate suffix despite verified operations. Server upgrades are an operator task, not performed by application setup.
 4. Add a shared edge/ingress limiter for multiple instances. Current application limiting is process-local (5 mutations per action/user per 10 minutes). Without a trusted IP-overwriting proxy, anonymous auth attempts share a conservative network bucket. Set `NEXT_PUBLIC_TRUST_PROXY_IP=true` only behind such an ingress.

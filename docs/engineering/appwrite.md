@@ -58,7 +58,7 @@ Set every variable for the **Production deploy context** and **Functions runtime
 
 ```sh
 npm run appwrite:setup
-npm run appwrite:seed       # development/staging only
+npm run appwrite:seed       # initial provisioning or still-demo IDs only; never production sync
 npm run appwrite:permissions            # preview ACL-only repairs
 npm run appwrite:permissions -- --apply # apply public/owner-only policy to existing records
 npm run appwrite:verify
@@ -66,11 +66,11 @@ npm run appwrite:verify
 
 Setup inspects each configured ID before creating anything. A same-named database/collection under another ID causes an actionable error rather than duplication. Existing schema mismatches fail rather than destructively migrating data. Setup enables document security, removes collection-level grants, waits for attributes **and indexes** to become available, and verifies the resulting ACLs.
 
-Seed uses deterministic IDs, upserting only demo content and refusing to overwrite non-demo records. Unknown IDs remain untouched. **26 activities, 12 fictional communities, 18 places and 24 events** include free/paid, future/past, morning/evening sessions across Noida and Greater Noida. Dates are resolved in Asia/Kolkata at seed time. Re-running seed refreshes demo dates, not production data. It creates no auth users, public credentials or attendance metrics.
+Seed uses deterministic IDs and preflights the source IDs. It is for initial provisioning or updating records that are still explicitly marked `demo`; it refuses to overwrite **any** non-demo editorial record and leaves unknown IDs untouched. Existing dates are preserved by refusing overwrite; dates for newly seeded records resolve in Asia/Kolkata at seed time. It is never a production synchronization mechanism. The synchronized approved catalog contains **26 activities, 12 communities, 18 places and 24 events**. Four events are paid: **evt_06 Alpha doubles: rotate and rally — ₹199**, **evt_07 Sector 79 seven-a-side — ₹299**, **evt_12 Core & coffee: mat Pilates — ₹299**, and **evt_18 Alpha beginner doubles clinic — ₹199**; all other events are **FREE**. Venues, activities and communities have no ticket pricing. Prices are informational; no payment checkout is included. It creates no auth users, public credentials or attendance metrics.
 
 `appwrite:permissions` validates record ownership before applying any changes, clears collection-wide grants, enables document security, and reconciles document ACLs without rewriting data. Published listings get `read(any)` (guests and signed-in members); drafts get no public access; private records get owner-only read access. No direct client writes are granted.
 
-`appwrite:verify` checks schema/index readiness, document security, every record's exact ACL, anonymous access to exactly the published public records, and event activity/community/place references. Avoid changing schema permissions manually after provisioning.
+`appwrite:verify` checks schema/index readiness, document security, every record's exact ACL, anonymous access to exactly the published public records, and event activity/community/place references. The existing deployment has a known schema-verification collection-ACL mismatch baseline; catalog promotion does not change ACLs, so do not change ACLs to resolve this catalog update. Avoid changing schema permissions manually after provisioning.
 
 ## Schema
 
@@ -128,6 +128,8 @@ npm run content -- events delete DOCUMENT_ID --confirm
 
 Substitute `places`, `communities` or `activities`. `put` expects a complete domain record with `id`, `slug`, `status`, `demo` and the required fields enforced in `scripts/content.ts`. It synchronizes payload and queryable attributes together. `unpublish` removes public access without erasing linked history. `delete` is explicit and irreversible; it does not cascade private participation.
 
+For future editorial changes, use this supported `put` flow or the audited admin UI. Do not use the seed to synchronize production.
+
 Use Appwrite Console for user labels and operational inspection. Only trusted administrators may assign `admin`; users cannot promote themselves using account preferences or profile API input. To grant per-event access instead, put that user's Appwrite ID in `organizerUserId` on the event.
 
 ## Validation and launch boundaries
@@ -140,7 +142,7 @@ Operator-scanned check-in verification: 92 unit tests and 82 focused Chromium te
 
 Before launch:
 
-- Replace/unpublish fictional demos and confirm real meeting points, venues and prices.
+- Keep explicitly marked demo fixtures out of production; confirm future schedule changes, meeting points, venue permissions and prices with organizers.
 - Use HTTPS, a stable supported Appwrite version, least-privilege keys, backups and monitoring.
 - Add a shared edge rate limiter for multi-instance deployment; the current process-local limiter intentionally has no cross-process guarantees. `NEXT_PUBLIC_TRUST_PROXY_IP=true` is safe only if a trusted ingress replaces spoofable forwarding headers.
 - Rotate previously exposed diagnostic credentials. Never log CLI sessions or API keys.

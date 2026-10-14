@@ -90,9 +90,9 @@ export default function AboutPage() {
           </p>
         </section>
 
-        <section aria-labelledby="demo-heading">
-          <h2 id="demo-heading" className="mb-4 text-2xl font-bold">A note about the demo directory</h2>
-          <p className="leading-relaxed text-text-secondary">Sample groups, venues and sessions are labelled Demo. They show how discovery works, not confirmed gatherings, business partnerships or verified attendance. Do not travel or pay based on a demo listing. Saves, follows and RSVPs use your signed-in account, including when you try them on a demo.</p>
+        <section aria-labelledby="directory-heading">
+          <h2 id="directory-heading" className="mb-4 text-2xl font-bold">About the directory</h2>
+          <p className="leading-relaxed text-text-secondary">Listings cover communities, venues and sessions across Noida and Greater Noida. Check each organizer&apos;s current instructions for access, equipment, availability and event pricing before attending. An RSVP records your intent to participate; it does not replace an organizer&apos;s booking or payment process.</p>
         </section>
 
         {/* Contact */}

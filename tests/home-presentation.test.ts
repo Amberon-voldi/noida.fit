@@ -102,6 +102,6 @@ test("static public headers are concise while organizer controls and safety inst
       assert.match(page.html, /Sample listings are not partnerships/);
       assert.match(page.html, /not an online submission form/);
     }
-    if (page.name === "AboutPage") assert.match(page.html, /Do not travel or pay based on a demo listing/);
+    if (page.name === "AboutPage") assert.match(page.html, /Check each organizer&#x27;s current instructions/);
   }
 });

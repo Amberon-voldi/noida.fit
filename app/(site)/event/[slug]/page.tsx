@@ -27,6 +27,7 @@ export default async function EventPage({ params }: Props) {
   const upcoming = eventIsUpcoming(event);
   const start = eventTimestamp(event);
   const end = eventTimestamp(event, true);
+  const priceAmount = Number.parseFloat(event.price.replace(/[^0-9.]/g, ""));
   const jsonLd = {
     "@context": "https://schema.org", "@type": "SportsEvent", name: event.title, description: event.description,
     startDate: Number.isFinite(start) ? new Date(start).toISOString() : undefined,
@@ -36,6 +37,7 @@ export default async function EventPage({ params }: Props) {
     location: { "@type": "Place", name: event.venueName, address: { "@type": "PostalAddress", streetAddress: event.sector, addressLocality: event.sector.includes("Greater Noida") ? "Greater Noida" : "Noida", addressRegion: "Uttar Pradesh", addressCountry: "IN" } },
     organizer: { "@type": "SportsClub", name: event.communityName, url: `${SITE_CONFIG.url}/community/${event.communitySlug}` },
     url: `${SITE_CONFIG.url}/event/${event.slug}`,
+    ...(Number.isFinite(priceAmount) ? { offers: { "@type": "Offer", price: priceAmount, priceCurrency: "INR" } } : {}),
   };
 
   return (

@@ -27,4 +27,4 @@ export const activities: Activity[] = [
   { id: "activity_martial-arts", slug: "martial-arts", name: "Martial Arts", description: "Discover local practice groups and introductory classes.", emoji: "🥋", tags: ["technique", "movement"] },
   { id: "activity_walking", slug: "walking", name: "Walking", description: "An easy park loop, a neighbor to talk to, and a reason to get outside.", emoji: "🚶", tags: ["outdoor", "park", "easy"] },
   { id: "activity_other", slug: "other", name: "Other", description: "More ways to move with people across Noida.", emoji: "↗", tags: ["community", "movement"] },
-].map((activity) => ({ ...activity, status: "published", demo: true }));
+].map((activity) => ({ ...activity, status: "published" as const, demo: false }));

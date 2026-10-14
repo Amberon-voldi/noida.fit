@@ -25,6 +25,8 @@ async function upsertContent(collectionId: string, record: SeedRecord, fields: R
     throw error;
   });
   // Never overwrite editorial/production records, even if they reuse a seed ID.
+  // Promote records once through this script, then use the audited content flow
+  // for later edits.
   if (existing && existing.demo !== true) throw new Error("Refusing to overwrite non-demo content");
   await databases.upsertDocument({
     databaseId,
@@ -33,6 +35,16 @@ async function upsertContent(collectionId: string, record: SeedRecord, fields: R
     data: { ...fields, status: record.status ?? "published", demo: record.demo ?? true, payload: payload(record) },
     permissions: contentPermissions(),
   });
+}
+
+async function preflightContent(collectionId: string, records: SeedRecord[], name: string): Promise<void> {
+  for (const record of records) {
+    const existing = await databases.getDocument({ databaseId, collectionId, documentId: record.id }).catch((error: unknown) => {
+      if (error && typeof error === "object" && "code" in error && error.code === 404) return null;
+      throw error;
+    });
+    if (existing && existing.demo !== true) throw new Error(`Refusing to overwrite non-demo content: ${name}/${record.id}`);
+  }
 }
 
 async function seedActivities(): Promise<void> {
@@ -101,7 +113,7 @@ async function verifyCounts(): Promise<void> {
     }
     if (documents.length < minimum) throw new Error(`seed count verification failed:${name}`);
     const demoDocuments = documents.filter((document) => (document as { demo?: unknown }).demo === true);
-    if (demoDocuments.length < minimum) throw new Error(`demo marker verification failed:${name}`);
+    if (demoDocuments.length > 0) throw new Error(`demo marker verification failed:${name}; promoted catalog must contain no demo records`);
     if (documents.some((document) => !document.$permissions?.includes(Permission.read(Role.any())))) {
       throw new Error(`public ACL verification failed:${name}`);
     }
@@ -113,12 +125,16 @@ async function main(): Promise<void> {
   appwriteCollections = getScriptCollections();
   databaseId = getScriptConfig().databaseId;
   databases = getScriptDatabases();
+  await preflightContent(appwriteCollections.activities, activities as unknown as SeedRecord[], "activities");
+  await preflightContent(appwriteCollections.communities, communities as unknown as SeedRecord[], "communities");
+  await preflightContent(appwriteCollections.places, places as unknown as SeedRecord[], "places");
+  await preflightContent(appwriteCollections.events, events as unknown as SeedRecord[], "events");
   await seedActivities();
   await seedCommunities();
   await seedPlaces();
   await seedEvents();
   await verifyCounts();
-  console.log("Appwrite demo content seeded idempotently; no auth users or attendance records created.");
+  console.log("Published catalog synchronized idempotently; no auth users or attendance records created.");
 }
 
 main().catch((error: unknown) => {

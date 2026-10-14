@@ -44,7 +44,7 @@ export default function TermsPage() {
 
           <section aria-labelledby="terms-listings">
             <h2 id="terms-listings" className="text-xl font-bold text-white">Listings and organizer information</h2>
-            <p className="mt-3">Published activities, communities, places and events may be supplied or maintained through operator workflows. Organizer listing requests are reviewed by email and are not automatically published. A demo label means the listing is illustrative; it is not a confirmed gathering, partnership, verified attendance record or instruction to travel or pay.</p>
+            <p className="mt-3">Published activities, communities, places and events may be supplied or maintained through operator workflows. Organizer listing requests are reviewed by email and are not automatically published. Check each listing and the organizer&apos;s current instructions before deciding to travel or pay.</p>
             <p className="mt-3">Schedules, meeting points, access rules, capacity, prices and availability can change. Check the listing and the organizer&apos;s own instructions before attending. NOIDA.FIT does not guarantee that a listing is current, complete, safe, available or suitable for you.</p>
           </section>
 
