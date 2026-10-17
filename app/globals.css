@@ -405,3 +405,49 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { border-color
     scroll-behavior: auto !important;
   }
 }
+
+/* Listing media. A card shows a photo only when an operator supplied one; otherwise it gets
+   a typographic tile. Editorial stock illustrates an activity, not this specific listing. */
+.card-glyph {
+  --glyph-tint: var(--accent-velocity);
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  overflow: hidden;
+  padding-inline: 14px;
+  background:
+    radial-gradient(130% 150% at 0% 0%, color-mix(in srgb, var(--glyph-tint) 15%, transparent), transparent 62%),
+    var(--surface-elevated);
+}
+.card-glyph[data-category="cycling"], .card-glyph[data-category="sports"] { --glyph-tint: var(--accent-energy); }
+.card-glyph::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(135deg, transparent 0 9px, color-mix(in srgb, var(--foreground) 4%, transparent) 9px 10px);
+  opacity: .55;
+  pointer-events: none;
+}
+.card-glyph-mark { font-size: 26px; line-height: 1; }
+.card-glyph-label {
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+  color: color-mix(in srgb, var(--glyph-tint) 72%, var(--foreground));
+}
+.card-glyph[data-variant="cover"] {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: flex-end;
+  gap: 6px;
+  padding: 16px;
+}
+.card-glyph[data-variant="cover"] .card-glyph-mark { font-size: 40px; }
+
+/* Compact hub cards carry a slim media band rather than a full cover. */
+.card-band { height: 68px; }
+@media (max-width: 767px) { .card-band { height: 60px; } }

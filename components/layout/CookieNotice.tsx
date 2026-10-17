@@ -41,11 +41,14 @@ export function CookieNotice() {
   if (dismissed || dismissedThisRender) return null;
 
   return (
+    // In normal flow, not fixed: a floating notice covers whatever sits under it at every
+    // scroll offset, so a link beneath it can take keyboard focus while invisible (WCAG 2.2 2.4.11).
     <aside
+      data-cookie-notice
       aria-label="Cookie notice"
-      className="fixed inset-x-4 bottom-[calc(6rem+env(safe-area-inset-bottom))] z-[1200] rounded-xl border border-border-strong bg-surface p-4 shadow-[var(--shadow-card-hover)] sm:bottom-4 sm:left-auto sm:w-[min(36rem,calc(100vw-2rem))]"
+      className="border-b border-border-subtle bg-surface px-4 py-3"
     >
-      <div className="flex items-start gap-4">
+      <div className="mx-auto flex w-full max-w-[1280px] items-start gap-4">
         <p className="min-w-0 flex-1 text-sm leading-relaxed text-text-secondary">
           {COOKIE_DISCLOSURE} <Link href="/privacy" className="font-semibold text-velocity underline hover:text-velocity-glow">Read our Privacy Policy</Link>.
         </p>

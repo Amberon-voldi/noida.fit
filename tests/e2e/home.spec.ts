@@ -31,7 +31,7 @@ for (const width of [320, 390, 768, 1440]) {
   test(`home hub search, real-route actions and navigation work at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     const response = await page.goto("/home"); expect(response?.status()).toBe(200);
-    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Welcome.");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Find your next session.");
     const hub = page.locator(".home-hub");
     await expect(hub.locator("aside, .hub-location, .hub-intro, .hub-account-link")).toHaveCount(0);
     await expect(hub.locator('a[href="/account"], a[href="/signup"], a[href="/check-in"], a[href="/organizer"], a[href="/fitness-id"]')).toHaveCount(0);
@@ -103,7 +103,7 @@ for (const width of [320, 390, 768, 1440]) {
 
 test("an empty directory is not an outage and real-only highlights need no illustrative notice", async ({ page }) => {
   await mount(page, { highlights: { activities: [], events: [], communities: [], places: [], eventWindow: "upcoming", hasDemo: false } });
-  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Welcome.");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Find your next session.");
   await expect(page.getByText("No upcoming sessions listed yet.", { exact: true })).toBeVisible();
   await expect(page.getByText("No published clubs yet. Check back for community listings.", { exact: true })).toBeVisible();
   await expect(page.getByText("No published places yet. Venue details are on the way.", { exact: true })).toBeVisible();
@@ -136,11 +136,11 @@ test("home logo, menu, breadcrumb and mobile dock use the hub rather than the la
 
 test("home is usable without JavaScript and its canonical appears in the sitemap", async ({ request, browser, baseURL }) => {
   const response = await request.get("/home"); const html = await response.text();
-  expect(response.status()).toBe(200); expect(html).toContain("Welcome."); expect(html).toContain("CollectionPage"); expect(html).toContain('action="/discover"');
+  expect(response.status()).toBe(200); expect(html).toContain("Find your next session."); expect(html).toContain("CollectionPage"); expect(html).toContain('action="/discover"');
   const context = await browser.newContext({ javaScriptEnabled: false, viewport: { width: 390, height: 900 }, baseURL });
   try {
     const page = await context.newPage(); await page.goto("/home");
-    await expect(page.getByRole("heading", { name: "Welcome.", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Find your next session.", exact: true })).toBeVisible();
     await page.getByLabel("Search the NOIDA.FIT directory", { exact: true }).fill("running");
     await page.getByRole("search").getByRole("button", { name: "Search", exact: true }).click();
     await expect(page).toHaveURL(url => url.pathname === "/discover" && url.searchParams.get("q") === "running");

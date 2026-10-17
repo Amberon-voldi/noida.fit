@@ -29,13 +29,14 @@ const rendered = spawnSync(process.execPath, ["--input-type=module"], {
     const place = { id: 'synthetic-place', slug: 'synthetic-place', name: 'Synthetic venue', category: 'park', sector: 'Sector 1', amenities: [], publicHours: '6 AM–8 PM', demo: true, imageUrl: '/images/synthetic.png' };
     const highlights = { activities: [], events: [event], communities: [community], places: [place], eventWindow: 'week', hasDemo: true };
     const cards = [['EventCard', 'event', event], ['CommunityCard', 'community', community], ['PlaceCard', 'place', place]].map(([name, prop, item]) => ({ name, regular: render(name, { [prop]: item }), compact: render(name, { [prop]: item, compact: true }) }));
+    const bare = [['EventCard', 'event', { ...event, imageUrl: undefined, coverImageUrl: undefined }], ['CommunityCard', 'community', { ...community, bannerUrl: undefined }], ['PlaceCard', 'place', { ...place, imageUrl: undefined, coverImageUrl: undefined }]].map(([name, prop, item]) => ({ name, compact: render(name, { [prop]: item, compact: true }) }));
     const headers = ['AboutPage', 'StoriesPage', 'ForOrganizersPage'].map(name => ({ name, html: render(name) }));
     console.log(JSON.stringify({
       home: render('HomeHub', { highlights }),
       member: render('HomeHub', { highlights, memberName: 'Synthetic member' }),
       realOnly: render('HomeHub', { highlights: { ...highlights, hasDemo: false, events: [{ ...event, demo: false }], communities: [{ ...community, demo: false }], places: [{ ...place, demo: false }] } }),
       empty: render('HomeHub', { highlights: { activities: [], events: [], communities: [], places: [], eventWindow: 'upcoming', hasDemo: false } }),
-      unavailable: render('HomeHub', { highlights: null }), cards, headers
+      unavailable: render('HomeHub', { highlights: null }), cards, bare, headers
     }));
   `,
 });
@@ -43,20 +44,23 @@ assert.equal(rendered.status, 0, rendered.stderr);
 const html = JSON.parse(rendered.stdout) as {
   home: string; member: string; realOnly: string; empty: string; unavailable: string;
   cards: { name: string; regular: string; compact: string }[];
+  bare: { name: string; compact: string }[];
   headers: { name: string; html: string }[];
 };
 
 test("home renders three compact card types, a small greeting and GET discovery search", () => {
-  assert.match(html.home, /<h1 id="home-heading">Welcome\.<\/h1>/);
+  assert.match(html.home, /<h1 id="home-heading">Find your next session\.<\/h1>/);
+  assert.match(html.home, /Open sessions, local clubs and places to train/, "a first visit states what this is");
   assert.match(html.member, /<h1 id="home-heading">Hi, Synthetic member\.<\/h1>/);
   assert.equal((html.home.match(/<article /g) ?? []).length, 3);
   assert.match(html.home, /action="\/discover" method="get"/);
   for (const path of ["events", "communities", "places", "activities"]) assert.match(html.home, new RegExp(`href="/${path}"`));
-  assert.doesNotMatch(html.home, /<aside|<img |<button[^>]+type="button"|href="\/(account|check-in|organizer|signup|fitness-id)/);
+  assert.doesNotMatch(html.home, /<aside|<button[^>]+type="button"|href="\/(account|check-in|organizer|signup|fitness-id)/);
+  assert.doesNotMatch(html.home, /images\.unsplash\.com|Illustrative photo/, "the hub never passes editorial stock off as a listing's own photo");
   assert.match(html.home, /06:00 AM/);
   assert.match(html.home, /Synthetic venue/);
   assert.match(html.home, /Monday/);
-  assert.match(html.home, /6 AM–8 PM/);
+  assert.equal((html.home.match(/6 AM–8 PM/g) ?? []).length, 1, "an advisory shared by every place is stated once, not per card");
 });
 
 test("home uses one honest illustrative notice without demo badges or false verification", () => {
@@ -72,9 +76,19 @@ test("card defaults retain demo badges and imagery outside the compact hub", () 
     assert.match(card.regular, />Demo</, card.name);
     assert.match(card.regular, /<img /, card.name);
     assert.match(card.compact, />Demo</, `${card.name} compact does not silently suppress its default badge`);
-    assert.doesNotMatch(card.compact, /<img /, card.name);
   }
   assert.match(html.cards[0].regular, /aria-label="Save event"/);
+});
+
+test("a compact card shows the operator's own photo, or a typographic tile — never stock", () => {
+  for (const card of html.cards) {
+    assert.match(card.compact, /<img /, `${card.name} compact shows a supplied cover`);
+    assert.doesNotMatch(card.compact, /images\.unsplash\.com|Illustrative photo/, `${card.name} compact must not imply stock is this listing`);
+  }
+  for (const card of html.bare) {
+    assert.doesNotMatch(card.compact, /<img |images\.unsplash\.com|Illustrative photo/, `${card.name} without a cover invents no photograph`);
+    assert.match(card.compact, /class="card-glyph"/, `${card.name} falls back to a typographic tile`);
+  }
 });
 
 test("an empty home directory is distinct from a backend outage", () => {

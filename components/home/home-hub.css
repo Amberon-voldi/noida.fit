@@ -3,11 +3,12 @@
 .home-hub :is(a, button) { min-height: 44px; }
 .home-hub :is(a, button, h1, h2, h3, p, span) { overflow-wrap: anywhere; }
 .hub-header { min-width: 0; }
-.hub-header h1 { font-size: 1.5rem; font-weight: 750; line-height: 1.4; letter-spacing: -.025em; }
+.hub-header h1 { font-size: 1.625rem; font-weight: 750; line-height: 1.25; letter-spacing: -.03em; }
+.hub-tagline { margin-top: 6px; max-width: 46ch; color: var(--text-secondary); font-size: .875rem; line-height: 1.55; }
 .hub-link { display: inline-flex; align-items: center; gap: 8px; max-width: 100%; min-width: 44px; font-size: .8125rem; font-weight: 650; color: var(--accent-velocity); }
 .hub-link svg { flex-shrink: 0; }
 .hub-link:hover { text-decoration: underline; }
-.hub-search { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; margin-top: 12px; }
+.hub-search { display: grid; grid-template-columns: minmax(0, 1fr); gap: 4px; margin-top: 16px; }
 .hub-search > * { min-width: 0; }
 .hub-search form input { font-size: 1rem; }
 .hub-search form > div { padding: 4px; }

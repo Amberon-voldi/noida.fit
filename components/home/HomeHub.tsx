@@ -17,9 +17,17 @@ function SectionHeading({ id, title, note, href, link }: { id: string; title: st
 }
 
 export function HomeHub({ highlights, memberName }: HomeHubProps) {
+  const places = highlights?.places ?? [];
+  // Every venue currently carries the same access advisory; repeating it on each card is noise.
+  const sharedPlaceNote = places.length > 0 && places.every(place => place.publicHours && place.publicHours === places[0].publicHours)
+    ? places[0].publicHours
+    : undefined;
   return <div className="home-hub">
     <header className="hub-header">
-      <h1 id="home-heading">{memberName ? `Hi, ${memberName}.` : "Welcome."}</h1>
+      <h1 id="home-heading">{memberName ? `Hi, ${memberName}.` : "Find your next session."}</h1>
+      <p className="hub-tagline">{memberName
+        ? "What’s on across Noida & Greater Noida this week."
+        : "Open sessions, local clubs and places to train across Noida & Greater Noida."}</p>
       <div className="hub-search">
         <SearchForm action="/discover" id="home-search" placeholder="Search an activity, club or sector" />
         <nav aria-label="Quick plans" className="hub-quick-plans">
@@ -49,8 +57,8 @@ export function HomeHub({ highlights, memberName }: HomeHubProps) {
     </section>
 
     <section className="hub-section" aria-labelledby="hub-places-heading">
-      <SectionHeading id="hub-places-heading" title="Places" href="/places" link="All places" />
-      {highlights?.places.length ? <div className="hub-cards hub-places">{highlights.places.map(place => <PlaceCard key={place.id} place={place} compact showDemoBadge={false} />)}</div> : <p className="hub-empty-text">{highlights ? "No published places yet. Venue details are on the way." : "Venue listings are unavailable for this request."}</p>}
+      <SectionHeading id="hub-places-heading" title="Places" note={sharedPlaceNote} href="/places" link="All places" />
+      {highlights?.places.length ? <div className="hub-cards hub-places">{highlights.places.map(place => <PlaceCard key={place.id} place={place} compact showDemoBadge={false} showHours={!sharedPlaceNote} />)}</div> : <p className="hub-empty-text">{highlights ? "No published places yet. Venue details are on the way." : "Venue listings are unavailable for this request."}</p>}
     </section>
     <footer className="hub-footnote"><Link href="/" className="hub-link">Meet NOIDA.FIT<ArrowUpRight size={14} aria-hidden="true" /></Link></footer>
   </div>;

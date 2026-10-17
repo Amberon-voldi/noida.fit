@@ -65,7 +65,7 @@ for (const width of [320, 390, 768, 1440]) {
     }
     await page.getByRole("link", { name: "Explore the home hub", exact: true }).first().click();
     await expect(page).toHaveURL(/\/home$/);
-    await expect(page.getByRole("heading", { name: "Welcome.", exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Find your next session.", exact: true })).toBeVisible();
     await expect(page.locator(".kinetic-landing, .kinetic-motion-toggle")).toHaveCount(0);
     expect(await page.evaluate(() => document.body.style.overflow)).not.toBe("hidden");
     expect(errors).toEqual([]);

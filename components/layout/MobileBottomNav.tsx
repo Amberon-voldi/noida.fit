@@ -1,7 +1,7 @@
 "use client";
 
 import Link, { useLinkStatus } from "next/link";
-import type { CSSProperties } from "react";
+import { useEffect, useRef, type CSSProperties, type RefObject } from "react";
 import { usePathname } from "next/navigation";
 import { CalendarDays, Compass, House, LoaderCircle, UserRound, Users, type LucideIcon } from "lucide-react";
 
@@ -12,6 +12,29 @@ const LINKS = [
   { href: "/communities", label: "Groups", icon: Users, prefixes: ["/communities", "/community"] },
   { href: "/account", label: "Account", icon: UserRound, prefixes: ["/account", "/fitness-id", "/login", "/signup"] },
 ];
+
+/**
+ * WCAG 2.2 — 2.4.11 Focus Not Obscured. The dock floats above the page, and a browser will not
+ * scroll a control that is already inside the viewport, so keyboard focus can land entirely
+ * behind the dock. Lift anything that would be covered back above it.
+ */
+function useFocusClearOfDock(panel: RefObject<HTMLDivElement | null>) {
+  useEffect(() => {
+    function onFocusIn(event: FocusEvent) {
+      const target = event.target;
+      const dock = panel.current;
+      if (!(target instanceof HTMLElement) || !dock || dock.contains(target)) return;
+      const bar = dock.getBoundingClientRect();
+      // A hidden dock (tablet and above) measures zero and covers nothing.
+      if (bar.height === 0) return;
+      const box = target.getBoundingClientRect();
+      if (box.bottom <= bar.top) return;
+      window.scrollBy({ top: box.bottom - bar.top + 12, behavior: "instant" });
+    }
+    document.addEventListener("focusin", onFocusIn);
+    return () => document.removeEventListener("focusin", onFocusIn);
+  }, [panel]);
+}
 
 function DockItem({ icon: Icon, label }: { icon: LucideIcon; label: string }) {
   const { pending } = useLinkStatus();
@@ -27,12 +50,14 @@ function DockItem({ icon: Icon, label }: { icon: LucideIcon; label: string }) {
 
 export function MobileBottomNav() {
   const pathname = usePathname();
+  const panel = useRef<HTMLDivElement>(null);
+  useFocusClearOfDock(panel);
   if (pathname === "/") return null;
   const activeIndex = LINKS.findIndex(({ prefixes }) => prefixes.some(prefix => pathname === prefix || (prefix !== "/" && pathname.startsWith(`${prefix}/`))));
 
   return (
     <nav aria-label="Quick navigation" className="mobile-dock lg:hidden">
-      <div className="mobile-dock-inner" style={{ "--active-tab": Math.max(activeIndex, 0) } as CSSProperties}>
+      <div ref={panel} className="mobile-dock-inner" style={{ "--active-tab": Math.max(activeIndex, 0) } as CSSProperties}>
       <span className="mobile-dock-indicator" aria-hidden="true" style={{ opacity: activeIndex < 0 ? 0 : 1 }} />
       {LINKS.map(({ href, label, icon: Icon }, index) => {
         const active = index === activeIndex;
