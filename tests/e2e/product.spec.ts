@@ -157,7 +157,7 @@ test("mobile filter sheet preserves search, submits filters, and respects reduce
   await expect(sheet.getByRole("radio", {name:"Paid",exact:true})).toBeChecked();
 });
 
-test("signup → save/follow/RSVP → organizer check-in → private/public Fitness ID → logout",async({page})=>{
+test("signup → save/follow/RSVP → organizer check-in → private/public .fit ID → logout",async({page})=>{
   test.setTimeout(240_000);
   const email=`nf-test-${randomBytes(8).toString("hex")}@example.com`;
   const password=`Nf!${randomBytes(18).toString("base64url")}7`;
@@ -168,7 +168,7 @@ test("signup → save/follow/RSVP → organizer check-in → private/public Fitn
   await page.getByLabel("Email",{exact:true}).fill(email);
   await page.getByLabel("Password",{exact:true}).fill(password);
   const signup=page.waitForResponse(r=>r.url().includes("/api/auth/signup")&&r.request().method()==="POST");
-  await page.getByRole("button",{name:"Create Fitness ID",exact:true}).click();
+  await page.getByRole("button",{name:"Create .fit ID",exact:true}).click();
   expect((await signup).status()).toBe(200);
   // Read identity in the test runner only, never send an API key to the browser.
   const user=(await users.list({queries:[Query.equal("email",email)]})).users[0];
@@ -195,7 +195,7 @@ test("signup → save/follow/RSVP → organizer check-in → private/public Fitn
     for (const width of [1440, 390]) {
       await page.setViewportSize({width, height: 900});
       await page.goto("/account");
-      await expect(page.getByRole("heading", {name:/Fitness ID/}).first()).toBeVisible();
+      await expect(page.getByRole("heading", {name:/.fit ID/}).first()).toBeVisible();
       await expect(page.getByRole("heading", {name:"Your plans", exact:true})).toBeVisible();
       await expect(page.getByRole("heading", {name:"Account & privacy", exact:true})).toBeVisible();
       await expect(page.getByRole("navigation", {name:"Account sections"}).getByRole("link")).toHaveCount(4);
@@ -207,7 +207,7 @@ test("signup → save/follow/RSVP → organizer check-in → private/public Fitn
     await page.setViewportSize({width: 1280, height: 900});
     await page.goto("/account");
     await expect(page.getByText("Verification session — temporary test").first()).toBeVisible();
-    await page.getByRole("button",{name:/Open Fitness ID for/}).click();await page.getByRole("button",{name:"Card details",exact:true}).click();
+    await page.getByRole("button",{name:/Open .fit ID for/}).click();await page.getByRole("button",{name:"Card details",exact:true}).click();
     await expect(page.getByText("Your profile is private",{exact:true})).toBeVisible();
     const codeResponse=await mutation(ctx,"/api/check-in/pass",{});expect(codeResponse.status()).toBe(200);
     const {token}=await codeResponse.json();
@@ -252,7 +252,7 @@ test("signup → save/follow/RSVP → organizer check-in → private/public Fitn
     const publicBody=await publicResponse.text();expect(publicBody.includes(email)).toBe(false);expect(publicBody.includes(user.$id)).toBe(false);expect(publicBody.includes("password")).toBe(false);
     const profile=JSON.parse(publicBody).profile;expect(profile.activity.verifiedActivities).toBe(1);expect(profile.activity.eventsAttended).toBe(1);
     await page.goto(`/@${username}`);await expect(page.locator("h1")).toBeVisible();
-    await page.getByRole("button",{name:/Open Fitness ID for/}).click();await page.getByRole("button",{name:"Show profile QR",exact:true}).click();
+    await page.getByRole("button",{name:/Open .fit ID for/}).click();await page.getByRole("button",{name:"Show profile QR",exact:true}).click();
     await expect(page.getByRole("img",{name:`Public profile QR code for @${username}`})).toBeVisible();
     // Owner reads allowed, guest/owner writes denied at the Appwrite layer too.
     const ownerDb=new Databases(new Client().setEndpoint(config.endpoint).setProject(config.projectId).setSession(cookie!.value));

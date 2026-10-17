@@ -62,7 +62,7 @@ test("participant QR is owner-issued, short-lived and contains no account/contac
   assert.doesNotMatch(JSON.stringify(payload), /private-member|email|userId|biography|visibility/);
   assert.equal(writes().length, 0);
   rows.get(`fitness_ids/${participantId}`)!.status = "revoked";
-  await assert.rejects(service.createParticipantCheckInToken(participantId), /active Fitness ID/);
+  await assert.rejects(service.createParticipantCheckInToken(participantId), /active .fit ID/);
 });
 
 test("assigned operator scans a private participant QR; trusted attendance/passport are duplicate-safe and owner-only", async t => {

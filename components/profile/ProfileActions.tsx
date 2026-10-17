@@ -31,7 +31,7 @@ export function ProfileActions({ handle, name }: ProfileActionsProps) {
       if (typeof navigator.share === "function") {
         setMessage("Opening sharing…");
         try {
-          await navigator.share({ title: `${name} (${cleanHandle}) — NOIDA.FIT`, text: `${name}’s public Fitness ID on NOIDA.FIT`, url: shareUrl });
+          await navigator.share({ title: `${name} (${cleanHandle}) — NOIDA.FIT`, text: `${name}’s public .fit ID on NOIDA.FIT`, url: shareUrl });
           setMessage("Profile shared.");
           return;
         } catch (error) {

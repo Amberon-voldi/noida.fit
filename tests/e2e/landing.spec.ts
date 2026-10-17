@@ -73,7 +73,7 @@ for (const width of [320, 390, 768, 1440]) {
 }
 
 for (const width of [390, 1440]) {
-  test(`parallax, sliding curtains and Fitness ID spin track scroll and reverse at ${width}px`, async ({ page }) => {
+  test(`parallax, sliding curtains and .fit ID spin track scroll and reverse at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 }); await page.goto("/");
     await expect(page.locator(".kinetic-landing")).toHaveAttribute("data-motion", "active");
     await expect.poll(async () => Number.isFinite(await value(page, ".hero-energy-depth", "--depth-shift"))).toBe(true);

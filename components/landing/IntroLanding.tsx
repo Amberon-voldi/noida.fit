@@ -10,7 +10,7 @@ const steps = [
   { number: "01", icon: UsersRound, title: "Find your people.", description: "Explore a club, a session or a place to move. Find a pace and a meeting point that work for you.", link: "Explore the home hub", href: "/home" },
   { number: "02", icon: CalendarDays, title: "Make a plan.", description: "Read the details, save a possibility, and RSVP to an event. A plan is an intention—not proof of attendance.", link: "Find a session", href: "/events" },
   { number: "03", icon: QrCode, title: "Show up. Show your QR.", description: "With a confirmed RSVP, show your participant check-in QR to the assigned club or venue operator. They scan it to verify attendance.", link: "Your participant QR", href: "/check-in" },
-  { number: "04", icon: LockKeyhole, title: "Keep your own story.", description: "Accepted operator check-in adds a verified record to your private movement passport. Your profile stays private unless you choose to share it.", link: "Create your Fitness ID", href: "/signup" },
+  { number: "04", icon: LockKeyhole, title: "Keep your own story.", description: "Accepted operator check-in adds a verified record to your private movement passport. Your profile stays private unless you choose to share it.", link: "Create your .fit ID", href: "/signup" },
 ];
 
 export function IntroLanding() {
@@ -51,7 +51,7 @@ export function IntroLanding() {
       <div className="kinetic-id-pin">
         <div className="kinetic-id-grid" aria-hidden="true" />
         <header className="kinetic-wrap kinetic-id-heading"><p className="kinetic-kicker">02 / More than a moment.</p><h2 id="fitness-id-heading">YOUR CITY.<br /><span>YOUR FITNESS ID.</span></h2></header>
-        <div className="kinetic-id-canvas"><span className="kinetic-id-watermark" aria-hidden="true">NOIDA<br /><span>.FIT</span></span><div className="kinetic-id-orbit" aria-hidden="true" /><figure className="kinetic-id-figure"><div className="kinetic-id-lift"><SampleFitnessId /></div><figcaption>Fitness ID design preview.<br />Not a real member, entry pass or attendance record.</figcaption></figure><div className="kinetic-id-curtain kinetic-id-curtain-top" aria-hidden="true"><span>YOUR</span></div><div className="kinetic-id-curtain kinetic-id-curtain-bottom" aria-hidden="true"><span>STORY.</span></div></div>
+        <div className="kinetic-id-canvas"><span className="kinetic-id-watermark" aria-hidden="true">NOIDA<br /><span>.FIT</span></span><div className="kinetic-id-orbit" aria-hidden="true" /><figure className="kinetic-id-figure"><div className="kinetic-id-lift"><SampleFitnessId /></div><figcaption>.fit ID design preview.<br />Not a real member, entry pass or attendance record.</figcaption></figure><div className="kinetic-id-curtain kinetic-id-curtain-top" aria-hidden="true"><span>YOUR</span></div><div className="kinetic-id-curtain kinetic-id-curtain-bottom" aria-hidden="true"><span>STORY.</span></div></div>
         <div className="kinetic-wrap kinetic-id-handoff"><span className="kinetic-kicker">The card is the beginning.</span><p>The moments you show up for<br /><strong>become the story you keep.</strong></p><a href="#how-it-works" className="kinetic-link">How it works<ArrowDown size={16} aria-hidden="true" /></a></div>
       </div>
     </section>

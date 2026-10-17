@@ -43,7 +43,7 @@ export default function PrivacyPage() {
             <h2 id="privacy-collect" className="text-xl font-bold text-white">3. What information we collect</h2>
             <ul className="mt-3 list-disc space-y-2 pl-5">
               <li><strong className="text-white">Account information:</strong> your name, email address and password used to create or access an account, and an internal account identifier from our account provider, Appwrite. Appwrite handles password storage and authentication; the website does not display your password.</li>
-              <li><strong className="text-white">Profile information:</strong> username, display name, city, optional bio, your Fitness ID, member-since date, your profile visibility setting, and your separate choices about sharing activity totals and followed communities.</li>
+              <li><strong className="text-white">Profile information:</strong> username, display name, city, optional bio, your .fit ID, member-since date, your profile visibility setting, and your separate choices about sharing activity totals and followed communities.</li>
               <li><strong className="text-white">Participation information:</strong> listings you save, communities you follow, event RSVPs, assigned RSVP seats, attendance records verified by an authorized organizer, and totals derived from them.</li>
               <li><strong className="text-white">Organizer and administrator information:</strong> information needed to authorize event check-in or manage published content. Administrative actions may be recorded in an audit log, sometimes with an operational reason.</li>
               <li><strong className="text-white">Technical information:</strong> a session cookie that keeps you signed in, and ordinary server request information used to protect the service and diagnose failures.</li>
@@ -76,7 +76,7 @@ export default function PrivacyPage() {
 
           <section aria-labelledby="privacy-sharing">
             <h2 id="privacy-sharing" className="text-xl font-bold text-white">6. Profiles, sharing and who sees what</h2>
-            <p className="mt-3">Profiles are private by default. If you choose a public profile, others can see your display name, username, city, bio, Fitness ID and member-since date. Activity totals and followed communities are shared only if you separately choose to share them.</p>
+            <p className="mt-3">Profiles are private by default. If you choose a public profile, others can see your display name, username, city, bio, .fit ID and member-since date. Activity totals and followed communities are shared only if you separately choose to share them.</p>
             <p className="mt-3">Your email, saved plans, RSVP history, detailed history, account identifiers and private settings are never shown on your public profile.</p>
             <p className="mt-3"><strong className="text-white">Organizers.</strong> When you RSVP to an event, the assigned organizer or venue operator can see the information needed to verify your RSVP and record your attendance, including your display name and RSVP or check-in status for that event. Organizers may use this information only for that event and must not copy, export, sell or share it outside the event’s operation.</p>
           </section>

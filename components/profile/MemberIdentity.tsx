@@ -87,7 +87,7 @@ export function MemberIdentity({ profile, children }: MemberIdentityProps) {
 
   return <div className={`member-identity ${open ? "member-identity-open" : ""}`}>
     <div className="identity-profile">
-      <button ref={triggerRef} type="button" className="identity-banner" onClick={event => { returnFocusRef.current = event.currentTarget; setOpen(true); }} aria-haspopup="dialog" aria-expanded={open} aria-controls={`${id}-dialog`} aria-label={`Open Fitness ID for ${profile.name}`}>
+      <button ref={triggerRef} type="button" className="identity-banner" onClick={event => { returnFocusRef.current = event.currentTarget; setOpen(true); }} aria-haspopup="dialog" aria-expanded={open} aria-controls={`${id}-dialog`} aria-label={`Open .fit ID for ${profile.name}`}>
         <span className="identity-banner-art" aria-hidden="true" />
         <Image src="/images/logo.png" alt="" width={112} height={38} className="identity-banner-logo" />
         <span className="identity-banner-label" aria-hidden="true"><ArrowUpRight size={18} /></span>
@@ -95,10 +95,10 @@ export function MemberIdentity({ profile, children }: MemberIdentityProps) {
       <div className="identity-profile-body">
         <span className="identity-avatar" aria-hidden="true">{profile.name.trim().slice(0, 1).toUpperCase()}</span>
         <div className="identity-name-row"><h2>{profile.name}</h2><span className="identity-visibility">{isPublic ? <Globe2 size={13} aria-hidden="true" /> : <LockKeyhole size={13} aria-hidden="true" />}{isPublic ? "Public" : "Private"}</span></div>
-        <div className="identity-meta"><span className="identity-handle">@{profile.slug}</span><span className="identity-city"><MapPin size={13} aria-hidden="true" /><span>{profile.city || "Noida & Greater Noida"}</span></span></div>
+        <div className="identity-meta"><span className="identity-handle">@{profile.slug}</span>{profile.city && <span className="identity-city"><MapPin size={13} aria-hidden="true" /><span>{profile.city}</span></span>}</div>
         {profile.bio && <p className="identity-bio">{profile.bio}</p>}
       </div>
-      <div className="identity-profile-footer"><button type="button" onClick={event => { returnFocusRef.current = event.currentTarget; setOpen(true); }} className="identity-open-action" aria-haspopup="dialog" aria-expanded={open} aria-controls={`${id}-dialog`}>View Fitness ID<ArrowUpRight size={14} aria-hidden="true" /></button>{children}</div>
+      <div className="identity-profile-footer"><button type="button" onClick={event => { returnFocusRef.current = event.currentTarget; setOpen(true); }} className="identity-open-action" aria-haspopup="dialog" aria-expanded={open} aria-controls={`${id}-dialog`}>View .fit ID<ArrowUpRight size={14} aria-hidden="true" /></button>{children}</div>
     </div>
     <dialog ref={dialogRef} id={`${id}-dialog`} className={`identity-dialog${closing ? " identity-dialog-closing" : ""}`} aria-labelledby={`${id}-title`} onCancel={event => { event.preventDefault(); void dismiss(); }} onClose={() => { setOpen(false); setClosing(false); closingRef.current = false; }} onKeyDown={event => {
       if (event.key !== "Tab") return;
@@ -109,7 +109,7 @@ export function MemberIdentity({ profile, children }: MemberIdentityProps) {
       else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
     }} onClick={event => { if (event.target === event.currentTarget) void dismiss(); }}>
       <div className="identity-dialog-layout">
-        <header className="identity-dialog-toolbar"><h2 id={`${id}-title`} className="sr-only">Fitness ID</h2><button type="button" onClick={() => void dismiss()} aria-label="Return Fitness ID to banner" disabled={closing}><X size={20} aria-hidden="true" /></button></header>
+        <header className="identity-dialog-toolbar"><h2 id={`${id}-title`} className="sr-only">.fit ID</h2><button type="button" onClick={() => void dismiss()} aria-label="Return .fit ID to banner" disabled={closing}><X size={20} aria-hidden="true" /></button></header>
         <div ref={surfaceRef} className="identity-dialog-surface" inert={closing}>{open && <FitnessCard user={profile} actions={isPublic ? <ProfileActions handle={profile.handle} name={profile.name} /> : undefined} />}</div>
       </div>
     </dialog>

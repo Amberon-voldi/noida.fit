@@ -247,7 +247,7 @@ export async function createParticipantCheckInToken(userId: string): Promise<{ t
   documentIdSchema.parse(userId);
   const identity = await getAppwriteDocument<FitnessIdRecord>(collections.fitnessIds, userId);
   if (!identity || identity.userId !== userId || identity.status !== "active" || !fitnessIdSchema.safeParse(identity.publicId).success) {
-    throw new HttpError(409, "FITNESS_ID_UNAVAILABLE", "Your active Fitness ID could not be found. Sign in again to finish account setup.");
+    throw new HttpError(409, "FITNESS_ID_UNAVAILABLE", "Your active .fit ID could not be found. Sign in again to finish account setup.");
   }
   const now = Date.now();
   const exp = now + CHECKIN_TOKEN_TTL;
@@ -326,7 +326,7 @@ export async function checkInParticipant(organizer: Pick<AuthUser, "id" | "label
   const identities = await listAppwriteDocuments<FitnessIdRecord>(collections.fitnessIds, [Query.equal("publicId", payload.fitnessId), Query.limit(1)]);
   const identity = identities[0];
   if (!identity || identity.status !== "active" || identity.publicId !== payload.fitnessId) {
-    throw new HttpError(403, "FITNESS_ID_UNAVAILABLE", "This participant’s Fitness ID is not active");
+    throw new HttpError(403, "FITNESS_ID_UNAVAILABLE", "This participant’s .fit ID is not active");
   }
   const userId = documentIdSchema.parse(identity.userId);
   const member = await getAdminServices().users.get({ userId });

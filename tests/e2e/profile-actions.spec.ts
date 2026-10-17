@@ -100,7 +100,7 @@ test("The single 44px share icon uses native sharing with the canonical public U
   await expect(share).toHaveAttribute("aria-describedby", await page.getByRole("status").getAttribute("id") as string);
   await expect(share).toBeEnabled();
   expect(await apiCalls(page)).toEqual({
-    nativeShares: [{ title: "Synthetic Share Member (@synthetic-share-member) — NOIDA.FIT", text: "Synthetic Share Member’s public Fitness ID on NOIDA.FIT", url: publicUrl }],
+    nativeShares: [{ title: "Synthetic Share Member (@synthetic-share-member) — NOIDA.FIT", text: "Synthetic Share Member’s public .fit ID on NOIDA.FIT", url: publicUrl }],
     clipboardWrites: [],
   });
 });

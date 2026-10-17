@@ -348,7 +348,7 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { border-color
   }
 }
 
-/* Profile-first Fitness ID pages: one introduction, then the shared facts. */
+/* Profile-first .fit ID pages: one introduction, then the shared facts. */
 .fitness-id-showcase { min-width: 0; border: 0; background: transparent; padding: 0; }
 .fitness-id-return, .fitness-id-owner-link { display: inline-flex; min-height: 44px; align-items: center; gap: 5px; color: var(--text-secondary); font-size: 12px; font-weight: 600; }
 .fitness-id-return { margin-bottom: 8px; }

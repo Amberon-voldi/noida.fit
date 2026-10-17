@@ -5,7 +5,7 @@ import { SignupForm } from "@/components/auth/SignupForm";
 import { safeCallbackUrl } from "@/components/auth/validation";
 
 export const metadata: Metadata = {
-  title: "Create your Fitness ID — NOIDA.FIT",
+  title: "Create your .fit ID — NOIDA.FIT",
   description: "Join Noida’s fitness community. Your profile starts private; you choose what to share.",
   robots: { index: false, follow: false },
 };

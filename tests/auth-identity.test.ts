@@ -265,7 +265,7 @@ test("username preflight rejects conflicts before creating an auth account", asy
   assert.ok(!backend.calls.some((call) => call.path === "/account" && call.method === "POST"));
 });
 
-test("interrupted signup preserves its account and login repairs the missing Fitness ID", async () => {
+test("interrupted signup preserves its account and login repairs the missing .fit ID", async () => {
   const backend = fakeAppwrite();
   backend.setFitnessFailure(true);
   await assert.rejects(identity.createAccountSession("Runner", "runner@example.test", "password123", "noida-runner"), identity.SignupRecoveryError);

@@ -40,7 +40,7 @@ export function FitnessCard({ user, className = "", showControls = true, actions
         id={id}
         onClick={toggle}
         aria-pressed={flipped}
-        aria-label={`Fitness ID for ${user.name}. ${flipped ? "Back" : "Front"} of card. ${controlLabel}.`}
+        aria-label={`.fit ID for ${user.name}. ${flipped ? "Back" : "Front"} of card. ${controlLabel}.`}
         className="fitness-card"
       >
         <span className="fitness-card-body" style={{ transform: flipped ? "rotateY(180deg)" : "rotateY(0deg)" }}>
@@ -48,7 +48,7 @@ export function FitnessCard({ user, className = "", showControls = true, actions
             <span className="fitness-card-grid" aria-hidden="true" />
             <span className="fitness-card-heading">
               <Image src="/images/logo.png" alt="NOIDA.FIT" width={112} height={38} className="fitness-card-logo" />
-              <span className="fitness-card-type">Fitness ID</span>
+              <span className="fitness-card-type">.fit ID</span>
             </span>
             <span className="fitness-card-identity">
               <span className="fitness-card-member">Community member</span>
@@ -56,8 +56,7 @@ export function FitnessCard({ user, className = "", showControls = true, actions
               <span className="fitness-card-handle">@{user.slug}</span>
             </span>
             <span className="fitness-card-location">
-              <MapPin size={16} aria-hidden="true" />
-              <span>{user.city || "Noida & Greater Noida"}</span>
+              {user.city && <><MapPin size={16} aria-hidden="true" /><span>{user.city}</span></>}
               <span className="fitness-card-visibility">{isPublic ? "Public profile" : "Private profile"}</span>
             </span>
             <span className="fitness-card-facts">

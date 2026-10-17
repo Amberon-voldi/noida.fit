@@ -6,7 +6,7 @@ import { safeCallbackUrl } from "@/components/auth/validation";
 
 export const metadata: Metadata = {
   title: "Sign in — NOIDA.FIT",
-  description: "Sign in to save local plans, follow communities and manage your Fitness ID.",
+  description: "Sign in to save local plans, follow communities and manage your .fit ID.",
   robots: { index: false, follow: false },
 };
 

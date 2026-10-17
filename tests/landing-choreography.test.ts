@@ -26,7 +26,7 @@ test("curtains open smoothly before the end of the scene without scaling beyond 
   }
 });
 
-test("Fitness ID reveals, makes one full scroll-driven rotation and hands off to the next chapter", () => {
+test(".fit ID reveals, makes one full scroll-driven rotation and hands off to the next chapter", () => {
   assert.equal(identityFrame(0).reveal, 0);
   assert.equal(identityFrame(.22).reveal, 1);
   assert.equal(identityFrame(.25).rotation, 0);

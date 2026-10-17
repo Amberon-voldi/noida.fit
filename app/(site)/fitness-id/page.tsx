@@ -8,7 +8,7 @@ import { getAccountParticipation } from "@/lib/participation";
 import { ActivitySummary } from "@/components/profile/ActivitySummary";
 import { MemberIdentity } from "@/components/profile/MemberIdentity";
 
-export const metadata: Metadata = { title: "My Fitness ID — NOIDA.FIT", robots: { index: false, follow: false } };
+export const metadata: Metadata = { title: "My .fit ID — NOIDA.FIT", robots: { index: false, follow: false } };
 
 export default async function MyFitnessIdPage() {
   const user = await getCurrentAppwriteUser();
@@ -18,7 +18,7 @@ export default async function MyFitnessIdPage() {
   const isPublic = profile.visibility === "public";
 
   return <div className="fitness-id-page mx-auto max-w-3xl px-4 pb-12 pt-4 sm:px-6 sm:pb-16 sm:pt-6">
-    <h1 className="sr-only">Your Fitness ID</h1>
+    <h1 className="sr-only">Your .fit ID</h1>
     <Link href="/account" className="fitness-id-return"><ArrowLeft size={14} aria-hidden="true" />Account</Link>
     <section className="fitness-id-showcase" aria-label="Your member card">
       <MemberIdentity profile={profile}>

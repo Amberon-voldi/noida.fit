@@ -20,7 +20,7 @@ export const pageGuide = [
   ["/places, /place/[slug]", "Public", "Venue information and associated clubs/sessions."],
   ["/stories, /about, /for-organizers", "Public", "Editorial, mission and email listing-review guidance."],
   ["/signup, /login", "Guest", "Appwrite email/password onboarding and sign-in."],
-  ["/account, /fitness-id", "Account owner", "Private profile, Fitness ID, plans, saved items, follows, passport and privacy settings."],
+  ["/account, /fitness-id", "Account owner", "Private profile, .fit ID, plans, saved items, follows, passport and privacy settings."],
   ["/@username", "Opt-in public", "Public profile allowlist. Private or nonexistent profiles return not found."],
   ["/fitness-id/[slug]", "Legacy redirect", "Redirects to canonical /@username."],
   ["/check-in", "Account owner", "Show/refresh your participant check-in QR, including for private profiles. The operator scans it; no participant camera or self-check-in."],
@@ -47,7 +47,7 @@ export const endpointGuide = [
   ["POST / DELETE", "/api/participation/saved", "Account owner + same origin", "Save/remove an event, community or place."],
   ["POST / DELETE", "/api/participation/follow", "Account owner + same origin", "Follow/unfollow a community; this is interest, not club enrollment."],
   ["POST", "/api/check-in/pass", "Account owner + same origin", "Issue a 15-minute signed participant QR for the authenticated owner only; no client-selected member ID."],
-  ["POST", "/api/check-in/organizer", "Event owner or admin + same origin", "Scan eventId + participant token; verify active account/Fitness ID, RSVP and time; record attendance/passport once. Operator limit: 120 requests per 10 minutes."],
+  ["POST", "/api/check-in/organizer", "Event owner or admin + same origin", "Scan eventId + participant token; verify active account/.fit ID, RSVP and time; record attendance/passport once. Operator limit: 120 requests per 10 minutes."],
   ["POST", "/api/check-in", "Authenticated + same origin", "Retired attendee self-check-in returns 410 CHECKIN_FLOW_CHANGED. No attendance is written."],
 ] as const;
 

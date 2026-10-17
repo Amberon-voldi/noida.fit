@@ -44,7 +44,7 @@ export function AccountWorkspace({ profile, settings, email, canOrganize, partic
 
     <section id="overview" className="member-overview" aria-label="Account overview">
       <section className="member-id" aria-labelledby="fitness-id-heading">
-        <h2 id="fitness-id-heading" className="sr-only">Your Fitness ID</h2>
+        <h2 id="fitness-id-heading" className="sr-only">Your .fit ID</h2>
         <MemberIdentity profile={profile}>
           <div className="identity-owner-links"><Link href="/check-in"><QrCode size={16} aria-hidden="true" />Show check-in QR</Link><a href="#settings" aria-label="Privacy settings">Privacy</a>{isPublic && <Link href={`/@${profile.slug}`} className="identity-preview" aria-label="Preview public profile" title="Preview public profile"><ArrowUpRight size={16} aria-hidden="true" /></Link>}</div>
         </MemberIdentity>
@@ -64,7 +64,7 @@ export function AccountWorkspace({ profile, settings, email, canOrganize, partic
       </section>
     </section>
 
-    <nav className="member-section-nav" aria-label="Account sections"><a href="#overview">Fitness ID</a><a href="#plans">Your plans</a><a href="#passport">Passport</a><a href="#settings">Profile &amp; privacy</a></nav>
+    <nav className="member-section-nav" aria-label="Account sections"><a href="#overview">.fit ID</a><a href="#plans">Your plans</a><a href="#passport">Passport</a><a href="#settings">Profile &amp; privacy</a></nav>
 
     <section id="plans" className="member-block" aria-labelledby="plans-heading">
       <div className="member-block-heading"><h2 id="plans-heading">Your plans</h2></div>

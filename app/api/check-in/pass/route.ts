@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 export async function POST(request: Request) {
   try {
     const participant = await requireMutationUser(request, "participant-check-in-pass");
-    // No client-selected member/Fitness ID: the pass belongs only to this session owner.
+    // No client-selected member/.fit ID: the pass belongs only to this session owner.
     await readJson(request, z.object({}).strict());
     return jsonOk(await createParticipantCheckInToken(participant.id));
   } catch (error) {

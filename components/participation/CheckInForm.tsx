@@ -39,7 +39,7 @@ export function CheckInForm({ initialPass, displayName, fitnessId, initialError 
   }
 
   return <section className="min-w-0 space-y-4" aria-label="Your participant check-in QR">
-    <div><h2 className="break-words text-xl font-bold text-white">{displayName}</h2><p className="mt-1 font-mono text-xs text-text-secondary">Fitness ID · {fitnessId}</p></div>
+    <div><h2 className="break-words text-xl font-bold text-white">{displayName}</h2><p className="mt-1 font-mono text-xs text-text-secondary">.fit ID · {fitnessId}</p></div>
     {pass && !expired ? <>
       <div className="mx-auto w-fit max-w-full rounded-xl bg-white p-4"><QRCodeSVG value={participantQrValue(pass.token)} size={240} marginSize={4} bgColor="#ffffff" fgColor="#090a0f" className="h-auto max-w-full" role="img" aria-label="Your participant check-in QR code" /></div>
       <p className="text-sm text-text-secondary">Valid until <time dateTime={pass.expiresAt}>{new Date(pass.expiresAt).toLocaleString("en-IN", { timeZone: "Asia/Kolkata" })} IST</time>.</p>

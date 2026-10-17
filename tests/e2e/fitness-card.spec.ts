@@ -80,13 +80,13 @@ async function expectUprightBack(page: Page) {
 
 for (const width of [320, 390, 1024]) {
   for (const reduced of [false, true]) {
-    test(`Public Fitness ID back stays upright at ${width}px${reduced ? " with reduced motion" : ""}`, async ({ page }) => {
+    test(`Public .fit ID back stays upright at ${width}px${reduced ? " with reduced motion" : ""}`, async ({ page }) => {
       await page.setViewportSize({ width, height: 900 });
       await page.emulateMedia({ reducedMotion: reduced ? "reduce" : "no-preference" });
       const errors: string[] = [];
       page.on("pageerror", error => errors.push(error.message));
       await mountCard(page);
-      const card = page.getByRole("button", { name: /^Fitness ID for/ });
+      const card = page.getByRole("button", { name: /^.fit ID for/ });
       const back = page.locator(".fitness-card-back");
       const front = page.locator(".fitness-card-front");
       const control = page.getByRole("button", { name: "Show profile QR", exact: true });
@@ -115,11 +115,11 @@ for (const width of [320, 390, 1024]) {
     });
   }
 
-  test(`Private Fitness ID has details but no public QR or sharing at ${width}px`, async ({ page }) => {
+  test(`Private .fit ID has details but no public QR or sharing at ${width}px`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     await page.emulateMedia({ reducedMotion: "reduce" });
     await mountCard(page, { ...syntheticProfile, visibility: "private" }, { withActions: true });
-    const card = page.getByRole("button", { name: /^Fitness ID for/ });
+    const card = page.getByRole("button", { name: /^.fit ID for/ });
     await expect(page.getByRole("button", { name: "Card details", exact: true })).toBeVisible();
     await expect(page.locator(".fitness-card-qr-wrap svg")).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Share public profile" })).toHaveCount(0);
@@ -206,7 +206,7 @@ test("Sharing is on one external 44px action rail and cannot flip the card", asy
   await page.setViewportSize({ width: 390, height: 900 });
   await mountCard(page, syntheticProfile, { withActions: true });
   await page.evaluate(() => Object.defineProperty(navigator, "share", { configurable: true, value: async () => {} }));
-  const card = page.getByRole("button", { name: /^Fitness ID for/ });
+  const card = page.getByRole("button", { name: /^.fit ID for/ });
   await expect(card.locator("button")).toHaveCount(0);
   await expect(page.locator(".fitness-card-controls")).toHaveCount(1);
   const share = page.locator(".fitness-card-controls").getByRole("button", { name: "Share public profile" });
@@ -225,7 +225,7 @@ test("Sharing is on one external 44px action rail and cannot flip the card", asy
 test("Callers can omit the controls without losing whole-card keyboard flipping", async ({ page }) => {
   await mountCard(page, syntheticProfile, { showControls: false });
   await expect(page.locator(".fitness-card-controls")).toHaveCount(0);
-  const card = page.getByRole("button", { name: /^Fitness ID for/ });
+  const card = page.getByRole("button", { name: /^.fit ID for/ });
   await card.focus();
   await page.keyboard.press("Space");
   await expect(card).toHaveAttribute("aria-pressed", "true");

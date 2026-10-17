@@ -1,5 +1,5 @@
 import Image from "next/image";
-import { ArrowUpRight, LockKeyhole, MapPin, QrCode } from "lucide-react";
+import { ArrowUpRight, LockKeyhole, QrCode } from "lucide-react";
 
 /** Decorative design preview, never a member record, attendance claim or usable QR credential. */
 export function SampleFitnessId() {
@@ -7,9 +7,9 @@ export function SampleFitnessId() {
     <div className="sample-id-spin">
       <div className="sample-id-face sample-id-front">
         <div className="sample-id-grid" />
-        <div className="sample-id-header"><Image src="/images/logo.png" alt="" width={144} height={51} className="sample-id-logo" /><span>Fitness ID</span></div>
+        <div className="sample-id-header"><Image src="/images/logo.png" alt="" width={144} height={51} className="sample-id-logo" /><span>.fit ID</span></div>
         <div className="sample-id-name"><p>Your place in the movement</p><strong>YOU.<br />IN GOOD<br />COMPANY.</strong></div>
-        <div className="sample-id-footer"><span><MapPin size={14} />Noida &amp; Greater Noida</span><ArrowUpRight size={26} /></div>
+        <div className="sample-id-footer"><span>Your fitness card</span><ArrowUpRight size={26} /></div>
         <div className="sample-id-preview">Design preview · not a member record</div>
       </div>
       <div className="sample-id-face sample-id-back">

@@ -14,16 +14,6 @@ const FOOTER_COLUMNS = [
     ],
   },
   {
-    heading: "Around Noida",
-    links: [
-      { label: "Sector 21A", href: "/discover?sector=Sector+21A" },
-      { label: "Sector 137", href: "/discover?sector=Sector+137" },
-      { label: "Sector 50", href: "/discover?sector=Sector+50" },
-      { label: "Sector 91", href: "/discover?sector=Sector+91" },
-      { label: "Greater Noida", href: "/discover?sector=Greater+Noida" },
-    ],
-  },
-  {
     heading: "Platform",
     links: [
       { label: "Home", href: "/home" },
@@ -42,11 +32,11 @@ export function Footer() {
   return (
     <footer className="site-footer mt-auto border-t border-border-subtle">
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 gap-5 py-8 sm:grid-cols-2 sm:gap-10 sm:py-12 lg:grid-cols-4">
+        <div className="grid grid-cols-1 gap-5 py-8 sm:grid-cols-2 sm:gap-10 sm:py-12 lg:grid-cols-3">
           <div className="flex flex-col gap-4">
             <Logo size="sm" />
             <p className="max-w-xs text-sm leading-relaxed text-text-secondary">
-              City-first fitness discovery for Noida & Greater Noida.
+              City-first fitness discovery for the NCR region.
             </p>
             <a
               href={SITE_CONFIG.instagram}
@@ -82,7 +72,7 @@ export function Footer() {
           <Link href="/stories" className="inline-flex min-h-11 items-center text-sm text-text-secondary">Stories</Link>
         </nav>
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border-subtle py-6 text-xs text-text-secondary">
-          <p>&copy; {new Date().getFullYear()} NOIDA.FIT · Noida &amp; Greater Noida</p>
+          <p>&copy; {new Date().getFullYear()} NOIDA.FIT · NCR</p>
           <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
             <nav aria-label="Legal information" className="flex flex-wrap gap-x-4">
               <Link href="/privacy" className="inline-flex min-h-11 items-center hover:text-white">Privacy</Link>

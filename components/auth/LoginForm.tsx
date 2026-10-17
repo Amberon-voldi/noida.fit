@@ -60,7 +60,7 @@ export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
         </div>
         <AuthSubmitButton status={status} label="Sign in" submittingLabel="Signing in…" />
       </form>
-      <p className="mt-6 text-center text-sm text-text-secondary">New here? <Link href={`/signup?callbackUrl=${encodeURIComponent(callbackUrl)}`} className="text-white underline hover:text-velocity">Create your Fitness ID</Link></p>
+      <p className="mt-6 text-center text-sm text-text-secondary">New here? <Link href={`/signup?callbackUrl=${encodeURIComponent(callbackUrl)}`} className="text-white underline hover:text-velocity">Create your .fit ID</Link></p>
       <p className="mt-4 text-center text-sm"><Link href="/discover" className="text-text-secondary underline">Keep exploring without an account</Link></p>
     </>
   );

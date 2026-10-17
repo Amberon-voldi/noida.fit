@@ -53,7 +53,7 @@ export function SignupForm({ callbackUrl }: { callbackUrl: string }) {
 
   return (
     <>
-      <h1 className="mb-3 text-center text-2xl font-bold text-white">Create your Fitness ID</h1>
+      <h1 className="mb-3 text-center text-2xl font-bold text-white">Create your .fit ID</h1>
       <p className="mb-6 text-center text-sm text-text-secondary">Save plans and follow local communities. Your profile starts private.</p>
       <form onSubmit={handleSubmit} aria-busy={loading} aria-describedby={error ? "signup-error" : undefined} className="space-y-4">
         {error && <p id="signup-error" role="alert" className="text-sm text-rose-400">{error}</p>}
@@ -75,7 +75,7 @@ export function SignupForm({ callbackUrl }: { callbackUrl: string }) {
           <input id="signup-password" name="password" type="password" required minLength={8} maxLength={256} aria-invalid={Boolean(error)} aria-describedby={error ? "password-help signup-error" : "password-help"} autoComplete="new-password" value={form.password} onChange={(e) => update("password", e.target.value)} className={inputClass} />
           <p id="password-help" className="mt-1 text-xs text-text-secondary">At least 8 characters, including a letter and number.</p>
         </div>
-        <AuthSubmitButton status={status} label="Create Fitness ID" submittingLabel="Creating your Fitness ID…" />
+        <AuthSubmitButton status={status} label="Create .fit ID" submittingLabel="Creating your .fit ID…" />
       </form>
       <p className="mt-6 text-center text-sm text-text-secondary">Already registered? <Link href={`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`} className="text-white underline hover:text-velocity">Sign in</Link></p>
       <p className="mt-4 text-center text-sm"><Link href="/discover" className="text-text-secondary underline">Keep exploring without an account</Link></p>

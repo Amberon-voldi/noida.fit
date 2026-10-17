@@ -22,7 +22,7 @@ export async function Navbar() {
         </ul>
         <div className="hidden items-center gap-2 lg:flex">
           <Link href="/search" aria-label="Search the directory" className="flex h-11 w-11 items-center justify-center rounded-lg text-text-secondary hover:bg-surface-hover hover:text-white"><Search className="h-5 w-5" aria-hidden="true" /></Link>
-          {user ? <><Link href="/account" className="button-secondary text-xs">My account</Link>{admin && <Link href="/admin" className="inline-flex min-h-11 items-center px-2 text-xs font-semibold text-velocity hover:text-velocity-glow">Admin</Link>}<SignOutButton /></> : <><Link href="/fitness-id" className="inline-flex min-h-11 items-center px-2 text-xs font-semibold text-text-secondary hover:text-white">Fitness ID</Link><Link href="/login" className="button-primary text-xs">Sign in</Link></>}
+          {user ? <><Link href="/account" className="button-secondary text-xs">My account</Link>{admin && <Link href="/admin" className="inline-flex min-h-11 items-center px-2 text-xs font-semibold text-velocity hover:text-velocity-glow">Admin</Link>}<SignOutButton /></> : <><Link href="/fitness-id" className="inline-flex min-h-11 items-center px-2 text-xs font-semibold text-text-secondary hover:text-white">.fit ID</Link><Link href="/login" className="button-primary text-xs">Sign in</Link></>}
         </div>
         <MobileNav signedIn={!!user} admin={admin} />
       </nav>
