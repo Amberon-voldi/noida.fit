@@ -1,0 +1,127 @@
+/* Root intro hero. Flat, printed-poster palette: no glows, gradients or noise. Decorative layers are aria-hidden;
+   motion is bounded and gated by the landing's motion state. */
+.kinetic-hero { position: relative; isolation: isolate; display: flex; flex-direction: column; min-height: 100svh; overflow: hidden; color: var(--foreground); background: var(--background); }
+
+/* A painted athletics-track bend with lane numbers: an original decorative vector, not a map. */
+.hero-vector-backdrop { position: absolute; z-index: 0; inset: 0; width: 100%; height: 100%; color: var(--foreground); pointer-events: none; }
+.hero-track-lanes { opacity: .07; }
+.hero-track-marks { opacity: .12; }
+.hero-track-numbers { opacity: .14; font-family: var(--font-geist-sans), sans-serif; font-size: 44px; font-weight: 800; }
+
+.kinetic-hero-brand { position: relative; z-index: 3; display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-block: 20px 4px; }
+.kinetic-hero-brand > a:first-child { display: inline-flex; align-items: center; min-width: 44px; min-height: 44px; }
+.kinetic-hero-brand img { width: clamp(118px, 12vw, 170px); height: auto; }
+.kinetic-hero-id-link { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 16px; border: 1px solid var(--border-strong); border-radius: 999px; font-size: .8125rem; font-weight: 650; white-space: nowrap; transition: border-color 200ms, color 200ms; }
+.kinetic-hero-id-link b { color: var(--accent-velocity); font-weight: 800; }
+.kinetic-hero-id-link:hover { border-color: var(--accent-velocity); }
+
+.kinetic-hero-body { position: relative; z-index: 3; flex: 1; display: grid; grid-template-columns: minmax(0, 1fr); align-items: center; gap: 20px; padding-block: 8px 24px; }
+.kinetic-hero-copy { position: relative; z-index: 3; width: 100%; min-width: 0; }
+.kinetic-hero-eyebrow { display: flex; align-items: center; gap: 12px; margin-bottom: 20px !important; color: var(--text-secondary); }
+.kinetic-hero-eyebrow::before { content: ""; width: 24px; height: 2px; flex-shrink: 0; background: var(--accent-energy); }
+
+.kinetic-hero h1 { font-weight: 900; letter-spacing: -.075em; line-height: .88; }
+.kinetic-hero h1 > .kinetic-line { font-size: clamp(3.25rem, 16.5vw, 7.25rem); padding-block: 0 .03em; }
+.kinetic-hero-middle { padding-left: .42em; color: transparent; -webkit-text-stroke: 2px var(--foreground); }
+@supports not (-webkit-text-stroke: 1px white) { .kinetic-hero-middle { color: var(--foreground); } }
+.kinetic-hero h1 > .kinetic-hero-headline { position: relative; width: fit-content; font-size: clamp(3.5rem, 18.5vw, 8.25rem); letter-spacing: -.085em; color: var(--accent-velocity); }
+.kinetic-hero-swoosh { position: absolute; left: 2%; right: 4%; bottom: -.04em; width: 94%; height: .22em; overflow: visible; color: var(--accent-energy); }
+.kinetic-hero-swoosh path { stroke-dasharray: 1; stroke-dashoffset: 0; }
+
+.kinetic-hero-bottom { display: grid; justify-items: start; gap: 18px; margin-top: 30px; }
+.kinetic-hero-description { color: var(--text-secondary); font-size: 1rem; line-height: 1.6; }
+.kinetic-hero-description strong { color: var(--foreground); font-weight: 650; }
+.kinetic-hero .kinetic-actions { justify-content: flex-start; gap: 8px 24px; }
+.kinetic-hero .kinetic-button { padding: 14px 22px; border-radius: 999px; transition: transform 200ms cubic-bezier(.16,1,.3,1), background 200ms; }
+.kinetic-hero .kinetic-button:hover { transform: translateY(-2px); }
+
+/* Deck: five flat activity posters. Positions use individual transform properties so the
+   leaving animation (on `transform`) composes with them. */
+.kinetic-hero-art { position: relative; z-index: 2; justify-self: center; width: min(62vw, 250px); min-width: 0; padding-top: 40px; }
+.hero-deck { position: relative; width: 100%; }
+.hero-deck-depth { width: 100%; }
+.hero-deck-plane { position: relative; width: 100%; aspect-ratio: 4 / 5; }
+.hero-deck[data-tilt="running"] .hero-deck-plane { transform: translate3d(var(--hero-x, 0px), var(--hero-y, 0px), 0) rotate(var(--hero-roll, 0deg)); transition: transform 200ms cubic-bezier(.16,1,.3,1); }
+.hero-card { --ink: #0b0d10; --paper: var(--accent-velocity); position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: space-between; overflow: hidden; padding: clamp(16px, 4%, 26px); border-radius: clamp(18px, 6%, 28px); background: var(--paper); color: var(--ink); transform-origin: 50% 90%; transition: translate 420ms cubic-bezier(.16,1,.3,1), rotate 420ms cubic-bezier(.16,1,.3,1), scale 420ms cubic-bezier(.16,1,.3,1), opacity 300ms; }
+.hero-card[data-tone="energy"] { --paper: var(--accent-energy); }
+.hero-card[data-tone="paper"] { --paper: #f2eee4; }
+.hero-card[data-tone="ink"] { --paper: var(--surface-elevated); --ink: var(--foreground); box-shadow: inset 0 0 0 1px var(--border-strong); }
+.hero-card[data-tone="olive"] { --paper: #24300d; --ink: var(--accent-velocity); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent-velocity) 40%, transparent); }
+.hero-card[data-pos="0"] { z-index: 5; rotate: -3deg; }
+.hero-card[data-pos="1"] { z-index: 4; translate: 4% -4%; rotate: 4deg; scale: .96; }
+.hero-card[data-pos="2"] { z-index: 3; translate: -4% -8%; rotate: -7deg; scale: .92; }
+.hero-card[data-pos="3"] { z-index: 2; translate: 2% -11%; rotate: 7deg; scale: .88; }
+.hero-card[data-pos="4"] { z-index: 1; translate: 0 -14%; scale: .84; opacity: 0; }
+.hero-card-stripes { position: absolute; right: -18%; top: -6%; width: 62%; height: 46%; rotate: 32deg; background: repeating-linear-gradient(90deg, currentColor 0 9%, transparent 9% 20%); opacity: .1; pointer-events: none; }
+.hero-card-watermark { position: absolute; right: -10%; bottom: 18%; width: 68%; height: auto; opacity: .1; pointer-events: none; }
+.hero-card-top { position: relative; display: flex; align-items: center; justify-content: space-between; font-family: var(--font-geist-mono), monospace; font-size: .6875rem; font-weight: 700; letter-spacing: .08em; }
+.hero-card-icon { display: inline-flex; width: 40px; height: 40px; align-items: center; justify-content: center; border: 1.5px solid currentColor; border-radius: 50%; }
+.hero-card-body { position: relative; display: grid; gap: 8px; }
+.hero-card-word { font-size: clamp(3rem, 15vw, 6rem); font-weight: 900; letter-spacing: -.07em; line-height: .85; }
+.hero-card-line { max-width: 22ch; font-size: .875rem; font-weight: 550; line-height: 1.4; opacity: .82; }
+.hero-card-link { display: inline-flex; align-items: center; gap: 6px; min-height: 44px; width: fit-content; font-size: .8125rem; font-weight: 800; text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; }
+.hero-card-link:hover { text-decoration-thickness: 3px; }
+.hero-card-link:focus-visible { outline: 3px solid currentColor; outline-offset: 2px; border-radius: 4px; }
+.hero-deck-next { display: none; position: absolute; z-index: 6; right: -14px; bottom: -18px; min-width: 44px; min-height: 48px; align-items: center; gap: 8px; padding: 0 18px; border: 2px solid var(--background); border-radius: 999px; background: var(--foreground); color: var(--background); font-size: .8125rem; font-weight: 800; cursor: pointer; transition: transform 200ms cubic-bezier(.16,1,.3,1); }
+.hero-deck-next:hover { transform: translateX(3px); }
+.hero-deck-next:focus-visible { outline: 3px solid var(--accent-velocity); outline-offset: 3px; }
+.hero-deck[data-interactive] .hero-deck-next { display: inline-flex; }
+
+/* Tapes: two crossing activity bands that slide sideways with the shared scroll depth. */
+.kinetic-hero-tapes { position: relative; z-index: 2; height: 96px; margin-top: 4px; pointer-events: none; }
+.kinetic-tape-track { position: absolute; left: -10%; width: 120%; top: 50%; }
+.kinetic-tape-track-lime { rotate: -3deg; translate: 0 -62%; background: var(--accent-velocity); color: #0b0d10; }
+.kinetic-tape-track-ink { rotate: 2deg; translate: 0 -10%; background: var(--foreground); color: #0b0d10; }
+.kinetic-tape { display: flex; width: max-content; white-space: nowrap; font-weight: 900; letter-spacing: -.02em; text-transform: uppercase; }
+.kinetic-tape span { display: inline-flex; align-items: center; gap: .6em; padding: .32em .3em; }
+.kinetic-tape span::after { content: "/"; opacity: .45; }
+.kinetic-tape-track-lime .kinetic-tape { font-size: 1.125rem; }
+.kinetic-tape-track-ink .kinetic-tape { font-size: .875rem; }
+.kinetic-landing[data-motion="active"] .kinetic-tape[data-depth] { transform: translate3d(var(--depth-shift, 0px), 0, 0); }
+
+.kinetic-hero-footer { position: relative; z-index: 3; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 16px; padding-block: 12px; padding-right: 80px; font-size: .75rem; }
+.kinetic-hero-mantra { display: inline-flex; flex-wrap: wrap; gap: 12px; color: var(--text-secondary); font-family: var(--font-geist-mono), monospace; font-size: .625rem; letter-spacing: .08em; }
+.kinetic-hero-mantra span { color: var(--accent-velocity); }
+
+/* One bounded entrance per load. */
+.kinetic-landing[data-motion="active"] .kinetic-hero-swoosh path { animation: hero-draw 900ms cubic-bezier(.65,0,.35,1) 250ms both; }
+.kinetic-landing[data-motion="active"] .kinetic-tape-track { animation: hero-tape 900ms cubic-bezier(.16,1,.3,1) 150ms both; }
+.kinetic-landing[data-motion="active"] .hero-deck[data-tilt="running"] .hero-card:not([data-pos="4"]) { animation: hero-deal 700ms cubic-bezier(.16,1,.3,1) both; }
+.kinetic-landing[data-motion="active"] .hero-card[data-pos="1"] { animation-delay: 60ms; }
+.kinetic-landing[data-motion="active"] .hero-card[data-pos="2"] { animation-delay: 120ms; }
+.kinetic-landing[data-motion="active"] .hero-card[data-pos="3"] { animation-delay: 180ms; }
+@keyframes hero-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+@keyframes hero-tape { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+@keyframes hero-deal { from { opacity: 0; transform: translate3d(0, 24%, 0) rotate(-10deg); } to { opacity: 1; transform: none; } }
+/* Deal once: after the first shuffle the deck only uses transitions. */
+.kinetic-landing .hero-deck[data-dealt] .hero-card { animation: none !important; }
+
+@media (max-width: 767px) {
+  .kinetic-hero-body { padding-top: 0; }
+  .kinetic-hero-art { order: -1; width: min(52vw, 210px); margin-bottom: 8px; padding-top: 30px; }
+  .hero-deck-next { right: -34px; bottom: -14px; min-height: 44px; padding: 0 14px; }
+  .kinetic-hero-id-link { padding: 0 12px; font-size: .75rem; }
+  .kinetic-hero-id-link .kinetic-hero-id-extra { display: none; }
+  .hero-card-word { font-size: clamp(2.5rem, 15vw, 3.75rem); }
+  .hero-card-line { font-size: .75rem; }
+  .hero-card-icon { width: 34px; height: 34px; }
+  .kinetic-hero-tapes { height: 76px; }
+  .kinetic-tape-track-lime .kinetic-tape { font-size: .9375rem; }
+  .kinetic-tape-track-ink .kinetic-tape { font-size: .75rem; }
+}
+@media (min-width: 768px) {
+  .kinetic-hero-body { grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); gap: 32px; min-height: max(560px, calc(100svh - 236px)); padding-block: 8px 16px; }
+  .kinetic-hero h1 > .kinetic-line { font-size: clamp(3rem, 8.4vw, 7.25rem); }
+  .kinetic-hero h1 > .kinetic-hero-headline { font-size: clamp(3.4rem, 9.4vw, 8.25rem); }
+  .kinetic-hero-art { width: min(100%, 380px); padding-top: 56px; align-self: center; }
+  .kinetic-hero-footer { padding-right: 160px; }
+}
+@media (min-width: 1024px) {
+  .kinetic-hero h1 > .kinetic-line { font-size: clamp(4.5rem, 8.2vw, 7.5rem); }
+  .kinetic-hero h1 > .kinetic-hero-headline { font-size: clamp(5rem, 9.2vw, 8.5rem); }
+  .kinetic-hero-art { width: min(100%, 400px); }
+}
+@media (min-width: 1024px) and (max-height: 619px) { .kinetic-hero-body { min-height: 480px; padding-block: 16px; } }
+@media (prefers-reduced-motion: reduce) {
+  .kinetic-hero .kinetic-button, .hero-deck-next, .hero-deck-plane { transform: none !important; }
+}

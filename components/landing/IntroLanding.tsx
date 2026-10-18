@@ -2,7 +2,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowDown, ArrowUpRight, CalendarDays, LockKeyhole, QrCode, UsersRound } from "lucide-react";
 import { StoryLoop } from "./IntroGraphics";
-import { HeroBackdrop, HeroEnergy } from "./HeroEnergy";
+import { HeroBackdrop, HeroDeck } from "./HeroDeck";
 import { LandingChoreography } from "./LandingChoreography";
 import { SampleFitnessId } from "./SampleFitnessId";
 
@@ -13,12 +13,16 @@ const steps = [
   { number: "04", icon: LockKeyhole, title: "Keep your own story.", description: "Accepted operator check-in adds a verified record to your private movement passport. Your profile stays private unless you choose to share it.", link: "Create your .fit ID", href: "/signup" },
 ];
 
+// Decorative tape words; repeated so the band always overfills the viewport while it slides.
+const tape = Array.from({ length: 4 }, () => ["Run", "Ride", "Lift", "Play", "Yoga", "Dance", "Hike", "Repeat"]).flat();
+
 export function IntroLanding() {
   return <LandingChoreography>
     <section className="kinetic-hero" aria-labelledby="intro-heading" data-depth-scene>
       <HeroBackdrop />
       <div className="kinetic-wrap kinetic-hero-brand">
         <Link href="/home" aria-label="NOIDA.FIT home"><Image src="/images/logo.png" alt="NOIDA.FIT" width={178} height={63} /></Link>
+        <Link href="/fitness-id" className="kinetic-hero-id-link"><span className="kinetic-hero-id-extra">Get your</span><b>.fit ID</b><ArrowUpRight size={16} aria-hidden="true" /></Link>
       </div>
       <div className="kinetic-wrap kinetic-hero-body">
         <div className="kinetic-hero-copy">
@@ -26,14 +30,18 @@ export function IntroLanding() {
           <h1 id="intro-heading">
             <span className="kinetic-line"><span data-scroll-reveal>FIND</span></span>{" "}
             <span className="kinetic-line kinetic-hero-middle"><span data-scroll-reveal data-reveal-order="1">YOUR</span></span>{" "}
-            <span className="kinetic-line kinetic-hero-headline"><span data-scroll-reveal data-reveal-order="2">PEOPLE.</span></span>
+            <span className="kinetic-line kinetic-hero-headline"><span data-scroll-reveal data-reveal-order="2">PEOPLE.</span><svg className="kinetic-hero-swoosh" viewBox="0 0 400 24" preserveAspectRatio="none" fill="none" aria-hidden="true" focusable="false"><path d="M4 17C80 6 190 3 396 12" pathLength="1" stroke="currentColor" strokeWidth="6" strokeLinecap="round" /></svg></span>
           </h1>
           <div data-scroll-reveal className="kinetic-hero-bottom">
-            <p className="kinetic-hero-description">A morning run. A weekend game.<br />A reason to show up again.</p>
+            <p className="kinetic-hero-description">A morning run. A weekend game.<br /><strong>A reason to show up again.</strong></p>
             <div className="kinetic-actions"><Link href="/home" className="kinetic-button">Explore the home hub<ArrowUpRight size={20} aria-hidden="true" /></Link><Link href="/communities" className="kinetic-link">Find a community<ArrowUpRight size={18} aria-hidden="true" /></Link></div>
           </div>
         </div>
-        <div className="kinetic-hero-art"><HeroEnergy /></div>
+        <div className="kinetic-hero-art"><HeroDeck /></div>
+      </div>
+      <div className="kinetic-hero-tapes" aria-hidden="true">
+        <div className="kinetic-tape-track kinetic-tape-track-lime"><div className="kinetic-tape" data-depth="160">{tape.map((word, index) => <span key={index}>{word}</span>)}</div></div>
+        <div className="kinetic-tape-track kinetic-tape-track-ink"><div className="kinetic-tape" data-depth="-120">{[...tape].reverse().map((word, index) => <span key={index}>{word}</span>)}</div></div>
       </div>
       <div className="kinetic-wrap kinetic-hero-footer"><span className="kinetic-hero-mantra">MEET.<span>MOVE.</span>REPEAT.</span><a href="#community-scene" className="kinetic-link">Feel the movement<ArrowDown size={18} aria-hidden="true" /></a></div>
     </section>

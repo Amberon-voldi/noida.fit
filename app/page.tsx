@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Footer } from "@/components/layout/Footer";
 import { IntroLanding } from "@/components/landing/IntroLanding";
 import "@/components/landing/intro-landing.css";
+import "@/components/landing/kinetic-hero.css";
 
 const title = "NOIDA.FIT — Find Your People.";
 const description = "Find your people in Noida and Greater Noida. Explore fitness communities, make a plan, show up together, and keep a private passport of participation.";
