@@ -14,6 +14,7 @@ const PUBLIC_PATHS = [
   "/for-organizers",
   "/privacy",
   "/terms",
+  "/refund-policy",
 ] as const;
 
 function isPublishedListing(item: { status?: string; demo?: boolean }): boolean {

@@ -24,6 +24,7 @@ test("sitemap includes public static routes and only published non-demo listings
   assert.ok(urls.includes("https://noida.fit/"));
   assert.ok(urls.includes("https://noida.fit/privacy"));
   assert.ok(urls.includes("https://noida.fit/terms"));
+  assert.ok(urls.includes("https://noida.fit/refund-policy"));
   assert.ok(urls.includes("https://noida.fit/event/real-event"));
   assert.ok(urls.includes("https://noida.fit/activities/running"));
   assert.ok(!urls.includes("https://noida.fit/event/cancelled-event"));

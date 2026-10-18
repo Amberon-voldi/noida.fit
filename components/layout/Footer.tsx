@@ -77,6 +77,7 @@ export function Footer() {
             <nav aria-label="Legal information" className="flex flex-wrap gap-x-4">
               <Link href="/privacy" className="inline-flex min-h-11 items-center hover:text-white">Privacy</Link>
               <Link href="/terms" className="inline-flex min-h-11 items-center hover:text-white">Terms</Link>
+              <Link href="/refund-policy" className="inline-flex min-h-11 items-center hover:text-white">Refunds</Link>
             </nav>
             <Link href="/about#contact-heading" className="inline-flex min-h-11 items-center hover:text-white">Suggest a listing or correction →</Link>
           </div>
