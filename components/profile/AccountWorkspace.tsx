@@ -64,6 +64,11 @@ export function AccountWorkspace({ profile, settings, email, canOrganize, partic
       </section>
     </section>
 
+    <div className="member-session">
+      <p><span className="member-session-dot" aria-hidden="true" />Signed in as <strong>{profile.handle}</strong></p>
+      <SignOutButton variant="pill" />
+    </div>
+
     <nav className="member-section-nav" aria-label="Account sections"><a href="#overview">.fit ID</a><a href="#plans">Your plans</a><a href="#passport">Passport</a><a href="#settings">Profile &amp; privacy</a></nav>
 
     <section id="plans" className="member-block" aria-labelledby="plans-heading">
@@ -115,6 +120,6 @@ export function AccountWorkspace({ profile, settings, email, canOrganize, partic
         <MobileAccountSection headingId="integrations" title="Connected services" description="Availability and setup information."><div className="account-service-grid">{integrations.map(integration => <div key={integration.id} className="account-service-card"><div className="account-service-icon"><Link2 size={16} aria-hidden="true" /></div><div><h3 className="text-sm font-semibold text-white">{integration.name}</h3><p className="mt-1 text-sm leading-relaxed text-text-secondary">{integration.message}</p></div></div>)}</div></MobileAccountSection>
       </div>
     </section>
-    <footer className="member-footer"><span>NOIDA.FIT <span aria-hidden="true">/</span> Find your people. Show up.</span><SignOutButton /></footer>
+    <footer className="member-footer"><span>NOIDA.FIT <span aria-hidden="true">/</span> Find your people. Show up.</span></footer>
   </div>;
 }
