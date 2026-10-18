@@ -18,6 +18,15 @@ export const signupSchema = loginSchema.extend({
   password: passwordSchema.regex(/[A-Za-z]/).regex(/[0-9]/),
 });
 
+export const recoveryRequestSchema = z.object({ email: emailSchema }).strict();
+
+/** userId/secret arrive from the emailed Appwrite link; the new password follows signup rules. */
+export const recoveryConfirmSchema = z.object({
+  userId: z.string().trim().min(1).max(36).regex(/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/),
+  secret: z.string().trim().min(1).max(512),
+  password: passwordSchema.regex(/[A-Za-z]/).regex(/[0-9]/),
+}).strict();
+
 export const profileSettingsSchema = z.object({
   username: usernameSchema,
   displayName: displayNameSchema,

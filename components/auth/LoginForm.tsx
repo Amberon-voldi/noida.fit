@@ -55,8 +55,8 @@ export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
           <input id="email" name="email" type="email" required maxLength={320} autoComplete="email" value={email} onChange={(e) => setEmail(e.target.value)} aria-invalid={Boolean(error)} aria-describedby={error ? "login-error" : undefined} className={inputClass} />
         </div>
         <div>
-          <label htmlFor="password" className="text-sm text-text-secondary">Password</label>
-          <input id="password" name="password" type="password" required minLength={8} maxLength={256} autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} aria-invalid={Boolean(error)} aria-describedby={error ? "login-error" : undefined} className={inputClass} />
+          <div className="flex items-center justify-between gap-3"><label htmlFor="password" className="text-sm text-text-secondary">Password</label><Link href="/forgot-password" className="inline-flex min-h-11 items-center text-xs font-semibold text-velocity hover:text-velocity-glow hover:underline">Forgot password?</Link></div>
+          <input id="password" name="password" type="password" required minLength={8} maxLength={256} autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} aria-invalid={Boolean(error)} aria-describedby={error ? "login-error" : undefined} className={inputClass.replace("mt-1 ", "")} />
         </div>
         <AuthSubmitButton status={status} label="Sign in" submittingLabel="Signing in…" />
       </form>

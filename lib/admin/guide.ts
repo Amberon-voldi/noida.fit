@@ -40,6 +40,8 @@ export const endpointGuide = [
   ["POST", "/api/auth/signup", "Guest + same origin", "Create account/session and private profile/ID; repair interrupted setup."],
   ["POST", "/api/auth/login", "Guest + same origin", "Verify credentials and establish HttpOnly session."],
   ["POST", "/api/auth/logout", "Same origin", "Revoke current session and clear cookie."],
+  ["POST", "/api/auth/recovery", "Guest + same origin", "Email a 1-hour Appwrite password-reset link; identical reply whether or not the email has an account."],
+  ["POST", "/api/auth/recovery/confirm", "Guest + same origin", "Set a new password from an emailed reset link; expired or used links are rejected."],
   ["GET / PATCH", "/api/profile", "Account owner", "Read/update allowlisted profile settings."],
   ["GET", "/api/profile/public?username=", "Public opt-in", "Read explicit public DTO, never email or private history."],
   ["GET", "/api/participation?view=controls", "Account owner", "RSVP/save/follow state only. Without view=controls also returns private participation history."],

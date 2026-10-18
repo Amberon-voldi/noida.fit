@@ -77,4 +77,21 @@ export async function deleteCurrentSession(secret: string): Promise<void> {
   }
 }
 
+/**
+ * Emails an Appwrite recovery link (valid for 1 hour) that returns to `resetUrl`.
+ * An unknown email is not an error: callers must answer identically either way.
+ */
+export async function requestPasswordRecovery(email: string, resetUrl: string): Promise<void> {
+  try {
+    await traceAppwriteOperation("auth.recovery.create", () => getAdminServices().account.createRecovery({ email, url: resetUrl }), { traceId: randomUUID() });
+  } catch (error) {
+    const code = typeof error === "object" && error !== null && "code" in error ? error.code : undefined;
+    if (code !== 404) throw error;
+  }
+}
+
+export async function completePasswordRecovery(userId: string, secret: string, password: string): Promise<void> {
+  await traceAppwriteOperation("auth.recovery.update", () => getAdminServices().account.updateRecovery({ userId, secret, password }), { traceId: randomUUID() });
+}
+
 export { APPWRITE_SESSION_COOKIE };
