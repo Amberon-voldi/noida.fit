@@ -8,6 +8,7 @@ export interface AuthUser {
   email: string;
   image?: string;
   labels?: string[];
+  emailVerified: boolean;
 }
 
 export interface AuthSession {
@@ -27,6 +28,7 @@ export async function auth(): Promise<AuthSession | null> {
       email: user.email,
       ...(typeof prefs?.avatarUrl === "string" ? { image: prefs.avatarUrl } : {}),
       labels: user.labels,
+      emailVerified: user.emailVerification,
     },
   };
 }

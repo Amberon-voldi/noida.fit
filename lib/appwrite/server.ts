@@ -33,6 +33,11 @@ export function getAdminServices(): {
   };
 }
 
+/** No key and no session: for public endpoints whose emailed secret is the credential. */
+export function getGuestServices(): { account: Account } {
+  return { account: new Account(createClient()) };
+}
+
 export function getSessionServices(sessionSecret: string): { account: Account } {
   const client = createClient().setSession(sessionSecret);
   return { account: new Account(client) };

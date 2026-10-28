@@ -4,7 +4,7 @@ import { ID } from "node-appwrite";
 import { randomUUID } from "node:crypto";
 import { traceAppwriteOperation } from "@/lib/appwrite/errors";
 import { APPWRITE_SESSION_COOKIE } from "@/lib/appwrite/config";
-import { getAdminServices, getSessionServices } from "@/lib/appwrite/server";
+import { getAdminServices, getGuestServices, getSessionServices } from "@/lib/appwrite/server";
 import { assertUsernameAvailable, ensureProfileForUser } from "@/lib/appwrite/profiles";
 
 export function sessionCookieOptions(expire: string) {
@@ -92,6 +92,16 @@ export async function requestPasswordRecovery(email: string, resetUrl: string): 
 
 export async function completePasswordRecovery(userId: string, secret: string, password: string): Promise<void> {
   await traceAppwriteOperation("auth.recovery.update", () => getAdminServices().account.updateRecovery({ userId, secret, password }), { traceId: randomUUID() });
+}
+
+/** Emails the session owner an Appwrite verification link that returns to `verifyUrl`. */
+export async function sendEmailVerification(sessionSecret: string, verifyUrl: string): Promise<void> {
+  await traceAppwriteOperation("auth.verification.create", () => getSessionServices(sessionSecret).account.createVerification({ url: verifyUrl }), { traceId: randomUUID() });
+}
+
+/** Appwrite refuses this for API keys (missing scope); the emailed secret is the credential. */
+export async function completeEmailVerification(userId: string, secret: string): Promise<void> {
+  await traceAppwriteOperation("auth.verification.update", () => getGuestServices().account.updateVerification({ userId, secret }), { traceId: randomUUID() });
 }
 
 export { APPWRITE_SESSION_COOKIE };

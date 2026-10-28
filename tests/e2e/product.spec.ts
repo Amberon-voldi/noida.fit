@@ -182,6 +182,14 @@ test("signup → save/follow/RSVP → organizer check-in → private/public .fit
   try {
     expect((await guest.get(`/api/profile/public?username=${username}`)).status()).toBe(404);
     expect((await guest.post("/api/participation/rsvp",{data:{eventId:event.id},headers:{origin}})).status()).toBe(401);
+    // A new account browses but cannot take part until its email is verified.
+    await page.goto("/events");
+    await expect(page.getByRole("complementary",{name:"Email verification"})).toContainText(email);
+    const unverified=await mutation(ctx,"/api/participation/saved",{itemType:"event",itemId:event.id});
+    expect(unverified.status()).toBe(403);expect((await unverified.json()).code).toBe("EMAIL_UNVERIFIED");
+    await users.updateEmailVerification({userId:user.$id,emailVerification:true});
+    await page.reload();
+    await expect(page.getByRole("complementary",{name:"Email verification"})).toHaveCount(0);
     for(const item of [{itemType:"event",itemId:event.id},{itemType:"place",itemId:event.place},{itemType:"community",itemId:event.community}])expect((await mutation(ctx,"/api/participation/saved",item)).status()).toBe(200);
     expect((await mutation(ctx,"/api/participation/follow",{communityId:event.community})).status()).toBe(200);
     await page.goto(`/event/${event.id}`);

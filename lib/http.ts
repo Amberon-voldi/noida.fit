@@ -133,6 +133,15 @@ export async function requireMutationUser(request: Request, bucket: string, maxR
   return user;
 }
 
+export const EMAIL_UNVERIFIED_MESSAGE = "Verify your email first. Use the link we sent you, or resend it from the banner at the top of the page.";
+
+/** Taking part (RSVP, follow, save, check-in) needs a verified email; undoing it does not. */
+export async function requireVerifiedMutationUser(request: Request, bucket: string, maxRequests = 5) {
+  const user = await requireMutationUser(request, bucket, maxRequests);
+  if (!user.emailVerified) throw new HttpError(403, "EMAIL_UNVERIFIED", EMAIL_UNVERIFIED_MESSAGE);
+  return user;
+}
+
 export function safeCallbackUrl(value: string | null | undefined, fallback = "/account"): string {
   if (!value || !value.startsWith("/") || value.startsWith("//") || /[\\\r\n\x00-\x1f]/.test(value)) return fallback;
   try {

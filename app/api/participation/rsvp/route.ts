@@ -1,11 +1,11 @@
 import { cancelRsvp, createRsvp, eventInputSchema } from "@/lib/participation";
-import { jsonError, jsonOk, readJson, requireMutationUser } from "@/lib/http";
+import { jsonError, jsonOk, readJson, requireMutationUser, requireVerifiedMutationUser } from "@/lib/http";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
   try {
-    const user = await requireMutationUser(request, "rsvp");
+    const user = await requireVerifiedMutationUser(request, "rsvp");
     const { eventId } = await readJson(request, eventInputSchema);
     const rsvp = await createRsvp(user.id, eventId);
     return jsonOk({ rsvped: true, eventId: rsvp.eventId, seatNumber: rsvp.seatNumber });

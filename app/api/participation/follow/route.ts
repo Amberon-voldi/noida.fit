@@ -1,11 +1,11 @@
 import { followCommunity, unfollowCommunity, followInputSchema } from "@/lib/participation";
-import { jsonError, jsonOk, readJson, requireMutationUser } from "@/lib/http";
+import { jsonError, jsonOk, readJson, requireMutationUser, requireVerifiedMutationUser } from "@/lib/http";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
   try {
-    const user = await requireMutationUser(request, "follow");
+    const user = await requireVerifiedMutationUser(request, "follow");
     const { communityId } = await readJson(request, followInputSchema);
     await followCommunity(user.id, communityId);
     return jsonOk({ following: true, communityId });

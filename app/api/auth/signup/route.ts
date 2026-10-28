@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ZodError } from "zod";
-import { createAccountSession, SignupRecoveryError, sessionCookieOptions, APPWRITE_SESSION_COOKIE } from "@/lib/appwrite/auth";
-import { backendErrorCode, guardMutation, safeCallbackUrl } from "@/app/api/auth/_security";
+import { createAccountSession, SignupRecoveryError, sendEmailVerification, sessionCookieOptions, APPWRITE_SESSION_COOKIE } from "@/lib/appwrite/auth";
+import { reportAppwriteFailure } from "@/lib/appwrite/errors";
+import { backendErrorCode, guardMutation, safeCallbackUrl, verifyEmailUrl } from "@/app/api/auth/_security";
 import { UsernameConflictError } from "@/lib/appwrite/profiles";
 import { signupSchema } from "@/components/auth/validation";
 import { HttpError, jsonError, readJson } from "@/lib/http";
@@ -13,6 +14,9 @@ export async function POST(request: NextRequest) {
   try {
     const input = await readJson(request, signupSchema);
     const { session } = await createAccountSession(input.name, input.email, input.password, input.username);
+    // The account exists either way: a failed send must not fail signup. The banner offers a resend.
+    await sendEmailVerification(session.secret, verifyEmailUrl(request))
+      .catch(error => reportAppwriteFailure("auth.verification.create", error));
     const response = NextResponse.json({ ok: true, redirectTo: safeCallbackUrl(input.callbackUrl) }, {
       headers: { "Cache-Control": "private, no-store" },
     });

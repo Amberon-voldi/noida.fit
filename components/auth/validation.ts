@@ -27,6 +27,9 @@ export const recoveryConfirmSchema = z.object({
   password: passwordSchema.regex(/[A-Za-z]/).regex(/[0-9]/),
 }).strict();
 
+/** userId/secret arrive from the emailed Appwrite verification link. */
+export const verificationConfirmSchema = recoveryConfirmSchema.omit({ password: true });
+
 export const profileSettingsSchema = z.object({
   username: usernameSchema,
   displayName: displayNameSchema,

@@ -4,7 +4,7 @@ import { getCurrentAppwriteUser } from "@/lib/appwrite/server";
 import { ensureProfileForUser, profileSettings, updateProfileForUser, UsernameConflictError } from "@/lib/appwrite/profiles";
 import { guardMutation, isSameOrigin } from "@/app/api/auth/_security";
 import { profileSettingsSchema } from "@/components/auth/validation";
-import { HttpError, jsonError, jsonOk, readJson } from "@/lib/http";
+import { EMAIL_UNVERIFIED_MESSAGE, HttpError, jsonError, jsonOk, readJson } from "@/lib/http";
 
 export async function GET() {
   try {
@@ -25,6 +25,8 @@ export async function PATCH(request: NextRequest) {
     const rejected = guardMutation(request, "profile-settings", user.$id);
     if (rejected) return rejected;
     const updates = await readJson(request, profileSettingsSchema.partial());
+    // A public .fit ID is a claim about a real member; it needs a verified email. Going private never does.
+    if (updates.visibility === "public" && !user.emailVerification) throw new HttpError(403, "EMAIL_UNVERIFIED", EMAIL_UNVERIFIED_MESSAGE);
     const settings = await updateProfileForUser(user, updates);
     return jsonOk({ settings });
   } catch (error) {

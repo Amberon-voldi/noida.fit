@@ -23,6 +23,11 @@ export function guardMutation(request: Request, bucket: string, userId?: string)
   }
 }
 
+/** Where Appwrite's emailed verification link lands. */
+export function verifyEmailUrl(request: Request): string {
+  return `${new URL(process.env.NEXT_PUBLIC_SITE_URL || request.url).origin}/verify-email`;
+}
+
 export function backendErrorCode(error: unknown): number {
   return typeof error === "object" && error !== null && "code" in error ? Number(error.code) : 0;
 }

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { afterEach, before, test } from "node:test";
 import { NextRequest } from "next/server";
-import { loginSchema, profileSettingsSchema, safeCallbackUrl, signupSchema, usernameSchema } from "../components/auth/validation";
+import { loginSchema, profileSettingsSchema, safeCallbackUrl, signupSchema, usernameSchema, verificationConfirmSchema } from "../components/auth/validation";
 import type { ProfileData } from "../lib/appwrite/profiles";
 import type { AccountParticipation } from "../lib/participation";
 
@@ -83,6 +83,16 @@ function fakeAppwrite() {
       return Response.json({ $id: "test-session", secret: "server-only-session-secret", expire: "2027-01-01T00:00:00.000Z" }, { status: 201 });
     }
     if (path === "/account/sessions/current" && method === "DELETE") return new Response(null, { status: 204 });
+    if (path === "/account/verification" && method === "POST") {
+      assert.equal(headers.get("x-appwrite-session"), "server-only-session-secret");
+      return Response.json({ $id: "verification-token", userId: user.$id, secret: "" }, { status: 201 });
+    }
+    if (path === "/account/verification" && method === "PUT") {
+      assert.equal(headers.get("x-appwrite-key"), null);
+      return body.secret === "emailed-secret"
+        ? Response.json({ $id: "verification-token", userId: body.userId, secret: "" })
+        : failure(401, "user_invalid_token");
+    }
     const documentPath = /^\/databases\/identity-test-db\/collections\/([^/]+)\/documents(?:\/([^/]+))?$/.exec(path);
     assert.ok(documentPath, `Unexpected test endpoint: ${method} ${path}`);
     if (documentError) return failure(documentError.status, documentError.type);
@@ -442,4 +452,42 @@ test("proxy rewrites canonical handles and preserves protected-route callbacks w
   const redirected = proxy.proxy(new NextRequest("https://noida.fit/account?tab=saved"));
   assert.equal(new URL(redirected.headers.get("location")!).searchParams.get("callbackUrl"), "/account?tab=saved");
   assert.equal(proxy.proxy(new NextRequest("https://noida.fit/%E0%A4%A")).status, 400);
+});
+
+test("signup emails a verification link that returns to the site, without failing on a send error", async () => {
+  const backend = fakeAppwrite();
+  const { POST } = await import("../app/api/auth/signup/route");
+  const response = await POST(new NextRequest("https://noida.fit/api/auth/signup", {
+    method: "POST", headers: { Origin: "https://noida.fit", "content-type": "application/json" },
+    body: JSON.stringify({ name: "Noida Runner", email: "runner@example.test", username: "noida-runner", password: "password123" }),
+  }));
+  assert.equal(response.status, 200);
+  const sent = backend.calls.filter((call) => call.path === "/account/verification" && call.method === "POST");
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].session, "server-only-session-secret");
+  assert.equal(sent[0].body.url, "https://noida.fit/verify-email");
+});
+
+test("verification confirm accepts the emailed secret and maps used or tampered links without leaking Appwrite details", async () => {
+  fakeAppwrite();
+  const { POST } = await import("../app/api/auth/verification/confirm/route");
+  const confirm = (secret: string) => POST(new NextRequest("https://noida.fit/api/auth/verification/confirm", {
+    method: "POST", headers: { Origin: "https://noida.fit", "content-type": "application/json" },
+    body: JSON.stringify({ userId: "private-auth-user", secret }),
+  }));
+  const ok = await confirm("emailed-secret");
+  assert.equal(ok.status, 200);
+  assert.deepEqual(await ok.json(), { ok: true });
+  const expired = await confirm("tampered-secret");
+  assert.equal(expired.status, 400);
+  const body = await expired.json() as { code: string; error: string };
+  assert.equal(body.code, "VERIFICATION_LINK_INVALID");
+  assert.ok(!body.error.includes("Private Appwrite diagnostic"));
+});
+
+test("verification links need a well-formed user ID and secret only", () => {
+  assert.equal(verificationConfirmSchema.safeParse({ userId: "private-auth-user", secret: "abc" }).success, true);
+  assert.equal(verificationConfirmSchema.safeParse({ userId: "../admin", secret: "abc" }).success, false);
+  assert.equal(verificationConfirmSchema.safeParse({ userId: "private-auth-user", secret: "" }).success, false);
+  assert.equal(verificationConfirmSchema.safeParse({ userId: "private-auth-user", secret: "abc", password: "x" }).success, false);
 });
