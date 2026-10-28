@@ -9,8 +9,9 @@ import { ActivitySummary } from "./ActivitySummary";
 import { MemberIdentity } from "./MemberIdentity";
 import { SettingsForm } from "./SettingsForm";
 import { MobileAccountSection } from "./MobileAccountSection";
+import { AccountSectionNav } from "./AccountSectionNav";
 import { ParticipationPassport } from "./ParticipationPassport";
-import { accountDate, accountRecords } from "./account-data";
+import { accountDate, accountRecords, passportDate } from "./account-data";
 import { SignOutButton } from "@/components/auth/SignOutButton";
 import { SaveButton } from "@/components/participation/SaveButton";
 import { FollowButton } from "@/components/participation/FollowButton";
@@ -27,6 +28,11 @@ export interface AccountWorkspaceProps {
   upcomingEvents: Event[];
   communities: Community[];
   places: Place[];
+}
+
+function DateChip({ value }: { value: string }) {
+  const date = passportDate(value);
+  return <span className="member-date-chip" aria-hidden="true"><span>{date.month}</span><strong>{date.day}</strong></span>;
 }
 
 /** Server-rendered private workspace; data loading and authorization stay in the route. */
@@ -46,7 +52,7 @@ export function AccountWorkspace({ profile, settings, email, canOrganize, partic
       <section className="member-id" aria-labelledby="fitness-id-heading">
         <h2 id="fitness-id-heading" className="sr-only">Your .fit ID</h2>
         <MemberIdentity profile={profile}>
-          <div className="identity-owner-links"><Link href="/check-in"><QrCode size={16} aria-hidden="true" />Show check-in QR</Link><a href="#settings" aria-label="Privacy settings">Privacy</a>{isPublic && <Link href={`/@${profile.slug}`} className="identity-preview" aria-label="Preview public profile" title="Preview public profile"><ArrowUpRight size={16} aria-hidden="true" /></Link>}</div>
+          <div className="identity-owner-links"><Link href="/check-in" aria-label="Show check-in QR"><QrCode size={16} aria-hidden="true" />Check-in QR</Link><a href="#settings" aria-label="Privacy settings">Privacy</a>{isPublic && <Link href={`/@${profile.slug}`} className="identity-preview" aria-label="Preview public profile" title="Preview public profile"><ArrowUpRight size={16} aria-hidden="true" /></Link>}</div>
         </MemberIdentity>
       </section>
 
@@ -58,8 +64,10 @@ export function AccountWorkspace({ profile, settings, email, canOrganize, partic
           <p className="member-next-detail"><Clock3 size={16} aria-hidden="true" />{nextEvent.startTime} · {accountDate(nextEvent.startsAt || `${nextEvent.date}T00:00:00+05:30`)}</p>
           <p className="member-next-detail"><MapPin size={16} aria-hidden="true" />{nextEvent.venueName} · {nextEvent.sector}</p>
           {nextEvent.demo && <span className="member-demo-label">Demo listing</span>}
-          <Link href={`/event/${nextEvent.slug}`} className="button-secondary member-next-cta">Open event<ArrowUpRight size={16} aria-hidden="true" /></Link>
-          <a href="#rsvps" className="member-text-action" aria-label={`View all (${rsvps.length}) upcoming RSVPs`}>View all ({rsvps.length})<ArrowUpRight size={14} aria-hidden="true" /></a>
+          <div className="member-next-actions">
+            <Link href={`/event/${nextEvent.slug}`} className="button-secondary">Open event<ArrowUpRight size={16} aria-hidden="true" /></Link>
+            <a href="#rsvps" className="member-text-action" aria-label={`View all (${rsvps.length}) upcoming RSVPs`}>View all ({rsvps.length})<ArrowUpRight size={14} aria-hidden="true" /></a>
+          </div>
         </> : <div className="member-next-empty"><p>No upcoming plans.</p><Link href="/events" className="button-secondary">Find your next session<ArrowUpRight size={16} aria-hidden="true" /></Link></div>}
       </section>
     </section>
@@ -69,7 +77,7 @@ export function AccountWorkspace({ profile, settings, email, canOrganize, partic
       <SignOutButton variant="pill" />
     </div>
 
-    <nav className="member-section-nav" aria-label="Account sections"><a href="#overview">.fit ID</a><a href="#plans">Your plans</a><a href="#passport">Passport</a><a href="#settings">Profile &amp; privacy</a></nav>
+    <AccountSectionNav />
 
     <section id="plans" className="member-block" aria-labelledby="plans-heading">
       <div className="member-block-heading"><h2 id="plans-heading">Your plans</h2></div>
@@ -77,7 +85,7 @@ export function AccountWorkspace({ profile, settings, email, canOrganize, partic
         <section id="rsvps" className="member-plan" aria-labelledby="rsvps-heading">
           <header><CalendarDays size={18} aria-hidden="true" /><h3 id="rsvps-heading">Upcoming RSVPs</h3><span className="member-count">{rsvps.length}</span></header>
           {rsvps.length ? <ul className="member-list">{rsvps.map(({ rsvp, event }) => <li key={rsvp.id}>
-            <div className="member-list-content">{event ? <><Link href={`/event/${event.slug}`} className="member-list-title">{event.title}</Link><p>{accountDate(event.startsAt || `${event.date}T00:00:00+05:30`)} · {event.startTime}</p><p>{event.venueName}</p>{event.demo && <span className="member-demo-label">Demo</span>}</> : <p>This event is no longer publicly available.</p>}</div>
+            {event ? <div className="member-list-row"><DateChip value={event.startsAt || `${event.date}T00:00:00+05:30`} /><div className="member-list-content"><Link href={`/event/${event.slug}`} className="member-list-title">{event.title}</Link><p><span className="sr-only">{accountDate(event.startsAt || `${event.date}T00:00:00+05:30`)} · </span>{event.startTime} · {event.venueName}</p>{event.demo && <span className="member-demo-label">Demo</span>}</div></div> : <div className="member-list-content"><p>This event is no longer publicly available.</p></div>}
             {event && <Link href={`/event/${event.slug}`} className="member-row-action" aria-label={`Manage RSVP for ${event.title}`}>Manage<ArrowUpRight size={14} aria-hidden="true" /></Link>}
           </li>)}</ul> : <div className="member-empty"><p>No RSVPs yet.</p><Link href="/events">Find an event<ArrowUpRight size={14} aria-hidden="true" /></Link></div>}
           <p className="member-plan-note">Confirmed plans, not proof of attendance.</p>

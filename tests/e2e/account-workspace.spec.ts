@@ -256,7 +256,8 @@ test("Repeated settings hashes open and focus the disclosure; updates retain per
     payload = route.request().postDataJSON();
     await route.fulfill({ json: { settings: payload } });
   });
-  await page.getByLabel("Private — only I can view my profile").check();
+  if (process.env.E2E_SYNTHETIC_SCREENSHOTS) await page.locator(".account-settings-form").screenshot({ path: "/tmp/noidafit-member-space-settings-390.png" });
+  await page.getByRole("radio", { name: /^Private/ }).check();
   await page.getByRole("button", { name: "Save settings", exact: true }).click();
   await expect(page.getByRole("status").filter({ hasText: "Settings saved." })).toBeVisible();
   expect(payload?.visibility).toBe("private");

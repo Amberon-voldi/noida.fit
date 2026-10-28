@@ -45,3 +45,20 @@
   .identity-dialog-layout { width: 100%; }
 }
 @media (prefers-reduced-motion: reduce) { .identity-banner, .identity-dialog-surface, .identity-dialog::backdrop { transition: none; } }
+
+/* Quick actions under the profile read as tappable pills, app style. */
+.identity-profile-footer { justify-content: flex-start; gap: 8px; padding: 14px 8px 0; }
+.identity-owner-links { justify-content: flex-start; gap: 8px; }
+.identity-open-action, .identity-owner-links a { padding: 0 14px; border: 1px solid var(--border-subtle); border-radius: 999px; background: var(--surface); color: var(--foreground); font-size: 13px; font-weight: 600; }
+.identity-open-action { border-color: color-mix(in srgb, var(--accent-velocity) 40%, var(--border-subtle)); background: color-mix(in srgb, var(--accent-velocity) 10%, var(--surface)); color: var(--accent-velocity); }
+.identity-owner-links a { font-size: 13px; }
+.identity-open-action:hover, .identity-owner-links a:hover { border-color: var(--border-strong); background: var(--surface-hover); color: var(--foreground); }
+.identity-owner-links .identity-preview { width: 44px; padding: 0; }
+.identity-avatar { background: linear-gradient(140deg, color-mix(in srgb, var(--accent-velocity) 30%, var(--surface-elevated)), var(--surface-elevated)); }
+@media (max-width: 639px) {
+  /* One swipeable chip row instead of wrapping onto two lines. */
+  .identity-profile-footer { flex-wrap: nowrap; margin: 0 -16px; padding: 12px 24px 2px; overflow-x: auto; scrollbar-width: none; }
+  .identity-profile-footer::-webkit-scrollbar { display: none; }
+  .identity-owner-links { flex-wrap: nowrap; }
+  .identity-open-action, .identity-owner-links a { flex-shrink: 0; white-space: nowrap; }
+}
