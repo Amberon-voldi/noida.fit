@@ -57,6 +57,7 @@ async function mount(page: Page, props = data()) {
     const request = route.request();
     const url = new URL(request.url());
     if (request.isNavigationRequest()) return route.fulfill({ contentType: "text/html", body: `<style>${stylesheet}</style><main id="fixture"></main>` });
+    if (url.pathname === "/api/check-in/pass") return route.fulfill({ json: { token: "synthetic-payload.synthetic-signature", expiresAt: new Date(Date.now() + 15 * 60_000).toISOString() } });
     if (url.pathname === "/api/participation") return route.fulfill({ json: { rsvps: props.participation.rsvps, savedItems: props.participation.savedItems, memberships: props.participation.memberships } });
     if (url.href.includes("logo.png")) return route.fulfill({ contentType: "image/png", body: readFileSync(join(process.cwd(), "public/images/logo.png")) });
     return route.abort();
@@ -79,23 +80,17 @@ for (const width of [320, 390, 768, 1440]) {
     await expect(next.getByRole("link", { name: "Open event", exact: true })).toHaveAttribute("href", "/event/earliest");
     await expect(next).toContainText("Synthetic Stadium Gate");
     await expect(next).toContainText("Confirmed RSVP");
-    // One integrated introduction: no separate greeting, marketing copy or
-    // duplicate metrics above it. Navigation follows the overview, not the banner.
-    await expect(page.getByRole("heading", { name: props.profile.name, exact: true })).toBeVisible();
-    await expect(page.getByRole("link", { name: "Show check-in QR", exact: true })).toHaveAttribute("href", "/check-in");
-    await expect(page.locator(".identity-profile")).toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
-    await expect(page.locator(".identity-name-row h2")).toHaveCSS("color", "rgb(248, 250, 252)");
-    await expect(page.locator(".member-space-header, .member-edition, .identity-facts, .identity-banner-caption, .identity-bio")).toHaveCount(0);
-    const profileBounds = (await page.locator(".member-id").boundingBox())!;
-    const bannerBounds = (await page.locator(".identity-banner").boundingBox())!;
-    expect(bannerBounds.y).toBeLessThanOrEqual(32);
-    expect(bannerBounds.height).toBeLessThanOrEqual(124);
-    expect(profileBounds.height).toBeLessThan(300);
+    // The page opens on the member's own card, locked to the ID-1 card ratio.
+    await expect(page.locator(".member-id .fitness-card-name")).toHaveText(props.profile.name);
+    await expect(page.locator(".member-space-header, .member-edition, .identity-facts, .identity-bio, .member-session")).toHaveCount(0);
+    const cardBounds = (await page.getByRole("button", { name: /Open .fit ID for/ }).boundingBox())!;
+    expect(cardBounds.y).toBeLessThanOrEqual(32);
+    expect(cardBounds.width / cardBounds.height).toBeCloseTo(85.6 / 54, 1);
     const overviewBounds = (await page.locator(".member-overview").boundingBox())!;
     const navBounds = (await page.getByRole("navigation", { name: "Account sections" }).boundingBox())!;
     expect(navBounds.y).toBeGreaterThan(overviewBounds.y + overviewBounds.height);
     await expect(page.getByRole("link", { name: "Organizer tools" })).toHaveAttribute("href", "/organizer");
-    for (const control of [page.getByRole("button", { name: "View .fit ID", exact: true }), page.getByRole("link", { name: "Privacy settings", exact: true }), page.getByRole("link", { name: "Preview public profile", exact: true })]) {
+    for (const control of [page.getByRole("button", { name: "Show check-in QR", exact: true }), page.getByRole("link", { name: "Privacy settings", exact: true }), page.getByRole("link", { name: "Preview public profile", exact: true })]) {
       const target = (await control.boundingBox())!;
       expect(target.width).toBeGreaterThanOrEqual(44);
       expect(target.height).toBeGreaterThanOrEqual(44);
@@ -129,8 +124,9 @@ for (const width of [320, 390, 768, 1440]) {
     await expect(page.getByRole("link", { name: /^Preview public profile/ })).toHaveCount(0);
     await banner.click();
     await expect(page.getByRole("button", { name: "Share public profile", exact: true })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Card details", exact: true })).toBeVisible();
-    await expect(page.locator(".fitness-card-qr-wrap svg")).toHaveCount(0);
+    await expect(dialog.getByRole("button", { name: "Show check-in QR", exact: true })).toBeVisible();
+    // A private profile still gets its check-in pass, never a public profile QR.
+    await expect(page.getByRole("img", { name: /Public profile QR code/ })).toHaveCount(0);
     await page.keyboard.press("Escape");
     await expect(dialog).toBeHidden();
     expect(errors).toEqual([]);
@@ -152,7 +148,6 @@ test("Banner lifts into the foreground, traps focus, flips, and returns without 
   const banner = page.getByRole("button", { name: /Open .fit ID for/ });
   const dialog = page.getByRole("dialog", { name: ".fit ID", exact: true });
   const before = await page.locator(".member-next").boundingBox();
-  await expect(page.getByRole("button", { name: "Show profile QR", exact: true })).toHaveCount(0);
   await expect(banner).toHaveAttribute("aria-expanded", "false");
   await banner.focus();
   await page.keyboard.press("Enter");
@@ -165,8 +160,10 @@ test("Banner lifts into the foreground, traps focus, flips, and returns without 
   expect(motion[0].frames[0].transform).toMatch(/translate\(.+scale\(/);
   expect(motion[0].frames[1].transform).toBe("translate(0, 0) scale(1)");
   await expect.poll(() => page.locator(".identity-dialog-surface").evaluate(node => node.getAnimations().length)).toBe(0);
-  await page.getByRole("button", { name: "Show profile QR", exact: true }).click();
-  await expect(page.getByRole("img", { name: "Public profile QR code for @synthetic-member" })).toBeVisible();
+  // The owner's card back carries the check-in pass, not the profile QR.
+  await dialog.getByRole("button", { name: "Show check-in QR", exact: true }).click();
+  await expect(page.getByRole("img", { name: "Your participant check-in QR code" })).toBeVisible();
+  await expect(page.getByRole("img", { name: /Public profile QR code/ })).toHaveCount(0);
   await expect.poll(() => page.locator(".fitness-card-back").evaluate(node => {
     const composed = new DOMMatrix(getComputedStyle(node.parentElement!).transform).multiply(new DOMMatrix(getComputedStyle(node).transform));
     return Math.abs(composed.m11 - 1) + Math.abs(composed.m33 - 1);
@@ -182,7 +179,7 @@ test("Banner lifts into the foreground, traps focus, flips, and returns without 
   expect(await page.locator(".member-next").boundingBox()).toEqual(before);
   // Returning from the back resets to the front on the next reveal.
   await banner.click();
-  await expect(page.getByRole("button", { name: "Show profile QR", exact: true })).toHaveAttribute("aria-pressed", "false");
+  await expect(dialog.getByRole("button", { name: "Show check-in QR", exact: true })).toHaveAttribute("aria-pressed", "false");
   await page.getByRole("button", { name: "Return .fit ID to banner" }).click();
   await expect(dialog).toBeHidden();
   await expect(banner).toBeFocused();
@@ -190,12 +187,16 @@ test("Banner lifts into the foreground, traps focus, flips, and returns without 
   await dialog.click({ position: { x: 4, y: 4 } });
   await expect(dialog).toBeHidden();
   await expect(banner).toBeFocused();
-  const footerTrigger = page.getByRole("button", { name: "View .fit ID", exact: true });
-  await footerTrigger.click();
+  // "Check-in QR" opens the same card and turns it over to the pass.
+  const checkInTrigger = page.getByRole("button", { name: "Show check-in QR", exact: true });
+  await checkInTrigger.click();
   await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole("button", { name: /^.fit ID for/ })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByRole("img", { name: "Your participant check-in QR code" })).toBeVisible();
+  if (process.env.E2E_SYNTHETIC_SCREENSHOTS) { await page.waitForTimeout(700); await page.screenshot({ path: "/tmp/noidafit-member-space-checkin-390.png" }); }
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
-  await expect(footerTrigger).toBeFocused();
+  await expect(checkInTrigger).toBeFocused();
 });
 
 test("Reduced motion skips banner travel; closing and unmounting restore scrolling", async ({ page }) => {
@@ -224,7 +225,7 @@ test("Empty account keeps discovery and all settings reachable without fake atte
   await expect(page.locator(".member-passport-empty")).toContainText("Your story starts with showing up");
   await expect(page.locator(".passport-entry")).toHaveCount(0);
   await page.getByRole("link", { name: "Privacy settings", exact: true }).click();
-  const settings = page.getByRole("button", { name: /^Profile settings Your details/ });
+  const settings = page.getByRole("button", { name: /^Profile & privacy Your details/ });
   await expect(settings).toHaveAttribute("aria-expanded", "true");
   await expect(page.getByLabel("Username", { exact: true })).toBeVisible();
   await expect(page.getByLabel("Account email", { exact: true })).toHaveCount(0);
@@ -241,7 +242,7 @@ test("Repeated settings hashes open and focus the disclosure; updates retain per
   await page.emulateMedia({ reducedMotion: "reduce" });
   const props = data();
   await mount(page, props);
-  const settings = page.getByRole("button", { name: /^Profile settings Your details/ });
+  const settings = page.getByRole("button", { name: /^Profile & privacy Your details/ });
   const link = page.getByRole("link", { name: "Privacy settings", exact: true });
   await link.click();
   await expect(settings).toHaveAttribute("aria-expanded", "true");
@@ -269,8 +270,10 @@ test("Account controls preserve route refresh and logout behavior", async ({ pag
   await page.route("**/api/participation/saved", route => route.fulfill({ json: { saved: false } }));
   await page.route("**/api/participation/follow", route => route.fulfill({ json: { following: false } }));
   await page.route("**/api/auth/logout", route => route.fulfill({ json: { ok: true } }));
+  await page.getByRole("tab", { name: /^Saved/ }).click();
   await page.getByRole("button", { name: "Saved event", exact: true }).click();
   await expect.poll(() => page.evaluate(() => (window as unknown as { routerCalls: { refresh: number } }).routerCalls.refresh)).toBe(1);
+  await page.getByRole("tab", { name: /^People/ }).click();
   await page.getByRole("button", { name: "Following community", exact: true }).click();
   await expect.poll(() => page.evaluate(() => (window as unknown as { routerCalls: { refresh: number } }).routerCalls.refresh)).toBe(2);
   await page.getByRole("button", { name: "Sign out", exact: true }).click();
@@ -299,9 +302,9 @@ test("Long member and event names reflow on a phone with enlarged text", async (
   props.events[1].title = "Synthetic session with a very long name that still needs to remain readable";
   await mount(page, props);
   await page.addStyleTag({ content: "html { font-size: 200%; }" });
-  await expect(page.locator(".identity-name-row h2")).toHaveText(props.profile.name);
+  await expect(page.locator(".member-id .fitness-card-name")).toHaveText(props.profile.name);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.getByRole("button", { name: /Open .fit ID for/ }).click();
-  await expect(page.locator(".fitness-card-name")).toHaveText(props.profile.name);
+  await expect(page.locator(".identity-dialog .fitness-card-name")).toHaveText(props.profile.name);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });

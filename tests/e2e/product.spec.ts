@@ -211,7 +211,7 @@ test("signup → save/follow/RSVP → organizer check-in → private/public .fit
       await expect(page.getByRole("navigation", {name:"Account sections"}).getByRole("link")).toHaveCount(4);
       expect(await page.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth)).toBe(true);
       await page.getByRole("link", {name:"Profile & privacy", exact:true}).click();
-      await expect(page.getByRole("heading", {name:/^Profile settings/})).toBeVisible();
+      await expect(page.getByRole("heading", {name:/^Profile & privacy/})).toBeVisible();
       await expect(page.getByLabel("Display name", {exact:true})).toBeVisible();
     }
     await page.setViewportSize({width: 1280, height: 900});

@@ -8,6 +8,7 @@ const VARIANTS = {
   default: { wrap: "space-y-2 text-right", button: "min-h-11 rounded-lg border border-border-strong px-4 text-sm text-text-secondary hover:text-white disabled:opacity-50" },
   pill: { wrap: "shrink-0 space-y-2 text-right", button: "inline-flex min-h-11 items-center gap-2 whitespace-nowrap rounded-full border border-border-strong bg-surface px-4 text-sm font-semibold text-white hover:border-rose-400/70 hover:text-rose-300 disabled:opacity-50" },
   menu: { wrap: "space-y-2", button: "flex min-h-12 w-full items-center justify-center gap-2 rounded-xl border border-border-subtle text-sm font-semibold text-text-secondary hover:border-rose-400/60 hover:text-rose-300 disabled:opacity-50" },
+  row: { wrap: "", button: "flex min-h-14 w-full items-center gap-3 px-5 text-left text-[15px] font-semibold text-rose-300 transition-colors hover:bg-surface-hover disabled:opacity-50" },
 } as const;
 
 export function SignOutButton({ variant = "default" }: { variant?: keyof typeof VARIANTS }) {

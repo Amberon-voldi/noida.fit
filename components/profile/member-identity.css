@@ -1,64 +1,35 @@
 .member-identity { position: relative; min-width: 0; }
-/* A quiet profile header, not a separate light card inside the account. */
-.identity-profile { position: relative; min-width: 0; }
-.identity-banner { position: relative; display: block; width: 100%; height: 124px; overflow: hidden; padding: 20px; border: 1px solid var(--border-subtle); border-radius: var(--radius-xl); background: radial-gradient(ellipse at 78% 0%, color-mix(in srgb, var(--accent-velocity) 13%, transparent), transparent 65%), linear-gradient(115deg, var(--surface-elevated), var(--surface)); color: var(--foreground); font: inherit; text-align: left; cursor: pointer; transition: border-color var(--motion-fast), filter var(--motion-fast); }
-.identity-banner-art { position: absolute; inset: 0; overflow: hidden; pointer-events: none; opacity: .3; background: linear-gradient(115deg, transparent 40%, rgba(255,255,255,.05) 40.2%, transparent 40.4%), linear-gradient(145deg, transparent 62%, color-mix(in srgb, var(--accent-velocity) 20%, transparent) 62.2%, transparent 62.4%); }
-.identity-banner-logo { position: absolute; top: 20px; left: 20px; z-index: 1; width: 88px; max-width: 42%; height: auto; opacity: .9; }
-.identity-banner-label { position: absolute; top: 12px; right: 12px; display: inline-flex; width: 44px; height: 44px; align-items: center; justify-content: center; color: var(--text-secondary); }
-.identity-banner:hover { border-color: var(--border-strong); filter: brightness(1.08); }
-.identity-banner:focus-visible, .identity-open-action:focus-visible, .identity-dialog-toolbar button:focus-visible { outline: 2px solid var(--accent-velocity-glow); outline-offset: 3px; }
-.identity-profile-body { position: relative; padding: 0 8px; }
-.identity-avatar { position: relative; display: flex; width: 56px; height: 56px; align-items: center; justify-content: center; margin-top: -28px; border: 4px solid var(--background); border-radius: 50%; color: var(--foreground); background: var(--surface-elevated); font-size: 23px; font-weight: 750; }
-.identity-name-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 12px; }
-.identity-name-row h2 { min-width: 0; color: var(--foreground); font-size: 25px; font-weight: 750; line-height: 1.2; letter-spacing: -.035em; overflow-wrap: anywhere; }
-.identity-visibility { display: inline-flex; flex-shrink: 0; align-items: center; gap: 5px; color: var(--text-secondary); font-size: 11px; }
-.identity-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 16px; margin-top: 6px; color: var(--text-secondary); font-size: 12px; }
-.identity-handle { min-width: 0; font-family: var(--font-geist-mono), monospace; font-size: 11px; overflow-wrap: anywhere; }
-.identity-city { display: inline-flex; min-width: 0; max-width: 100%; align-items: center; gap: 5px; }
-.identity-city svg { flex-shrink: 0; }
-.identity-city > span { min-width: 0; overflow-wrap: anywhere; }
-.identity-bio { max-width: 54ch; margin-top: 10px; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--text-secondary); font-size: 12px; line-height: 1.6; }
-.identity-profile-footer { display: flex; min-height: 44px; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0 12px; padding: 8px 8px 0; }
-.identity-open-action, .identity-owner-links a { display: inline-flex; min-width: 44px; min-height: 44px; align-items: center; gap: 5px; color: var(--text-secondary); font-size: 12px; font-weight: 600; }
-.identity-open-action:hover, .identity-owner-links a:hover { color: var(--foreground); }
-.identity-owner-links { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 0 12px; }
-.identity-owner-links a { font-size: 11px; }
-.identity-owner-links .identity-preview { justify-content: center; min-width: 44px; }
+
+/* The card itself is the header: tap it to lift it into the foreground. */
+.identity-card-trigger { position: relative; display: block; width: 100%; padding: 0; border: 0; border-radius: 16px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; transition: transform 200ms var(--ease-out), filter var(--motion-fast); }
+.identity-card-trigger:hover { filter: brightness(1.06); }
+.identity-card-trigger:active { transform: scale(.985); }
+.identity-card-trigger:focus-visible, .identity-action:focus-visible, .identity-dialog-toolbar button:focus-visible { outline: 2px solid var(--accent-velocity-glow); outline-offset: 3px; }
+
+/* Quick actions sit under the card as one row of pills. */
+.identity-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+.identity-actions > .identity-owner-links { display: contents; }
+.identity-action, .identity-owner-links a { display: inline-flex; min-width: 44px; min-height: 44px; flex: 1 1 auto; align-items: center; justify-content: center; gap: 7px; padding: 0 16px; border: 1px solid var(--border-subtle); border-radius: 999px; background: var(--surface); color: var(--foreground); font-size: 14px; font-weight: 600; white-space: nowrap; transition: transform 160ms var(--ease-out), background-color var(--motion-fast), border-color var(--motion-fast); }
+.identity-action:hover, .identity-owner-links a:hover { border-color: var(--border-strong); background: var(--surface-hover); }
+.identity-action:active, .identity-owner-links a:active { transform: scale(.96); }
+.identity-action-primary { flex: 2 1 auto; border-color: transparent; background: var(--accent-velocity); color: var(--background); font-weight: 700; }
+.identity-action-primary:hover { border-color: transparent; background: var(--accent-velocity-glow); }
+.identity-owner-links .identity-preview { flex: 0 0 44px; padding: 0; }
+.identity-bio { max-width: 54ch; margin-top: 12px; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--text-secondary); font-size: 14px; line-height: 1.6; }
+
 /* The foreground contains only the ID and its controls. */
 .identity-dialog { inset: 0; width: 100%; height: 100dvh; max-width: none; max-height: none; margin: 0; padding: 24px; border: 0; background: transparent; color: var(--foreground); overflow: auto; overscroll-behavior: contain; }
 .identity-dialog[open] { display: grid; }
-.identity-dialog::backdrop { background: rgba(5,7,11,.72); backdrop-filter: blur(8px); transition: background-color 240ms ease, backdrop-filter 240ms ease; }
+.identity-dialog::backdrop { background: rgba(5,7,11,.8); backdrop-filter: blur(12px); transition: background-color 240ms ease, backdrop-filter 240ms ease; }
 .identity-dialog-closing::backdrop { background: rgba(5,7,11,0); backdrop-filter: blur(0); }
 @starting-style { .identity-dialog[open]::backdrop { background: rgba(5,7,11,0); backdrop-filter: blur(0); } }
 .identity-dialog-layout { width: min(100%, 560px); margin: auto; padding: 0; }
-.identity-dialog-toolbar { display: flex; align-items: center; justify-content: flex-end; margin-bottom: 8px; }
+.identity-dialog-toolbar { display: flex; align-items: center; justify-content: flex-end; margin-bottom: 10px; }
 .identity-dialog-toolbar button { display: inline-flex; width: 44px; height: 44px; align-items: center; justify-content: center; border: 0; border-radius: 50%; color: var(--text-secondary); background: var(--surface); }
 .identity-dialog-toolbar button:hover { color: var(--foreground); }
 .identity-dialog-surface { transform-origin: top left; }
-.identity-dialog .fitness-card-front { background: radial-gradient(ellipse at 80% 0%, color-mix(in srgb, var(--accent-velocity) 8%, transparent), transparent 65%), linear-gradient(115deg, var(--surface-elevated), var(--surface)); }
 @media (max-width: 639px) {
-  .identity-banner { height: 108px; }
-  .identity-banner-logo { top: 16px; left: 16px; width: 80px; }
-  .identity-name-row { gap: 10px; }
-  .identity-name-row h2 { font-size: 23px; }
   .identity-dialog { padding: 12px; }
   .identity-dialog-layout { width: 100%; }
 }
-@media (prefers-reduced-motion: reduce) { .identity-banner, .identity-dialog-surface, .identity-dialog::backdrop { transition: none; } }
-
-/* Quick actions under the profile read as tappable pills, app style. */
-.identity-profile-footer { justify-content: flex-start; gap: 8px; padding: 14px 8px 0; }
-.identity-owner-links { justify-content: flex-start; gap: 8px; }
-.identity-open-action, .identity-owner-links a { padding: 0 14px; border: 1px solid var(--border-subtle); border-radius: 999px; background: var(--surface); color: var(--foreground); font-size: 13px; font-weight: 600; }
-.identity-open-action { border-color: color-mix(in srgb, var(--accent-velocity) 40%, var(--border-subtle)); background: color-mix(in srgb, var(--accent-velocity) 10%, var(--surface)); color: var(--accent-velocity); }
-.identity-owner-links a { font-size: 13px; }
-.identity-open-action:hover, .identity-owner-links a:hover { border-color: var(--border-strong); background: var(--surface-hover); color: var(--foreground); }
-.identity-owner-links .identity-preview { width: 44px; padding: 0; }
-.identity-avatar { background: linear-gradient(140deg, color-mix(in srgb, var(--accent-velocity) 30%, var(--surface-elevated)), var(--surface-elevated)); }
-@media (max-width: 639px) {
-  /* One swipeable chip row instead of wrapping onto two lines. */
-  .identity-profile-footer { flex-wrap: nowrap; margin: 0 -16px; padding: 12px 24px 2px; overflow-x: auto; scrollbar-width: none; }
-  .identity-profile-footer::-webkit-scrollbar { display: none; }
-  .identity-owner-links { flex-wrap: nowrap; }
-  .identity-open-action, .identity-owner-links a { flex-shrink: 0; white-space: nowrap; }
-}
+@media (prefers-reduced-motion: reduce) { .identity-card-trigger, .identity-action, .identity-owner-links a, .identity-dialog-surface, .identity-dialog::backdrop { transition: none; } }

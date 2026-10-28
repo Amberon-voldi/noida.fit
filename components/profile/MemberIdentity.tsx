@@ -1,10 +1,9 @@
 "use client";
 
-import Image from "next/image";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
-import { ArrowUpRight, Globe2, LockKeyhole, MapPin, X } from "lucide-react";
+import { QrCode, X } from "lucide-react";
 import type { FitnessProfile } from "@/types/user";
-import { FitnessCard } from "@/components/cards/FitnessCard";
+import { FitnessCard, FitnessCardFront } from "@/components/cards/FitnessCard";
 import { ProfileActions } from "./ProfileActions";
 import "./member-identity.css";
 
@@ -12,11 +11,14 @@ interface MemberIdentityProps {
   profile: FitnessProfile;
   /** Owner-only navigation is composed by the server, never inferred here. */
   children?: ReactNode;
+  /** Owner view: adds the check-in QR action and puts the check-in pass on the card's back. */
+  checkIn?: boolean;
 }
 
-/** A profile banner that lifts into the foreground as the flippable member ID. */
-export function MemberIdentity({ profile, children }: MemberIdentityProps) {
+/** The member card, shown in place, that lifts into the foreground as the flippable .fit ID. */
+export function MemberIdentity({ profile, children, checkIn = false }: MemberIdentityProps) {
   const [open, setOpen] = useState(false);
+  const [flipOnOpen, setFlipOnOpen] = useState(false);
   const [closing, setClosing] = useState(false);
   const id = useId();
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -85,21 +87,21 @@ export function MemberIdentity({ profile, children }: MemberIdentityProps) {
     (returnFocusRef.current || triggerRef.current)?.focus({ preventScroll: true });
   }
 
+  function show(event: React.MouseEvent<HTMLButtonElement>, flipped: boolean) {
+    returnFocusRef.current = event.currentTarget;
+    setFlipOnOpen(flipped);
+    setOpen(true);
+  }
+
   return <div className={`member-identity ${open ? "member-identity-open" : ""}`}>
-    <div className="identity-profile">
-      <button ref={triggerRef} type="button" className="identity-banner" onClick={event => { returnFocusRef.current = event.currentTarget; setOpen(true); }} aria-haspopup="dialog" aria-expanded={open} aria-controls={`${id}-dialog`} aria-label={`Open .fit ID for ${profile.name}`}>
-        <span className="identity-banner-art" aria-hidden="true" />
-        <Image src="/images/logo.png" alt="" width={112} height={38} className="identity-banner-logo" />
-        <span className="identity-banner-label" aria-hidden="true"><ArrowUpRight size={18} /></span>
-      </button>
-      <div className="identity-profile-body">
-        <span className="identity-avatar" aria-hidden="true">{profile.name.trim().slice(0, 1).toUpperCase()}</span>
-        <div className="identity-name-row"><h2>{profile.name}</h2><span className="identity-visibility">{isPublic ? <Globe2 size={13} aria-hidden="true" /> : <LockKeyhole size={13} aria-hidden="true" />}{isPublic ? "Public" : "Private"}</span></div>
-        <div className="identity-meta"><span className="identity-handle">@{profile.slug}</span>{profile.city && <span className="identity-city"><MapPin size={13} aria-hidden="true" /><span>{profile.city}</span></span>}</div>
-        {profile.bio && <p className="identity-bio">{profile.bio}</p>}
-      </div>
-      <div className="identity-profile-footer"><button type="button" onClick={event => { returnFocusRef.current = event.currentTarget; setOpen(true); }} className="identity-open-action" aria-haspopup="dialog" aria-expanded={open} aria-controls={`${id}-dialog`}>View .fit ID<ArrowUpRight size={14} aria-hidden="true" /></button>{children}</div>
-    </div>
+    <button ref={triggerRef} type="button" className="identity-card-trigger" onClick={event => show(event, false)} aria-haspopup="dialog" aria-expanded={open} aria-controls={`${id}-dialog`} aria-label={`Open .fit ID for ${profile.name}`}>
+      <span className="fitness-card-shell" aria-hidden="true"><FitnessCardFront user={profile} /></span>
+    </button>
+    {(checkIn || children) && <div className="identity-actions">
+      {checkIn && <button type="button" onClick={event => show(event, true)} className="identity-action identity-action-primary" aria-haspopup="dialog" aria-controls={`${id}-dialog`} aria-label="Show check-in QR"><QrCode size={17} aria-hidden="true" />Check-in QR</button>}
+      {children}
+    </div>}
+    {profile.bio && <p className="identity-bio">{profile.bio}</p>}
     <dialog ref={dialogRef} id={`${id}-dialog`} className={`identity-dialog${closing ? " identity-dialog-closing" : ""}`} aria-labelledby={`${id}-title`} onCancel={event => { event.preventDefault(); void dismiss(); }} onClose={() => { setOpen(false); setClosing(false); closingRef.current = false; }} onKeyDown={event => {
       if (event.key !== "Tab") return;
       const controls = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('button:not(:disabled), a[href], input:not(:disabled), [tabindex]:not([tabindex="-1"])')).filter(node => node.getClientRects().length > 0 && !node.closest("[inert]"));
@@ -110,7 +112,7 @@ export function MemberIdentity({ profile, children }: MemberIdentityProps) {
     }} onClick={event => { if (event.target === event.currentTarget) void dismiss(); }}>
       <div className="identity-dialog-layout">
         <header className="identity-dialog-toolbar"><h2 id={`${id}-title`} className="sr-only">.fit ID</h2><button type="button" onClick={() => void dismiss()} aria-label="Return .fit ID to banner" disabled={closing}><X size={20} aria-hidden="true" /></button></header>
-        <div ref={surfaceRef} className="identity-dialog-surface" inert={closing}>{open && <FitnessCard user={profile} actions={isPublic ? <ProfileActions handle={profile.handle} name={profile.name} /> : undefined} />}</div>
+        <div ref={surfaceRef} className="identity-dialog-surface" inert={closing}>{open && <FitnessCard user={profile} checkIn={checkIn} flipOnMount={flipOnOpen} actions={isPublic ? <ProfileActions handle={profile.handle} name={profile.name} /> : undefined} />}</div>
       </div>
     </dialog>
   </div>;
