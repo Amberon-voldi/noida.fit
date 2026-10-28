@@ -7,7 +7,7 @@ import type { Event } from "@/types/event";
 import type { Place } from "@/types/place";
 import type { Activity } from "@/types/activity";
 import { appwriteCollections } from "@/lib/appwrite/config";
-import { listAppwriteDocuments, Query } from "@/lib/appwrite/database";
+import { listAppwriteDocuments, listSharedAppwriteDocuments, Query } from "@/lib/appwrite/database";
 import type { AppwriteDocument } from "@/lib/appwrite/database";
 
 type ContentDocument = Record<string, unknown>;
@@ -88,15 +88,15 @@ function decodePlace(document: AppwriteDocument<ContentDocument>): Place {
 const loadActivities = cache(async (): Promise<Activity[]> => {
   // Live Appwrite reads require runtime credentials, never deployment-time prerendering.
   await connection();
-  const documents = await listAppwriteDocuments<ContentDocument>(appwriteCollections.activities, [Query.equal("status", "published")]);
+  const documents = await listSharedAppwriteDocuments<ContentDocument>(appwriteCollections.activities, [Query.equal("status", "published")]);
   return documents.map(decodeActivity);
 });
 
 const loadCommunities = cache(async (): Promise<Community[]> => {
   await connection();
   const [documents, memberships] = await Promise.all([
-    listAppwriteDocuments<ContentDocument>(appwriteCollections.communities, [Query.equal("status", "published")]),
-    listAppwriteDocuments<{communityId: string; status: string}>(appwriteCollections.memberships, [Query.select(["communityId", "status"])]),
+    listSharedAppwriteDocuments<ContentDocument>(appwriteCollections.communities, [Query.equal("status", "published")]),
+    listSharedAppwriteDocuments<{communityId: string; status: string}>(appwriteCollections.memberships, [Query.select(["communityId", "status"])]),
   ]);
   const counts = new Map<string, number>();
   for (const member of memberships) if (member.status === "active") counts.set(member.communityId, (counts.get(member.communityId) ?? 0) + 1);
@@ -106,8 +106,8 @@ const loadCommunities = cache(async (): Promise<Community[]> => {
 const loadEvents = cache(async (): Promise<Event[]> => {
   await connection();
   const [documents, rsvps] = await Promise.all([
-    listAppwriteDocuments<ContentDocument>(appwriteCollections.events, [Query.equal("status", "published")]),
-    listAppwriteDocuments<{eventId: string; status: string}>(appwriteCollections.rsvps, [Query.select(["eventId", "status"])]),
+    listSharedAppwriteDocuments<ContentDocument>(appwriteCollections.events, [Query.equal("status", "published")]),
+    listSharedAppwriteDocuments<{eventId: string; status: string}>(appwriteCollections.rsvps, [Query.select(["eventId", "status"])]),
   ]);
   const counts = new Map<string, number>();
   for (const rsvp of rsvps) if (rsvp.status === "confirmed") counts.set(rsvp.eventId, (counts.get(rsvp.eventId) ?? 0) + 1);
@@ -116,7 +116,7 @@ const loadEvents = cache(async (): Promise<Event[]> => {
 
 const loadPlaces = cache(async (): Promise<Place[]> => {
   await connection();
-  const documents = await listAppwriteDocuments<ContentDocument>(appwriteCollections.places, [Query.equal("status", "published")]);
+  const documents = await listSharedAppwriteDocuments<ContentDocument>(appwriteCollections.places, [Query.equal("status", "published")]);
   return documents.map(decodePlace);
 });
 

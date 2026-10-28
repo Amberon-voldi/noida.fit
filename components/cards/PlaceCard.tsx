@@ -6,15 +6,15 @@ import { CardMedia } from "./CardMedia";
 import { MapPin } from "lucide-react";
 
 /** `showHours` lets a caller lift an advisory shared by every place into one section note. */
-export interface PlaceCardProps { place: Place; compact?: boolean; showDemoBadge?: boolean; showHours?: boolean; }
+export interface PlaceCardProps { place: Place; compact?: boolean; showDemoBadge?: boolean; showHours?: boolean; preloadImage?: boolean; }
 
-export function PlaceCard({ place, compact = false, showDemoBadge = true, showHours = true }: PlaceCardProps) {
+export function PlaceCard({ place, preloadImage = false, compact = false, showDemoBadge = true, showHours = true }: PlaceCardProps) {
   const image = place.coverImageUrl ?? place.imageUrl;
   const illustration = /park|nature|ground/i.test(place.category) ? "outdoor" : /road/i.test(place.category) ? "cycling" : /studio/i.test(place.category) ? "wellness" : "sports";
   return (
     <BaseCard className={compact ? "compact-card" : ""}>
       {!compact && <Link href={`/place/${place.slug}`} aria-label={`View ${place.name}`} className="motion-photo relative block aspect-[16/9] shrink-0 overflow-hidden border-b border-border-subtle bg-surface-elevated focus-visible:outline-offset-[-3px]">
-        <ListingImage src={image} category={illustration} alt={place.name} sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw" />
+        <ListingImage src={image} category={illustration} alt={place.name} sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw" preload={preloadImage} />
         <div className="absolute inset-x-3 top-3 flex flex-wrap items-start justify-between gap-2">
           <span className="min-w-0 rounded-md bg-background/90 px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-wide text-velocity [overflow-wrap:anywhere]">{place.category}</span>
           {place.demo && showDemoBadge && <span className="shrink-0 rounded-md bg-background/90 px-2 py-1 text-[10px] font-semibold uppercase text-white">Demo</span>}

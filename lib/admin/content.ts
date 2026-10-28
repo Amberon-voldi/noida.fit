@@ -1,7 +1,7 @@
 import "server-only";
 
 import { ID, Permission, Role } from "node-appwrite";
-import { Query, getAppwriteDocument, listAppwriteDocuments } from "@/lib/appwrite/database";
+import { Query, getAppwriteDocument, invalidateSharedReads, listAppwriteDocuments } from "@/lib/appwrite/database";
 import { appwriteCollections } from "@/lib/appwrite/config";
 import { getAdminServices, getAppwriteDatabaseConfig } from "@/lib/appwrite/server";
 import { HttpError } from "@/lib/http";
@@ -67,6 +67,7 @@ async function write(kind: ContentKind, record: ContentRecord, create: boolean):
   };
   // Never upsert: a create collision must not overwrite an existing editorial record.
   const row = await (create ? databases.createDocument(args) : databases.updateDocument(args));
+  invalidateSharedReads(args.collectionId);
   return toListed(kind, row as unknown as Row);
 }
 
@@ -196,5 +197,6 @@ export async function deleteAdminContent(user: AdminActor, kindValue: string, id
     const { databases } = getAdminServices();
     const { databaseId } = getAppwriteDatabaseConfig();
     await databases.deleteDocument({ databaseId, collectionId: appwriteCollections[kind], documentId: id });
+    invalidateSharedReads(appwriteCollections[kind]);
   });
 }

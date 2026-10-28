@@ -2,6 +2,8 @@
 
 import { useEffect, useRef, type ReactNode } from "react";
 
+let initialHydration = true;
+
 /** One-shot choreography. Content stays visible without JS or animation support. */
 export function Reveal({ children, className = "" }: { children: ReactNode; className?: string }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -33,7 +35,14 @@ export function Reveal({ children, className = "" }: { children: ReactNode; clas
       observer.disconnect();
     };
     preference.addEventListener("change", reduce);
-    targets.forEach(target => observer.observe(target));
+    // Server-rendered items already on screen at hydration have been seen: fading them from 0
+    // would flash them out and delay LCP. Later mounts (filter changes) still choreograph in.
+    const skipVisible = initialHydration;
+    setTimeout(() => { initialHydration = false; });
+    targets.forEach(target => {
+      if (skipVisible && target.getBoundingClientRect().top < window.innerHeight) return;
+      observer.observe(target);
+    });
     return () => {
       observer.disconnect();
       animations.forEach(animation => animation.cancel());

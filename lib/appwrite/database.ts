@@ -83,6 +83,31 @@ async function listDocuments<T extends object>(collectionId: string, queries: st
   return documents;
 }
 
+/**
+ * Public directory reads change rarely, so their results are shared across requests for a short
+ * window instead of re-reading whole collections on every page view. Only settled results are
+ * stored: an in-flight read belongs to its own request (Workers cancel I/O when a request ends).
+ * Any write through these helpers drops that collection; other instances converge within the TTL.
+ */
+const SHARED_READ_TTL_MS = 30_000;
+const sharedReads = new Map<string, { expires: number; documents: AppwriteDocument<AppwriteData>[] }>();
+
+export function invalidateSharedReads(collectionId: string): void {
+  for (const key of sharedReads.keys()) if (key.startsWith(`${collectionId}\n`)) sharedReads.delete(key);
+}
+
+export async function listSharedAppwriteDocuments<T extends object = AppwriteData>(
+  collectionId: string,
+  queries: string[] = [],
+): Promise<AppwriteDocument<T>[]> {
+  const key = `${collectionId}\n${queries.join("\n")}`;
+  const hit = sharedReads.get(key);
+  if (hit && hit.expires > Date.now()) return hit.documents as AppwriteDocument<T>[];
+  const documents = await listAppwriteDocuments<T>(collectionId, queries);
+  sharedReads.set(key, { expires: Date.now() + SHARED_READ_TTL_MS, documents: documents as AppwriteDocument<AppwriteData>[] });
+  return documents;
+}
+
 export async function getAppwriteDocument<T extends object = AppwriteData>(
   collectionId: string,
   documentId: string,
@@ -109,6 +134,7 @@ export async function createAppwriteDocument<T extends object = AppwriteData>(
   const { databases } = getAdminServices();
   const { databaseId } = getAppwriteDatabaseConfig();
   const result = await databases.createDocument({ databaseId, collectionId, documentId, data: cleanData(data), permissions });
+  invalidateSharedReads(collectionId);
   return result as unknown as AppwriteDocument<T>;
 }
 
@@ -128,6 +154,7 @@ export async function upsertAppwriteDocument<T extends object = AppwriteData>(
   const { databaseId } = getAppwriteDatabaseConfig();
   // Preserve existing ACLs unless the service explicitly supplies replacements.
   const result = await databases.upsertDocument({ databaseId, collectionId, documentId, data: cleanData(data), ...(permissions === undefined ? {} : { permissions }) });
+  invalidateSharedReads(collectionId);
   return result as unknown as AppwriteDocument<T>;
 }
 
@@ -139,6 +166,7 @@ export async function updateAppwriteDocument<T extends object = AppwriteData>(
   const { databases } = getAdminServices();
   const { databaseId } = getAppwriteDatabaseConfig();
   const result = await databases.updateDocument({ databaseId, collectionId, documentId, data: cleanData(data) });
+  invalidateSharedReads(collectionId);
   return result as unknown as AppwriteDocument<T>;
 }
 
@@ -146,6 +174,7 @@ export async function deleteAppwriteDocument(collectionId: string, documentId: s
   const { databases } = getAdminServices();
   const { databaseId } = getAppwriteDatabaseConfig();
   await databases.deleteDocument({ databaseId, collectionId, documentId });
+  invalidateSharedReads(collectionId);
 }
 
 export { Query };

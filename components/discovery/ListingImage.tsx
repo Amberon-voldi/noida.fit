@@ -14,14 +14,15 @@ export function editorialImage(category = "running", width = 1000): string {
   return `https://images.unsplash.com/${EDITORIAL_IMAGES[groups[category] ?? category] ?? EDITORIAL_IMAGES.outdoor}?auto=format&fit=crop&w=${width}&q=80`;
 }
 
-export function ListingImage({ src, category = "outdoor", alt, sizes, hero = false }: { src?: string; category?: string; alt: string; sizes: string; hero?: boolean }) {
+/** `preload` marks the likely LCP image (a detail cover, or the first card of a results grid). */
+export function ListingImage({ src, category = "outdoor", alt, sizes, hero = false, preload = hero }: { src?: string; category?: string; alt: string; sizes: string; hero?: boolean; preload?: boolean }) {
   // Only render the hosts configured for the public directory; do not pass arbitrary URLs to the optimizer.
   const supported = src && (src.startsWith("/images/") || src.startsWith("https://images.unsplash.com/"));
   const source = supported ? src : editorialImage(category, hero ? 1600 : 900);
   const editorial = !supported || source.includes("images.unsplash.com");
   return (
     <>
-      <Image src={source} alt={editorial ? "" : alt} fill sizes={sizes} className="object-cover" {...(hero ? { preload: true } : {})} />
+      <Image src={source} alt={editorial ? "" : alt} fill sizes={sizes} className="object-cover" {...(preload ? { preload: true } : {})} />
       {editorial && <span className="absolute bottom-2 right-2 z-10 rounded bg-background/85 px-2 py-1 text-[10px] text-white/85">Illustrative photo · Unsplash</span>}
     </>
   );

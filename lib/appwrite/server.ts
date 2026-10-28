@@ -1,5 +1,6 @@
 import "server-only";
 
+import { cache } from "react";
 import { Account, Client, Databases, Users } from "node-appwrite";
 import { AppwriteException } from "node-appwrite";
 import { cookies } from "next/headers";
@@ -46,7 +47,8 @@ function isMissingSessionError(error: unknown): boolean {
   return error instanceof AppwriteException && (error.code === 401 || error.code === 404);
 }
 
-export async function getCurrentAppwriteUser() {
+/** Per request: the navbar and the page both ask, but the session is read from Appwrite once. */
+export const getCurrentAppwriteUser = cache(async () => {
   const sessionSecret = await getSessionSecret();
   if (!sessionSecret) return null;
 
@@ -57,7 +59,7 @@ export async function getCurrentAppwriteUser() {
     if (isMissingSessionError(error)) return null;
     throw error;
   }
-}
+});
 
 export function getAppwriteDatabaseConfig() {
   const config = requireAppwriteServerConfig();

@@ -7,13 +7,13 @@ import { CardMedia } from "./CardMedia";
 import { SaveButton } from "@/components/participation/SaveButton";
 import { BaseCard } from "./BaseCard";
 
-export interface EventCardProps { event: Event; compact?: boolean; showDemoBadge?: boolean; }
+export interface EventCardProps { event: Event; compact?: boolean; showDemoBadge?: boolean; preloadImage?: boolean; }
 
-export function EventCard({ event, compact = false, showDemoBadge = true }: EventCardProps) {
+export function EventCard({ event, preloadImage = false, compact = false, showDemoBadge = true }: EventCardProps) {
   return (
     <BaseCard className={compact ? "compact-card" : ""}>
       {!compact && <Link href={`/event/${event.slug}`} aria-label={`View ${event.title}`} className="motion-photo relative block aspect-[16/9] shrink-0 overflow-hidden bg-surface-elevated focus-visible:outline-offset-[-3px]">
-        <ListingImage src={event.coverImageUrl ?? event.imageUrl} category={event.category} alt={event.title} sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw" />
+        <ListingImage src={event.coverImageUrl ?? event.imageUrl} category={event.category} alt={event.title} sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw" preload={preloadImage} />
         <div className="absolute inset-x-3 top-3 flex flex-wrap items-start justify-between gap-2">
           <span className="rounded-md bg-background/90 px-2.5 py-1.5 font-mono text-[11px] font-semibold text-white">{formatDate(event.date)}</span>
           {event.demo && showDemoBadge && <span className="shrink-0 rounded-md bg-background/90 px-2 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-white">Demo</span>}

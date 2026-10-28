@@ -6,14 +6,14 @@ import { BaseCard } from "./BaseCard";
 import { CardMedia } from "./CardMedia";
 import { CalendarDays, CheckCircle2, MapPin } from "lucide-react";
 
-export interface CommunityCardProps { community: Community; compact?: boolean; showDemoBadge?: boolean; }
+export interface CommunityCardProps { community: Community; compact?: boolean; showDemoBadge?: boolean; preloadImage?: boolean; }
 
-export function CommunityCard({ community, compact = false, showDemoBadge = true }: CommunityCardProps) {
+export function CommunityCard({ community, preloadImage = false, compact = false, showDemoBadge = true }: CommunityCardProps) {
   const image = community.bannerUrl;
   return (
     <BaseCard className={compact ? "compact-card" : ""}>
       {!compact && <Link href={`/community/${community.slug}`} aria-label={`View ${community.name}`} className="motion-photo relative block aspect-[16/9] shrink-0 overflow-hidden border-b border-border-subtle bg-surface-elevated focus-visible:outline-offset-[-3px]">
-        <ListingImage src={image} category={community.category} alt={community.name} sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw" />
+        <ListingImage src={image} category={community.category} alt={community.name} sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw" preload={preloadImage} />
         <div className="absolute inset-x-3 top-3 flex flex-wrap items-start justify-between gap-2">
           <span className="min-w-0 rounded-md bg-background/90 px-2 py-1 font-mono text-[10px] font-bold uppercase tracking-wide text-velocity [overflow-wrap:anywhere]">{CATEGORY_LABELS[community.category] ?? community.category}</span>
           {community.verified && !community.demo && <span className="flex shrink-0 items-center gap-1 rounded-md bg-background/90 px-2 py-1 text-[11px] font-semibold text-foreground"><CheckCircle2 className="size-3.5 text-velocity" aria-hidden="true" /> Verified</span>}
