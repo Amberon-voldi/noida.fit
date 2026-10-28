@@ -25,6 +25,9 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     if (error instanceof HttpError) return jsonError(error);
     if (error instanceof ZodError) {
+      if (error.issues.some(issue => issue.path[0] === "acceptTerms" || issue.path[0] === "acceptPrivacy")) {
+        return jsonError(new HttpError(400, "CONSENT_REQUIRED", "Agree to the Terms and Conditions and the Privacy Policy to create your .fit ID."));
+      }
       return jsonError(new HttpError(400, "INVALID_INPUT", "Use a valid name, email and username, and a password with 8+ characters including a letter and number."));
     }
     if (error instanceof UsernameConflictError) return jsonError(new HttpError(409, "USERNAME_TAKEN", error.message));

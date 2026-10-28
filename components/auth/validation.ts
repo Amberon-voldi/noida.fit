@@ -16,6 +16,9 @@ export const signupSchema = loginSchema.extend({
   name: displayNameSchema,
   username: usernameSchema,
   password: passwordSchema.regex(/[A-Za-z]/).regex(/[0-9]/),
+  // Separate, explicit opt-ins: each must be ticked by the member, never defaulted.
+  acceptTerms: z.literal(true),
+  acceptPrivacy: z.literal(true),
 });
 
 export const recoveryRequestSchema = z.object({ email: emailSchema }).strict();

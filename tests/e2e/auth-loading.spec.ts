@@ -33,6 +33,10 @@ for (const flow of ["login", "signup"] as const) {
       }
       await page.getByLabel("Email", { exact: true }).fill("loading@example.test");
       await page.getByLabel("Password", { exact: true }).fill("Test-password-123");
+      if (flow === "signup") {
+        await page.getByRole("checkbox", { name: /Terms and Conditions/ }).check();
+        await page.getByRole("checkbox", { name: /Privacy Policy/ }).check();
+      }
       const form = page.locator("form");
       const button = form.locator('button[type="submit"]');
       await button.click();
@@ -73,6 +77,10 @@ for (const flow of ["login", "signup"] as const) {
       }
       await page.getByLabel("Email", { exact: true }).fill("loading@example.test");
       await page.getByLabel("Password", { exact: true }).fill("Test-password-123");
+      if (flow === "signup") {
+        await page.getByRole("checkbox", { name: /Terms and Conditions/ }).check();
+        await page.getByRole("checkbox", { name: /Privacy Policy/ }).check();
+      }
       const form = page.locator("form");
       const button = form.locator('button[type="submit"]');
       for (let attempt = 1; attempt <= 2; attempt++) {

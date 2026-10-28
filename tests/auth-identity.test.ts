@@ -83,6 +83,7 @@ function fakeAppwrite() {
       return Response.json({ $id: "test-session", secret: "server-only-session-secret", expire: "2027-01-01T00:00:00.000Z" }, { status: 201 });
     }
     if (path === "/account/sessions/current" && method === "DELETE") return new Response(null, { status: 204 });
+    if (/^\/users\/[^/]+\/prefs$/.test(path) && method === "PATCH") return Response.json(body.prefs);
     if (path === "/account/verification" && method === "POST") {
       assert.equal(headers.get("x-appwrite-session"), "server-only-session-secret");
       return Response.json({ $id: "verification-token", userId: user.$id, secret: "" }, { status: 201 });
@@ -459,7 +460,7 @@ test("signup emails a verification link that returns to the site, without failin
   const { POST } = await import("../app/api/auth/signup/route");
   const response = await POST(new NextRequest("https://noida.fit/api/auth/signup", {
     method: "POST", headers: { Origin: "https://noida.fit", "content-type": "application/json" },
-    body: JSON.stringify({ name: "Noida Runner", email: "runner@example.test", username: "noida-runner", password: "password123" }),
+    body: JSON.stringify({ name: "Noida Runner", email: "runner@example.test", username: "noida-runner", password: "password123", acceptTerms: true, acceptPrivacy: true }),
   }));
   assert.equal(response.status, 200);
   const sent = backend.calls.filter((call) => call.path === "/account/verification" && call.method === "POST");
@@ -490,4 +491,26 @@ test("verification links need a well-formed user ID and secret only", () => {
   assert.equal(verificationConfirmSchema.safeParse({ userId: "../admin", secret: "abc" }).success, false);
   assert.equal(verificationConfirmSchema.safeParse({ userId: "private-auth-user", secret: "" }).success, false);
   assert.equal(verificationConfirmSchema.safeParse({ userId: "private-auth-user", secret: "abc", password: "x" }).success, false);
+});
+
+test("signup requires separate, explicit terms and privacy consent and records each", async () => {
+  const valid = { name: "Runner", email: "runner@example.test", username: "runner", password: "password123", acceptTerms: true, acceptPrivacy: true };
+  assert.equal(signupSchema.safeParse(valid).success, true);
+  for (const missing of [{ acceptTerms: undefined }, { acceptPrivacy: undefined }, { acceptTerms: false }, { acceptPrivacy: "true" }]) {
+    assert.equal(signupSchema.safeParse({ ...valid, ...missing }).success, false, JSON.stringify(missing));
+  }
+  const backend = fakeAppwrite();
+  const { POST } = await import("../app/api/auth/signup/route");
+  const signup = (consent: object) => POST(new NextRequest("https://noida.fit/api/auth/signup", {
+    method: "POST", headers: { Origin: "https://noida.fit", "content-type": "application/json" },
+    body: JSON.stringify({ name: "Noida Runner", email: "runner@example.test", username: "noida-runner", password: "password123", ...consent }),
+  }));
+  const refused = await signup({ acceptTerms: true });
+  assert.equal(refused.status, 400);
+  assert.equal((await refused.json() as { code?: string }).code, "CONSENT_REQUIRED");
+  assert.ok(!backend.calls.some((call) => call.path === "/account" && call.method === "POST"));
+  assert.equal((await signup({ acceptTerms: true, acceptPrivacy: true })).status, 200);
+  const prefs = backend.calls.find((call) => /^\/users\/[^/]+\/prefs$/.test(call.path))?.body.prefs as Record<string, string>;
+  assert.ok(!Number.isNaN(Date.parse(prefs.termsAcceptedAt)));
+  assert.ok(!Number.isNaN(Date.parse(prefs.privacyAcceptedAt)));
 });

@@ -11,6 +11,8 @@ const inputClass = "mt-1 min-h-11 w-full rounded-lg border border-border-strong 
 export function SignupForm({ callbackUrl }: { callbackUrl: string }) {
   const router = useRouter();
   const [form, setForm] = useState({ name: "", username: "", email: "", password: "" });
+  // Both start unchecked; members opt in to each separately.
+  const [consent, setConsent] = useState({ acceptTerms: false, acceptPrivacy: false });
   const [error, setError] = useState("");
   const [status, setStatus] = useState<AuthSubmitStatus>("idle");
   const loading = status !== "idle";
@@ -23,7 +25,11 @@ export function SignupForm({ callbackUrl }: { callbackUrl: string }) {
     event.preventDefault();
     if (loading) return;
     setError("");
-    if (!signupSchema.safeParse({ ...form, callbackUrl }).success) {
+    if (!consent.acceptTerms || !consent.acceptPrivacy) {
+      setError("Agree to the Terms and Conditions and the Privacy Policy to create your .fit ID.");
+      return;
+    }
+    if (!signupSchema.safeParse({ ...form, ...consent, callbackUrl }).success) {
       setError("Check your details. Your username must start and end with a letter or number. Your password needs at least 8 characters, a letter and a number.");
       return;
     }
@@ -32,7 +38,7 @@ export function SignupForm({ callbackUrl }: { callbackUrl: string }) {
       const response = await fetch("/api/auth/signup", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ ...form, callbackUrl }),
+        body: JSON.stringify({ ...form, ...consent, callbackUrl }),
       });
       const data = await response.json() as { error?: string; redirectTo?: string };
       if (!response.ok) {
@@ -75,6 +81,17 @@ export function SignupForm({ callbackUrl }: { callbackUrl: string }) {
           <input id="signup-password" name="password" type="password" required minLength={8} maxLength={256} aria-invalid={Boolean(error)} aria-describedby={error ? "password-help signup-error" : "password-help"} autoComplete="new-password" value={form.password} onChange={(e) => update("password", e.target.value)} className={inputClass} />
           <p id="password-help" className="mt-1 text-xs text-text-secondary">At least 8 characters, including a letter and number.</p>
         </div>
+        <fieldset className="space-y-3">
+          <legend className="sr-only">Agreements</legend>
+          <label className="flex items-start gap-3 text-sm text-text-secondary">
+            <input type="checkbox" name="acceptTerms" required checked={consent.acceptTerms} onChange={(e) => setConsent((current) => ({ ...current, acceptTerms: e.target.checked }))} className="size-5 shrink-0 accent-velocity" />
+            <span>I agree to the <Link href="/terms" target="_blank" className="text-white underline hover:text-velocity">Terms and Conditions</Link></span>
+          </label>
+          <label className="flex items-start gap-3 text-sm text-text-secondary">
+            <input type="checkbox" name="acceptPrivacy" required checked={consent.acceptPrivacy} onChange={(e) => setConsent((current) => ({ ...current, acceptPrivacy: e.target.checked }))} className="size-5 shrink-0 accent-velocity" />
+            <span>I have read and agree to the <Link href="/privacy" target="_blank" className="text-white underline hover:text-velocity">Privacy Policy</Link></span>
+          </label>
+        </fieldset>
         <AuthSubmitButton status={status} label="Create .fit ID" submittingLabel="Creating your .fit ID…" />
       </form>
       <p className="mt-6 text-center text-sm text-text-secondary">Already registered? <Link href={`/login?callbackUrl=${encodeURIComponent(callbackUrl)}`} className="text-white underline hover:text-velocity">Sign in</Link></p>

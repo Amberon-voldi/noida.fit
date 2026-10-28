@@ -58,6 +58,9 @@ export async function createAccountSession(name: string, email: string, password
   const { account } = getAdminServices();
   const created = await account.create({ userId: ID.unique(), email, password, name });
   try {
+    // Record each consent separately so either can be audited or re-requested on its own.
+    const acceptedAt = new Date().toISOString();
+    await getAdminServices().users.updatePrefs({ userId: created.$id, prefs: { termsAcceptedAt: acceptedAt, privacyAcceptedAt: acceptedAt } });
     await ensureProfileForUser(created, { preferredUsername: username, displayName: name });
     return { session: await openSession(email, password) };
   } catch {

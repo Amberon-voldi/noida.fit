@@ -167,6 +167,8 @@ test("signup → save/follow/RSVP → organizer check-in → private/public .fit
   await page.getByLabel("Username",{exact:true}).fill(username);
   await page.getByLabel("Email",{exact:true}).fill(email);
   await page.getByLabel("Password",{exact:true}).fill(password);
+  await page.getByRole("checkbox",{name:/Terms and Conditions/}).check();
+  await page.getByRole("checkbox",{name:/Privacy Policy/}).check();
   const signup=page.waitForResponse(r=>r.url().includes("/api/auth/signup")&&r.request().method()==="POST");
   await page.getByRole("button",{name:"Create .fit ID",exact:true}).click();
   expect((await signup).status()).toBe(200);
