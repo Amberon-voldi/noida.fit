@@ -348,7 +348,8 @@ export async function checkInParticipant(organizer: Pick<AuthUser, "id" | "label
   const now = Date.now();
   if (now < window.opensAt || now >= window.closesAt) throw new HttpError(409, "CHECKIN_CLOSED", "Check-in is outside the event window");
   const rsvp = await getUserRsvp(event.$id, userId);
-  if (rsvp?.status !== "confirmed") throw new HttpError(403, "RSVP_REQUIRED", "This participant needs a confirmed RSVP for the selected event");
+  // The participant showed this card to the desk, so naming them here reveals nothing new.
+  if (rsvp?.status !== "confirmed") throw new HttpError(403, "RSVP_REQUIRED", `${displayName} is not on the RSVP list for this event`);
   const checkin = checkinDto(await createOnce<Row<CheckIn>>(collections.checkins, id, {
     eventId: event.$id, userId, timestamp: new Date().toISOString(), verificationMethod: "organizer_qr",
   }, userId));

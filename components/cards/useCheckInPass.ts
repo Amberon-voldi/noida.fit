@@ -29,6 +29,7 @@ export function useCheckInPass(active: boolean) {
       const data = await response.json().catch(() => null) as (Partial<CheckInPass> & { code?: string; error?: string }) | null;
       if (response.status === 403 && data?.code === "EMAIL_UNVERIFIED") { setState({ status: "unverified" }); return; }
       if (response.status === 401) { setState({ status: "error", message: "Sign in again to show your check-in QR." }); return; }
+      if (data?.code === "CHECKIN_NOT_CONFIGURED") { setState({ status: "error", message: "Check-in QRs are not available right now. Try again in a little while." }); return; }
       if (response.status === 429) { setState({ status: "error", message: "Too many refreshes. Try again in a few minutes." }); return; }
       if (!response.ok || !data?.token || !data.expiresAt || !Number.isFinite(Date.parse(data.expiresAt))) throw new Error();
       cached = { token: data.token, expiresAt: data.expiresAt };

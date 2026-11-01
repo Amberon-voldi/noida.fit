@@ -21,7 +21,13 @@ test.beforeAll(async () => {
   script = output.outputFiles.find(file => file.path.endsWith(".js"))!.text;
   stylesheet = (await postcss([tailwindcss()]).process(readFileSync("app/globals.css", "utf8"), { from: join(process.cwd(), "app/globals.css") })).css + "body{padding:16px} #fixture{max-width:640px;margin:auto;min-width:0}";
 });
-const events = [{ id: "event-one", title: "Synthetic morning session", venueName: "Synthetic club", sector: "Sector 1", checkInWindow: "open" }, { id: "event-two", title: "Synthetic second session", venueName: "Synthetic venue", sector: "Sector 2", checkInWindow: "open" }];
+const event = { id: "event-two", title: "Synthetic second session", checkInWindow: "open" };
+async function paste(page: import("@playwright/test").Page, value: string) {
+  const field = page.getByLabel("Participant check-in code", { exact: true });
+  if (!await field.isVisible()) await page.getByText("Camera not working? Paste the code").click();
+  await field.fill(value);
+  await page.getByRole("button", { name: "Check in participant", exact: true }).click();
+}
 async function mount(page: import("@playwright/test").Page, operator: boolean, props: unknown) {
   await page.route("**/*", route => route.request().isNavigationRequest() ? route.fulfill({ contentType: "text/html", body: `<style>${stylesheet}</style><main id="fixture"></main>` }) : route.abort());
   await page.goto("https://fixture.invalid/check-in"); await page.addScriptTag({ content: script });
@@ -35,24 +41,21 @@ for (const width of [320, 390, 768, 1440]) {
     await expect(page.locator("video")).toHaveCount(0);
     await expect(page.getByRole("button", { name: /scanner|camera/i })).toHaveCount(0);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    await page.evaluate(events => (window as unknown as { renderCheckIn: (operator: boolean, props: unknown) => void }).renderCheckIn(true, { events }), events);
+    await page.evaluate(event => (window as unknown as { renderCheckIn: (operator: boolean, props: unknown) => void }).renderCheckIn(true, { event }), event);
     const writes: Record<string, unknown>[] = [];
     await page.route("**/api/check-in/organizer", async route => {
       writes.push(route.request().postDataJSON());
       await route.fulfill({ json: { checkedIn: true, displayName: "Synthetic private member", checkedInAt: "2026-09-30T01:00:00Z", alreadyCheckedIn: writes.length > 1 } });
     });
-    await page.getByLabel("Event at this attendance desk").selectOption("event-two");
-    await page.getByLabel("Participant check-in code (camera fallback)").fill("https://noida.fit/@synthetic-member");
-    await page.getByRole("button", { name: "Check in participant", exact: true }).click();
-    await expect(page.getByRole("alert")).toContainText("not their public-profile QR");
+    await paste(page, "https://noida.fit/@synthetic-member");
+    await expect(page.locator("[data-outcome=error]")).toContainText("not their public-profile QR");
     expect(writes).toHaveLength(0);
-    await page.getByLabel("Participant check-in code (camera fallback)").fill(`NF-CHECKIN:${token}`);
-    await page.getByRole("button", { name: "Check in participant", exact: true }).click();
-    await expect(page.getByRole("status").filter({ hasText: "Attendance and passport are recorded" })).toBeVisible();
+    await paste(page, `NF-CHECKIN:${token}`);
+    await expect(page.locator("[data-outcome=checked-in]")).toContainText("Synthetic private member");
     expect(writes[0]).toEqual({ eventId: "event-two", token });
-    await page.getByLabel("Participant check-in code (camera fallback)").fill(token);
-    await page.getByRole("button", { name: "Check in participant", exact: true }).click();
-    await expect(page.getByRole("status").filter({ hasText: "already checked in" })).toBeVisible();
+    await paste(page, token);
+    await expect(page.locator("[data-outcome=already]")).toContainText("Already checked in");
+    await expect(page.getByRole("region", { name: "Recent scans" }).or(page.getByLabel("Recent scans"))).toContainText("Checked in");
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   });
 }
@@ -69,13 +72,26 @@ test("expired participant QR is hidden, and refresh can never select somebody el
 });
 
 test("operator denied by the server gets no attendance success or false refresh", async ({ page }) => {
-  await mount(page, true, { events });
+  await mount(page, true, { event });
   await page.route("**/api/check-in/organizer", route => route.fulfill({ status: 403, json: { code: "ORGANIZER_REQUIRED", error: "Only this event’s assigned operator can check in participants" } }));
-  await page.getByLabel("Participant check-in code (camera fallback)").fill(token);
-  await page.getByRole("button", { name: "Check in participant", exact: true }).click();
-  await expect(page.getByRole("alert")).toContainText("assigned operator");
-  await expect(page.getByText("Attendance and passport are recorded", { exact: false })).toHaveCount(0);
+  await paste(page, token);
+  await expect(page.locator("[data-outcome=error]")).toContainText("assigned operator");
+  await expect(page.locator("[data-outcome=checked-in]")).toHaveCount(0);
   expect(await page.evaluate(() => (window as unknown as { refreshCount?: number }).refreshCount ?? 0)).toBe(0);
+});
+
+test("a participant without an RSVP is named and flagged as not on the list", async ({ page }) => {
+  await mount(page, true, { event });
+  await page.route("**/api/check-in/organizer", route => route.fulfill({ status: 403, json: { code: "RSVP_REQUIRED", error: "Synthetic walk-in is not on the RSVP list for this event" } }));
+  await paste(page, token);
+  await expect(page.locator("[data-outcome=not-on-list]")).toContainText("Not on the RSVP list");
+  await expect(page.locator("[data-outcome=not-on-list]")).toContainText("Synthetic walk-in");
+  expect(await page.evaluate(() => (window as unknown as { refreshCount?: number }).refreshCount ?? 0)).toBe(0);
+});
+
+test("a closed window is explained before anyone is scanned", async ({ page }) => {
+  await mount(page, true, { event: { ...event, checkInWindow: "not-open" } });
+  await expect(page.getByRole("note")).toContainText("Check-in opens 30 minutes before the start");
 });
 
 test("guest participant page and all check-in APIs stay protected", async ({ page, request }) => {

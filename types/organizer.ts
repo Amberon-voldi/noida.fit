@@ -6,6 +6,7 @@ export type CheckInWindowState = "not-open" | "open" | "closed" | "cancelled" | 
 export interface OrganizerAttendee {
   displayName: string;
   rsvpStatus: "confirmed";
+  seatNumber?: number;
   checkInStatus: "not_checked_in" | "checked_in";
   checkedInAt?: string;
 }

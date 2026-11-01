@@ -14,7 +14,7 @@ let stylesheet: string;
 let decoderAsset: string;
 type Permission = "granted" | "pending" | "denied" | "no-camera" | "busy";
 type Native = "absent" | "available" | "unsupported" | "broken" | "constructor-error" | "pending";
-type Options = { permission?: Permission; native?: Native; playback?: "normal" | "rejected" | "pending"; disabled?: boolean };
+type Options = { permission?: Permission; native?: Native; playback?: "normal" | "rejected" | "pending"; disabled?: boolean; continuous?: boolean };
 interface Snapshot {
   constraints: MediaStreamConstraints[];
   tracks: { request: number; state: string; stops: number }[];
@@ -105,7 +105,7 @@ test.beforeAll(async () => {
         }
       }});
       function render(disabled = false, version = 1) {
-        root.render(React.createElement(CheckInScanner, {disabled, onToken: token => callbacks.push({
+        root.render(React.createElement(CheckInScanner, {disabled, continuous: !!options.continuous, onToken: token => callbacks.push({
           token, version, allTracksStopped: tracks.every(entry => entry.track.readyState === 'ended')
         })}));
       }
@@ -395,4 +395,22 @@ test("camera disconnect and pagehide both stop resources", async ({ page }) => {
   await page.evaluate(() => window.dispatchEvent(new Event("pagehide")));
   await expectStopped(page, 2);
   expect((await snapshot(page)).callbacks).toEqual([]);
+});
+
+test("desk mode keeps the camera on between participants and sends a held-up card only once", async ({ page }) => {
+  const { errors } = await mount(page, { continuous: true });
+  await start(page);
+  await ready(page);
+  await showQR(page);
+  await expect.poll(async () => (await snapshot(page)).callbacks).toHaveLength(1);
+  expect((await snapshot(page)).callbacks[0]).toMatchObject({ token, allTracksStopped: false });
+  // The same card stays in frame: no repeat delivery, camera still live.
+  await page.waitForTimeout(2_000);
+  const state = await snapshot(page);
+  expect(state.callbacks).toHaveLength(1);
+  expect(state.tracks.every(track => track.state === "live")).toBe(true);
+  await expect(page.getByLabel("Participant QR camera preview")).toBeVisible();
+  await page.getByRole("button", { name: "Stop camera" }).click();
+  await expectStopped(page);
+  expect(errors).toEqual([]);
 });

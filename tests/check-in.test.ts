@@ -122,3 +122,27 @@ test("authorized retry repairs interrupted participation after cancellation with
   assert.equal(result.alreadyCheckedIn, true); assert.equal(result.checkedInAt, timestamp);
   assert.equal(rows.get(`participations/${service.participationDocumentId("event", participantId)}`)!.occurredAt, timestamp);
 });
+
+test("organizer workspace loads many events with a fixed number of batched queries", async () => {
+  reset();
+  const organizer = await import("../lib/services/organizer");
+  const events = Array.from({ length: 40 }, (_, index) => ({
+    id: `event-${index}`, slug: `event-${index}`, title: `Session ${index}`, status: "published" as const, organizerUserId: operator.id,
+    startsAt: new Date(Date.now() + 10 * 60_000).toISOString(), endsAt: new Date(Date.now() + 70 * 60_000).toISOString(), capacity: 20,
+  })) as unknown as import("../types/event").Event[];
+  rows.set(`rsvps/${service.rsvpDocumentId("event-3", participantId)}`, { $id: service.rsvpDocumentId("event-3", participantId), eventId: "event-3", userId: participantId, status: "confirmed", seatNumber: 2 });
+  rows.set(`checkins/${service.checkInDocumentId("event-3", participantId)}`, { $id: service.checkInDocumentId("event-3", participantId), eventId: "event-3", userId: participantId, timestamp: "2026-11-01T01:00:00.000Z" });
+  calls = [];
+  const summaries = await organizer.getOrganizerEventSummaries(operator, events);
+  // Cloudflare Workers cap subrequests per invocation; per-event reads exceeded it in production.
+  assert.ok(calls.length <= 3, `expected ≤3 Appwrite calls, saw ${calls.length}`);
+  assert.equal(summaries.length, 40);
+  const busy = summaries.find(summary => summary.event.id === "event-3")!;
+  assert.equal(busy.confirmedRsvps, 1);
+  assert.equal(busy.checkedIn, 1);
+  assert.equal(busy.capacityRemaining, 19);
+  assert.equal(busy.checkInWindow, "open");
+  assert.deepEqual(busy.attendees, [{ displayName: "Private participant", rsvpStatus: "confirmed", seatNumber: 2, checkInStatus: "checked_in", checkedInAt: "2026-11-01T01:00:00.000Z" }]);
+  assert.ok(!JSON.stringify(summaries).includes(participantId), "account IDs never reach the organizer DTO");
+  await assert.rejects(organizer.getOrganizerEventSummaries({ id: "someone-else", labels: [] }, events), { code: "ORGANIZER_REQUIRED" });
+});

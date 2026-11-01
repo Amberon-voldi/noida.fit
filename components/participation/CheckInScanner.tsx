@@ -13,11 +13,21 @@ interface ScanSession {
   stream: MediaStream | null;
   video: HTMLVideoElement;
   timer: number | null;
+  /** Continuous mode: the last delivered code and when, so a held-up QR is not re-sent. */
+  lastValue?: string;
+  lastAt?: number;
+  /** Brief hold after a delivery, until the parent's `disabled` takes over. */
+  holdUntil?: number;
 }
 export interface CheckInScannerProps {
   onToken: (token: string) => void;
   disabled?: boolean;
+  /** Attendance-desk mode: the camera keeps running between participants and
+   * `disabled` only pauses decoding while the previous code is being recorded. */
+  continuous?: boolean;
 }
+
+const REPEAT_WINDOW_MS = 6_000;
 
 function cameraError(error: unknown): string {
   const name = error instanceof Error ? error.name : "";
@@ -27,16 +37,18 @@ function cameraError(error: unknown): string {
   return "Could not start the camera. Check your browser permissions and try again.";
 }
 
-export function CheckInScanner({ onToken, disabled = false }: CheckInScannerProps) {
+export function CheckInScanner({ onToken, disabled = false, continuous = false }: CheckInScannerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const sessionRef = useRef<ScanSession | null>(null);
   const onTokenRef = useRef(onToken);
   const statusId = useId();
   const [phase, setPhase] = useState<"idle" | "starting" | "scanning">("idle");
   const [message, setMessage] = useState("Start the scanner and point the camera at a participant QR.");
-  const active = phase !== "idle" && !disabled;
+  const pausedRef = useRef(disabled);
+  const stops = disabled && !continuous;
+  const active = phase !== "idle" && !stops;
   // Reset local UI state as the parent pauses; the effect only releases hardware.
-  if (disabled && phase !== "idle") {
+  if (stops && phase !== "idle") {
     setPhase("idle");
     setMessage("Camera stopped. Start the scanner when you are ready.");
   }
@@ -63,6 +75,7 @@ export function CheckInScanner({ onToken, disabled = false }: CheckInScannerProp
   }, [releaseCamera]);
 
   useEffect(() => { onTokenRef.current = onToken; }, [onToken]);
+  useEffect(() => { pausedRef.current = disabled; }, [disabled]);
   useEffect(() => {
     window.addEventListener("pagehide", stopCamera);
     return () => {
@@ -71,11 +84,11 @@ export function CheckInScanner({ onToken, disabled = false }: CheckInScannerProp
     };
   }, [releaseCamera, stopCamera]);
   useEffect(() => {
-    if (disabled) releaseCamera();
-  }, [disabled, releaseCamera]);
+    if (stops) releaseCamera();
+  }, [stops, releaseCamera]);
 
   async function scan(): Promise<void> {
-    if (disabled || sessionRef.current) return;
+    if (stops || sessionRef.current) return;
     if (!window.isSecureContext) {
       setMessage("Camera access needs HTTPS or localhost. Open a secure NOIDA.FIT page and try again.");
       return;
@@ -148,13 +161,17 @@ export function CheckInScanner({ onToken, disabled = false }: CheckInScannerProp
       if (!reader) await loadFallback();
       if (!isCurrent()) return;
       setPhase("scanning");
-      setMessage("Scanner ready. Hold the participant QR steady inside the preview.");
+      setMessage(continuous
+        ? "Scanner ready. Hold each participant’s QR steady inside the preview. The camera stays on between people."
+        : "Scanner ready. Hold the participant QR steady inside the preview.");
 
       const readFrame = async () => {
         if (!isCurrent()) return;
         let value: string | undefined;
         // Skip incomplete/background frames; one frame in flight, at most 4/s.
-        if (!document.hidden && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && video.videoWidth && video.videoHeight) {
+        // A desk scanner also skips frames while the previous code is recorded.
+        const held = continuous && (pausedRef.current || Date.now() < (session.holdUntil ?? 0));
+        if (!held && !document.hidden && video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA && video.videoWidth && video.videoHeight) {
           if (reader) {
             try {
               const results = await reader.detect(video);
@@ -176,7 +193,17 @@ export function CheckInScanner({ onToken, disabled = false }: CheckInScannerProp
           }
         }
         if (!isCurrent()) return;
-        if (value?.trim()) {
+        if (value?.trim() && continuous) {
+          // The same card held in view is delivered once, not every 250 ms.
+          const code = value.trim();
+          const now = Date.now();
+          if (code !== session.lastValue || now - (session.lastAt ?? 0) > REPEAT_WINDOW_MS) {
+            session.lastValue = code;
+            session.lastAt = now;
+            session.holdUntil = now + 1_200;
+            onTokenRef.current(code);
+          }
+        } else if (value?.trim()) {
           // Single-shot delivery only. Never put the QR payload in UI or logs.
           releaseCamera();
           setPhase("idle");
@@ -198,15 +225,15 @@ export function CheckInScanner({ onToken, disabled = false }: CheckInScannerProp
     <div className="flex flex-wrap items-center justify-between gap-3">
       <div className="min-w-0">
         <p className="text-sm font-semibold text-white">Scan participant QR</p>
-        <p className="mt-1 text-xs text-text-secondary">Camera frames stay on this device. The camera stops after a code is found.</p>
+        <p className="mt-1 text-xs text-text-secondary">Camera frames stay on this device. {continuous ? "The camera stays on until you stop it." : "The camera stops after a code is found."}</p>
       </div>
-      <button type="button" disabled={disabled} onClick={active ? stopCamera : () => void scan()} aria-describedby={statusId} className="inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-lg border border-border-strong px-3 py-2 text-xs font-semibold text-white hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-velocity-glow focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-60">
+      <button type="button" disabled={stops} onClick={active ? stopCamera : () => void scan()} aria-describedby={statusId} className="inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-lg border border-border-strong px-3 py-2 text-xs font-semibold text-white hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-velocity-glow focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-60">
         {active ? <CameraOff size={15} aria-hidden="true" /> : <Camera size={15} aria-hidden="true" />}
         {active ? "Stop camera" : "Start scanner"}
       </button>
     </div>
     {/* Keep the video mounted before requesting permission, including on Safari. */}
     <video ref={videoRef} hidden={!active} className="aspect-video w-full min-w-0 rounded-lg bg-black object-contain" autoPlay playsInline muted aria-label="Participant QR camera preview" aria-describedby={statusId} />
-    <p id={statusId} className="text-xs text-text-secondary" role="status" aria-live="polite" aria-atomic="true">{disabled ? "Scanner paused while the current participant is being processed." : message}</p>
+    <p id={statusId} className="text-xs text-text-secondary" role="status" aria-live="polite" aria-atomic="true">{stops ? "Scanner paused while the current participant is being processed." : continuous && disabled && active ? "Checking this participant…" : message}</p>
   </div>;
 }

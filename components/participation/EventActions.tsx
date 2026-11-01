@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { loginUrl, refreshParticipation, useParticipation } from "./useParticipation";
 import { indiaDateTime } from "@/lib/calendar";
@@ -41,6 +42,14 @@ export function EventActions(props: EventActionsProps) {
   const started = state.loaded && indiaDateTime(props.date, props.startTime).getTime() <= state.observedAt;
   const [pending, setPending] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
+  // Cancelling gives the spot away, so it takes a second, deliberate tap.
+  const [confirmCancel, setConfirmCancel] = useState(false);
+
+  useEffect(() => {
+    if (!confirmCancel) return;
+    const timeout = window.setTimeout(() => setConfirmCancel(false), 4000);
+    return () => window.clearTimeout(timeout);
+  }, [confirmCancel]);
 
   function showFeedback(message: string): void {
     setFeedback(message);
@@ -49,6 +58,8 @@ export function EventActions(props: EventActionsProps) {
 
   async function toggleRsvp(): Promise<void> {
     if (!state.authenticated && !state.error) { router.push(loginUrl()); return; }
+    if (rsvped && !confirmCancel) { setConfirmCancel(true); return; }
+    setConfirmCancel(false);
     setPending(true);
     try {
       const response = await fetch("/api/participation/rsvp", {
@@ -103,10 +114,10 @@ export function EventActions(props: EventActionsProps) {
           onClick={toggleRsvp}
           disabled={pending || !state.loaded || started}
           aria-pressed={rsvped}
-          className={`${buttonClass} ${rsvped ? "border-velocity bg-velocity text-slate-950 hover:bg-velocity-glow" : "bg-velocity text-slate-950 hover:bg-velocity-glow"}`}
+          className={`${buttonClass} ${confirmCancel ? "border-rose-400 bg-rose-500/15 text-rose-200 hover:bg-rose-500/25" : rsvped ? "border-velocity bg-velocity text-slate-950 hover:bg-velocity-glow" : "bg-velocity text-slate-950 hover:bg-velocity-glow"}`}
         >
           {pending ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : rsvped ? <Check className="h-3.5 w-3.5" aria-hidden="true" /> : null}
-          <span>{rsvped ? "You're going" : started ? "RSVP closed" : state.loaded && !state.authenticated && !state.error ? "Sign in to RSVP" : "RSVP"}</span>
+          <span>{confirmCancel ? "Tap again to cancel" : rsvped ? "You're going" : started ? "RSVP closed" : state.loaded && !state.authenticated && !state.error ? "Sign in to RSVP" : "RSVP"}</span>
         </button>
         {!props.compact && (
           <>
@@ -121,6 +132,7 @@ export function EventActions(props: EventActionsProps) {
           </>
         )}
       </div>
+      {rsvped && !props.compact && <p className="text-xs leading-relaxed text-text-secondary">On the day, open your <Link href="/account" className="font-semibold text-velocity underline-offset-2 hover:underline">.fit ID</Link> and show the check-in QR on its back to the organizer.</p>}
       {feedback && <p className="text-[11px] text-velocity" role="status" aria-live="polite">{feedback}</p>}
     </div>
   );
