@@ -200,3 +200,34 @@ export async function deleteAdminContent(user: AdminActor, kindValue: string, id
     invalidateSharedReads(appwriteCollections[kind]);
   });
 }
+
+/** Current stored event as an editable record plus its version, or null. Callers authorize. */
+export async function getEventRecord(id: string): Promise<{ record: Record<string, unknown>; updatedAt: string } | null> {
+  const row = await getRow("events", contentIdSchema.parse(id));
+  return row ? { record: decode("events", row), updatedAt: row.$updatedAt } : null;
+}
+
+export async function eventSlugTaken(slug: string): Promise<boolean> {
+  return Boolean(await findBySlug("events", slug));
+}
+
+/**
+ * Organizer self-service writes. Callers must authorize the event first. The
+ * record passes the same schema, schedule, capacity and reference checks as an
+ * admin edit; only the audit trail differs, since organizers edit their own sessions.
+ */
+export async function saveScopedEvent(input: unknown, existing?: { updatedAt: string }): Promise<ListedContent> {
+  const record = validateRecord("events", input);
+  if (!existing) {
+    await validateReferences("events", record);
+    return write("events", record, true);
+  }
+  const current = await getRow("events", record.id);
+  if (!current) throw new HttpError(404, "CONTENT_NOT_FOUND", "Event was not found");
+  requireVersion(current, existing.updatedAt);
+  await validateReferences("events", record, current);
+  const latest = await getRow("events", record.id);
+  if (!latest) throw new HttpError(404, "CONTENT_NOT_FOUND", "Event was not found");
+  requireVersion(latest, existing.updatedAt);
+  return write("events", record, false);
+}
