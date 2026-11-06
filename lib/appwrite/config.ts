@@ -101,3 +101,10 @@ export function requireAppwriteServerConfig(): {
 
 export const APPWRITE_SESSION_COOKIE = "noidafit_appwrite_session";
 export const APPWRITE_SESSION_MAX_AGE = 60 * 60 * 24 * 30;
+
+/** Appwrite Storage bucket for admin-uploaded listing images (logos, banners, covers). */
+export function requireMediaBucketId(): string {
+  const id = process.env.NEXT_PUBLIC_APPWRITE_BUCKET_MEDIA?.trim();
+  if (!id) throw new Error("Missing Appwrite server configuration: NEXT_PUBLIC_APPWRITE_BUCKET_MEDIA");
+  return id;
+}

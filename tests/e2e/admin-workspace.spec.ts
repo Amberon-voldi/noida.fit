@@ -3,6 +3,7 @@ import { build } from "esbuild";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import type { AdminDashboardData } from "../../types/admin";
+import { contentTemplates } from "../../lib/content-schema";
 
 // Real presentation + synthetic authorized data. Does not prove hosted admin login or Appwrite ACLs.
 let script: string;
@@ -167,4 +168,54 @@ test("overview distinguishes an empty readable audit store from a read failure a
   await page.evaluate(data => (window as unknown as { renderAdmin: (mode: string, props: unknown) => void }).renderAdmin("overview", { data }), data);
   await expect(page.getByRole("alert")).toContainText("Metrics are unavailable");
   await expect(page.locator(".admin-metric-value")).toHaveText(["—", "—", "—", "—"]);
+});
+
+test("club editor uploads a logo and banner to storage and saves their /media paths", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 900 });
+  const record = { ...contentTemplates.communities, id: "club", name: "Synthetic club" };
+  await mount(page, "content", { kind: "communities", initialRecords: [{ id: "club", updatedAt: "version-one", record }], template: record, writesEnabled: true });
+  // A real 2x1 PNG so the previews actually render.
+  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAYAAAD0In+KAAAAEUlEQVR4nGNk+M9Q38DAwMAAAA8eAgHCzJXLAAAAAElFTkSuQmCC", "base64");
+  const uploads: { reason: string; size: number }[] = [];
+  await page.route("**/api/admin/media", async route => {
+    const body = route.request().postDataBuffer()!.toString("latin1");
+    uploads.push({ reason: /name="reason"\r\n\r\n([^\r]*)/.exec(body)?.[1] ?? "", size: body.length });
+    return route.fulfill({ status: 201, json: { media: { id: `file${uploads.length}`, path: `/media/file${uploads.length}` } } });
+  });
+  await page.route("**/media/file*", route => route.fulfill({ contentType: "image/png", body: png }));
+  const saves: Record<string, unknown>[] = [];
+  await page.route("**/api/admin/content/communities", async route => {
+    const body = route.request().postDataJSON(); saves.push(body);
+    return route.fulfill({ json: { record: { id: "club", updatedAt: "version-two", record: body.record } } });
+  });
+
+  await page.getByRole("button", { name: "Edit Synthetic club" }).click();
+  const images = page.getByRole("group", { name: "Images" });
+  await expect(images.getByText("No image")).toHaveCount(2);
+  await page.locator("#image-crestUrl").setInputFiles({ name: "logo.png", mimeType: "image/png", buffer: png });
+  await expect(page.getByRole("status").filter({ hasText: "Logo uploaded." })).toBeVisible();
+  await page.locator("#image-bannerUrl").setInputFiles({ name: "banner.png", mimeType: "image/png", buffer: png });
+  await expect(page.getByRole("status").filter({ hasText: "Banner image uploaded." })).toBeVisible();
+  await expect(images.getByLabel("Logo", { exact: true })).toHaveValue("/media/file1");
+  await expect(images.getByLabel("Banner image", { exact: true })).toHaveValue("/media/file2");
+  for (const name of ["Current logo", "Current banner image"]) {
+    await expect.poll(() => images.getByRole("img", { name }).evaluate(image => (image as HTMLImageElement).naturalWidth)).toBe(2);
+  }
+  expect(uploads.map(upload => upload.reason)).toEqual(["Upload logo for community new-community", "Upload banner image for community new-community"]);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  if (process.env.SCREENSHOT_DIR) await images.screenshot({ path: `${process.env.SCREENSHOT_DIR}/admin-club-images.png` });
+
+  await page.getByLabel("Mutation reason", { exact: false }).fill("Add club logo and banner");
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Saved." })).toBeVisible();
+  expect(saves[0].record).toMatchObject({ crestUrl: "/media/file1", bannerUrl: "/media/file2" });
+
+  // Remove clears the optional field rather than saving an invalid empty string.
+  await images.getByRole("button", { name: "Remove" }).first().click();
+  await expect(images.getByLabel("Logo", { exact: true })).toHaveValue("");
+  await page.getByLabel("Mutation reason", { exact: false }).fill("Remove club logo");
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await expect.poll(() => saves.length).toBe(2);
+  expect(saves[1].record).not.toHaveProperty("crestUrl");
+  expect(saves[1].record).toMatchObject({ bannerUrl: "/media/file2" });
 });

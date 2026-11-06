@@ -1,4 +1,7 @@
 import type { Metadata } from "next";
+import Image from "next/image";
+import { listingPhoto } from "@/components/cards/CardMedia";
+import { isMediaPath } from "@/lib/media";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCommunityBySlug, getDirectory } from "@/lib/data";
@@ -26,6 +29,8 @@ export default async function CommunityPage({ params }: Props) {
   const directory = await getDirectory();
   const events = directory.events.filter((event) => event.communitySlug === community.slug && eventIsUpcoming(event)).sort((a, b) => eventTimestamp(a) - eventTimestamp(b));
   const place = directory.places.find((item) => item.slug === community.primaryVenueSlug);
+  // Only site-hosted logos (uploaded or bundled); arbitrary hosts are not passed to the image component.
+  const crest = listingPhoto(community.crestUrl);
   const activity = directory.activities.find((item) => item.id === community.activityId || item.slug === community.activityId) ?? directory.activities.find((item) => item.slug === community.category);
   const channels = Object.entries(community.socialLinks).filter((entry): entry is [string, string] => typeof entry[1] === "string" && /^https:\/\//i.test(entry[1]));
   const jsonLd = { "@context": "https://schema.org", "@type": "SportsClub", name: community.name, description: community.description, url: `${SITE_CONFIG.url}/community/${community.slug}`, address: { "@type": "PostalAddress", streetAddress: community.baseLocation, addressLocality: community.baseLocation.includes("Greater Noida") ? "Greater Noida" : "Noida", addressRegion: "Uttar Pradesh", addressCountry: "IN" } };
@@ -42,7 +47,10 @@ export default async function CommunityPage({ params }: Props) {
             {community.verified && !community.demo && <span className="rounded-md border border-indigo-300 px-2 py-1 text-xs font-semibold text-indigo-200">Verified community</span>}
             {community.demo && <span className="text-xs font-semibold uppercase text-text-secondary">Demo listing</span>}
           </div>
-          <h1 className="mt-4 text-4xl font-extrabold tracking-tight sm:text-5xl">{community.name}</h1>
+          <div className="mt-4 flex items-center gap-4">
+            {crest && <Image src={crest} alt={`${community.name} logo`} width={72} height={72} unoptimized={isMediaPath(crest)} className="size-14 shrink-0 rounded-xl border border-border-subtle bg-surface object-cover sm:size-[72px]" />}
+            <h1 className="min-w-0 text-4xl font-extrabold tracking-tight sm:text-5xl">{community.name}</h1>
+          </div>
           <p className="mt-3 max-w-2xl text-lg text-text-secondary">{community.tagline}</p>
           <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm text-text-secondary"><span>{community.baseLocation}</span><span>{community.meetingDays.join(" · ")}</span></div>
           <div className="mt-6 flex flex-wrap gap-2"><FollowButton communityId={community.id} /><SaveButton itemType="community" itemId={community.id} /><ShareButton title={community.name} text={community.tagline} /></div>

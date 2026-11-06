@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { indiaDateTime } from "./calendar";
+import { isMediaPath } from "./media";
 
 export const contentKinds = ["activities", "communities", "places", "events"] as const;
 export type ContentKind = (typeof contentKinds)[number];
@@ -11,11 +12,12 @@ const plainText = (max: number, min = 0) => z.string().trim().min(min).max(max).
 const safeUrl = z.string().trim().max(2000).url().refine(value => { const url = new URL(value); return url.protocol === "https:" && !url.username && !url.password; }, "Only HTTPS URLs without credentials are allowed");
 const imagePath = z.string().trim().max(2000).refine(value => {
   if (/[<>\\\x00-\x20]/.test(value)) return false;
+  if (value.startsWith("/media/")) return isMediaPath(value);
   if (value.startsWith("/images/")) {
     try { return new URL(value, "https://noida.fit").pathname.startsWith("/images/") && !decodeURIComponent(value).includes(".."); } catch { return false; }
   }
   try { const url = new URL(value); return url.protocol === "https:" && !url.username && !url.password; } catch { return false; }
-}, "Images must use /images/... or a valid HTTPS URL");
+}, "Images must be an uploaded image (/media/...), /images/... or a valid HTTPS URL");
 const optionalImage = imagePath.optional();
 const optionalUrl = safeUrl.optional();
 const category = z.enum(["running", "cycling", "strength", "sports", "wellness", "outdoor"]);

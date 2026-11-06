@@ -1,4 +1,5 @@
 import Image from "next/image";
+import { isMediaPath } from "@/lib/media";
 import { CATEGORY_EMOJIS, CATEGORY_LABELS } from "@/lib/config";
 import type { ActivityCategory } from "@/types/community";
 
@@ -8,7 +9,7 @@ import type { ActivityCategory } from "@/types/community";
  * in for a cover here. Listings without a photo get a typographic tile that claims nothing.
  */
 export function listingPhoto(src?: string): string | undefined {
-  return src?.startsWith("/images/") ? src : undefined;
+  return src?.startsWith("/images/") || isMediaPath(src) ? src : undefined;
 }
 
 function categoryKey(category: string): ActivityCategory {
@@ -27,7 +28,8 @@ interface CardMediaProps {
 
 export function CardMedia({ src, category = "outdoor", label, alt, sizes, variant = "cover" }: CardMediaProps) {
   const photo = listingPhoto(src);
-  if (photo) return <Image src={photo} alt={alt} fill sizes={sizes} className="object-cover" />;
+  // Uploaded images are served as stored from /media/; the optimizer only handles bundled /images/.
+  if (photo) return <Image src={photo} alt={alt} fill sizes={sizes} className="object-cover" unoptimized={isMediaPath(photo)} />;
   const key = categoryKey(category);
   return (
     <span className="card-glyph" data-variant={variant} data-category={key}>
