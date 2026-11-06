@@ -103,3 +103,38 @@ test("guest participant page and all check-in APIs stay protected", async ({ pag
     expect(response.headers()["cache-control"]).toBe("private, no-store");
   }
 });
+
+test("operator scanner goes full screen and shows each guest over the camera", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.addInitScript(qr => {
+    // Synthetic camera (a canvas stream) and a detector that reads this guest's QR.
+    Object.defineProperty(navigator, "mediaDevices", { configurable: true, value: { getUserMedia: async () => {
+      const canvas = document.createElement("canvas"); canvas.width = 640; canvas.height = 480;
+      const context = canvas.getContext("2d")!; context.fillStyle = "#34404a"; context.fillRect(0, 0, 640, 480);
+      return canvas.captureStream(5);
+    } } });
+    Object.defineProperty(window, "BarcodeDetector", { configurable: true, value: class {
+      static async getSupportedFormats() { return ["qr_code"]; }
+      async detect() { return (window as unknown as { showQr?: boolean }).showQr ? [{ rawValue: qr }] : []; }
+    } });
+  }, `NF-CHECKIN:${token}`);
+  await mount(page, true, { event: { ...event, checkedIn: 12, confirmedRsvps: 40 } });
+  await page.route("**/api/check-in/organizer", route => route.fulfill({ json: { checkedIn: true, displayName: "Synthetic desk guest", checkedInAt: new Date().toISOString() } }));
+
+  await page.getByRole("button", { name: "Start scanner" }).click();
+  const scanner = page.getByRole("dialog", { name: "Check-in scanner for Synthetic second session" });
+  await expect(scanner).toBeVisible();
+  await expect(scanner).toHaveCSS("position", "fixed");
+  expect(await scanner.boundingBox()).toEqual({ x: 0, y: 0, width: 390, height: 844 });
+  await expect(scanner.getByText("12 of 40 checked in")).toBeVisible();
+  await expect(scanner.getByLabel("Participant QR camera preview")).toBeVisible();
+
+  await page.evaluate(() => { (window as unknown as { showQr: boolean }).showQr = true; });
+  await expect(scanner.locator("[data-outcome=checked-in]")).toContainText("Synthetic desk guest");
+  await expect(page.locator("[data-outcome]")).toHaveCount(1);
+
+  await scanner.getByRole("button", { name: "Stop camera" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.locator("[data-outcome=checked-in]")).toContainText("Synthetic desk guest");
+  await expect(page.getByRole("button", { name: "Start scanner" })).toBeVisible();
+});

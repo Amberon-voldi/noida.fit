@@ -1,7 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState } from "react";
-import { Camera, CameraOff } from "lucide-react";
+import { useCallback, useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { Camera, X } from "lucide-react";
 
 interface DetectorResult { rawValue?: string }
 interface Detector { detect(source: CanvasImageSource): Promise<DetectorResult[]> }
@@ -25,6 +25,16 @@ export interface CheckInScannerProps {
   /** Attendance-desk mode: the camera keeps running between participants and
    * `disabled` only pauses decoding while the previous code is being recorded. */
   continuous?: boolean;
+  /** While the camera runs, take over the whole screen with the preview. */
+  fullscreen?: boolean;
+  /** Heading shown over the full-screen preview, e.g. the event title. */
+  title?: string;
+  /** Extra line under the title in full-screen mode, e.g. attendance so far. */
+  subtitle?: ReactNode;
+  /** Rendered over the bottom of the full-screen preview, e.g. the latest scan result. */
+  overlay?: ReactNode;
+  /** Tells the parent when the camera starts or stops. */
+  onActiveChange?: (active: boolean) => void;
 }
 
 const REPEAT_WINDOW_MS = 6_000;
@@ -37,8 +47,9 @@ function cameraError(error: unknown): string {
   return "Could not start the camera. Check your browser permissions and try again.";
 }
 
-export function CheckInScanner({ onToken, disabled = false, continuous = false }: CheckInScannerProps) {
+export function CheckInScanner({ onToken, disabled = false, continuous = false, fullscreen = false, title, subtitle, overlay, onActiveChange }: CheckInScannerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const shellRef = useRef<HTMLDivElement>(null);
   const sessionRef = useRef<ScanSession | null>(null);
   const onTokenRef = useRef(onToken);
   const statusId = useId();
@@ -47,6 +58,7 @@ export function CheckInScanner({ onToken, disabled = false, continuous = false }
   const pausedRef = useRef(disabled);
   const stops = disabled && !continuous;
   const active = phase !== "idle" && !stops;
+  const immersive = fullscreen && active;
   // Reset local UI state as the parent pauses; the effect only releases hardware.
   if (stops && phase !== "idle") {
     setPhase("idle");
@@ -66,6 +78,7 @@ export function CheckInScanner({ onToken, disabled = false, continuous = false }
     });
     session.video.pause();
     session.video.srcObject = null;
+    if (typeof document !== "undefined" && document.fullscreenElement) void document.exitFullscreen?.().catch(() => {});
   }, []);
 
   const stopCamera = useCallback(() => {
@@ -86,6 +99,26 @@ export function CheckInScanner({ onToken, disabled = false, continuous = false }
   useEffect(() => {
     if (stops) releaseCamera();
   }, [stops, releaseCamera]);
+  const onActiveChangeRef = useRef(onActiveChange);
+  useEffect(() => { onActiveChangeRef.current = onActiveChange; }, [onActiveChange]);
+  useEffect(() => { onActiveChangeRef.current?.(active); }, [active]);
+  useEffect(() => {
+    if (!immersive) return;
+    // Keep the page behind the preview still; Escape or leaving native
+    // full screen (Android back gesture) closes the scanner.
+    const root = document.documentElement;
+    const previous = root.style.overflow;
+    root.style.overflow = "hidden";
+    const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") stopCamera(); };
+    const onFullscreen = () => { if (!document.fullscreenElement && sessionRef.current) stopCamera(); };
+    window.addEventListener("keydown", onKey);
+    document.addEventListener("fullscreenchange", onFullscreen);
+    return () => {
+      root.style.overflow = previous;
+      window.removeEventListener("keydown", onKey);
+      document.removeEventListener("fullscreenchange", onFullscreen);
+    };
+  }, [immersive, stopCamera]);
 
   async function scan(): Promise<void> {
     if (stops || sessionRef.current) return;
@@ -99,6 +132,11 @@ export function CheckInScanner({ onToken, disabled = false, continuous = false }
     }
     const video = videoRef.current;
     if (!video) return;
+    // Must run inside the tap's user gesture, before any await. Where the
+    // Fullscreen API is missing (iPhone Safari) the fixed layout still covers the page.
+    if (fullscreen && shellRef.current?.requestFullscreen && !document.fullscreenElement) {
+      void shellRef.current.requestFullscreen({ navigationUI: "hide" }).catch(() => {});
+    }
     const session: ScanSession = { stream: null, video, timer: null };
     sessionRef.current = session;
     const isCurrent = () => sessionRef.current === session;
@@ -221,19 +259,33 @@ export function CheckInScanner({ onToken, disabled = false, continuous = false }
     }
   }
 
-  return <div className="min-w-0 space-y-3 rounded-xl border border-border-subtle bg-background/30 p-4">
-    <div className="flex flex-wrap items-center justify-between gap-3">
+  const statusText = stops ? "Scanner paused while the current participant is being processed." : continuous && disabled && active ? "Checking this participant…" : message;
+  // One stable tree in both layouts, so the <video> element is never remounted mid-session.
+  return <div ref={shellRef} data-fullscreen={immersive || undefined} className={immersive
+    ? "fixed inset-0 z-[100] flex flex-col overflow-hidden bg-black"
+    : "min-w-0 space-y-3 rounded-xl border border-border-subtle bg-background/30 p-4"} role={immersive ? "dialog" : undefined} aria-modal={immersive || undefined} aria-label={immersive ? `Check-in scanner${title ? ` for ${title}` : ""}` : undefined}>
+    <div className={immersive
+      ? "relative z-10 flex items-start justify-between gap-3 bg-linear-to-b from-black/85 via-black/50 to-transparent px-4 pb-10 pt-[max(1rem,env(safe-area-inset-top))]"
+      : "flex flex-wrap items-center justify-between gap-3"}>
       <div className="min-w-0">
-        <p className="text-sm font-semibold text-white">Scan participant QR</p>
-        <p className="mt-1 text-xs text-text-secondary">Camera frames stay on this device. {continuous ? "The camera stays on until you stop it." : "The camera stops after a code is found."}</p>
+        <p className={immersive ? "truncate text-lg font-bold text-white" : "text-sm font-semibold text-white"}>{immersive && title ? title : "Scan participant QR"}</p>
+        <p className={immersive ? "mt-0.5 text-sm text-white/80" : "mt-1 text-xs text-text-secondary"}>{immersive && subtitle ? subtitle : <>Camera frames stay on this device. {continuous ? "The camera stays on until you stop it." : "The camera stops after a code is found."}</>}</p>
       </div>
-      <button type="button" disabled={stops} onClick={active ? stopCamera : () => void scan()} aria-describedby={statusId} className="inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-lg border border-border-strong px-3 py-2 text-xs font-semibold text-white hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-velocity-glow focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-60">
-        {active ? <CameraOff size={15} aria-hidden="true" /> : <Camera size={15} aria-hidden="true" />}
+      <button type="button" disabled={stops} onClick={active ? stopCamera : () => void scan()} aria-describedby={statusId} className={immersive
+        ? "inline-flex min-h-11 shrink-0 items-center justify-center gap-2 rounded-full bg-white/15 px-4 py-2 text-sm font-semibold text-white backdrop-blur hover:bg-white/25 focus-visible:ring-2 focus-visible:ring-velocity-glow"
+        : "inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-lg border border-border-strong px-3 py-2 text-xs font-semibold text-white hover:bg-surface-hover focus-visible:ring-2 focus-visible:ring-velocity-glow focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-60"}>
+        {active ? <X size={15} aria-hidden="true" /> : <Camera size={15} aria-hidden="true" />}
         {active ? "Stop camera" : "Start scanner"}
       </button>
     </div>
-    {/* Keep the video mounted before requesting permission, including on Safari. */}
-    <video ref={videoRef} hidden={!active} className="aspect-video w-full min-w-0 rounded-lg bg-black object-contain" autoPlay playsInline muted aria-label="Participant QR camera preview" aria-describedby={statusId} />
-    <p id={statusId} className="text-xs text-text-secondary" role="status" aria-live="polite" aria-atomic="true">{stops ? "Scanner paused while the current participant is being processed." : continuous && disabled && active ? "Checking this participant…" : message}</p>
+    <div className={immersive ? "absolute inset-0" : active ? "relative" : "hidden"}>
+      {/* Keep the video mounted before requesting permission, including on Safari. */}
+      <video ref={videoRef} hidden={!active} className={immersive ? "h-full w-full bg-black object-cover" : "aspect-video w-full min-w-0 rounded-lg bg-black object-contain"} autoPlay playsInline muted aria-label="Participant QR camera preview" aria-describedby={statusId} />
+      {immersive && <div className="pointer-events-none absolute left-1/2 top-[42%] aspect-square w-[min(68vw,46vh)] -translate-x-1/2 -translate-y-1/2 rounded-3xl border-2 border-white/70 shadow-[0_0_0_100vmax_rgba(0,0,0,0.35)]" aria-hidden="true" />}
+    </div>
+    <div className={immersive ? "relative z-10 mt-auto space-y-3 bg-linear-to-t from-black/90 via-black/60 to-transparent px-4 pb-[max(1rem,env(safe-area-inset-bottom))] pt-12" : undefined}>
+      {immersive && overlay}
+      <p id={statusId} className={immersive ? "text-center text-sm text-white/85" : "text-xs text-text-secondary"} role="status" aria-live="polite" aria-atomic="true">{statusText}</p>
+    </div>
   </div>;
 }

@@ -7,7 +7,7 @@ import type { CheckInWindowState } from "@/types/organizer";
 import { participantTokenFromQr } from "@/lib/check-in-qr";
 import { CheckInScanner } from "./CheckInScanner";
 
-export interface OperatorEvent { id: string; title: string; checkInWindow: CheckInWindowState; }
+export interface OperatorEvent { id: string; title: string; checkInWindow: CheckInWindowState; checkedIn?: number; confirmedRsvps?: number; }
 type Outcome = "checked-in" | "already" | "not-on-list" | "expired" | "error";
 interface ScanResult { id: number; outcome: Outcome; title: string; detail: string; at: string; }
 
@@ -41,6 +41,7 @@ export function OrganizerCheckInForm({ event }: { event: OperatorEvent }) {
   const busy = useRef(false);
   const counter = useRef(0);
   const [results, setResults] = useState<ScanResult[]>([]);
+  const [cameraOn, setCameraOn] = useState(false);
   const latest = results[0];
 
   function push(result: Omit<ScanResult, "id" | "at">) {
@@ -76,22 +77,37 @@ export function OrganizerCheckInForm({ event }: { event: OperatorEvent }) {
   }
 
   const style = latest ? outcomeStyle[latest.outcome] : null;
+  const resultCard = (large: boolean) => latest && style && <div key={latest.id} className={`flex items-start gap-3 rounded-xl border p-4 ${style.box} ${large ? "bg-black/70 backdrop-blur-md" : ""}`} data-outcome={latest.outcome}>
+    <style.Icon className={`mt-0.5 shrink-0 ${large ? "size-8" : "size-6"} ${style.text}`} aria-hidden="true" />
+    <div className="min-w-0">
+      {large && <p className={`text-xs font-semibold uppercase tracking-widest ${style.text}`}>{style.label} · {timeFormatter.format(new Date(latest.at))}</p>}
+      <p className={`break-words font-bold ${large ? "mt-0.5 text-2xl" : "text-lg"} ${style.text}`}>{latest.title}</p>
+      <p className={`mt-1 text-sm ${large ? "text-white/85" : "text-text-secondary"}`}>{latest.detail}</p>
+    </div>
+  </div>;
+  const attendance = typeof event.checkedIn === "number"
+    ? `${event.checkedIn}${typeof event.confirmedRsvps === "number" ? ` of ${event.confirmedRsvps}` : ""} checked in`
+    : "Hold each QR inside the frame";
+  const overlay = <div className="mx-auto w-full max-w-xl space-y-2" aria-live="polite" aria-atomic="true">
+    {pending && <p className="rounded-xl bg-black/70 p-4 text-center text-base font-semibold text-white backdrop-blur-md">Checking this participant…</p>}
+    {!pending && resultCard(true)}
+    {!pending && !latest && <p className="rounded-xl bg-black/60 p-4 text-center text-sm text-white/85 backdrop-blur-md">Point the camera at a participant’s check-in QR. Their details appear here.</p>}
+    {results.length > 1 && <ul className="flex gap-2 overflow-x-auto pb-1" aria-label="Recent scans">
+      {results.slice(1, 5).map(result => <li key={result.id} className="flex shrink-0 items-center gap-1.5 rounded-full bg-black/60 px-3 py-1.5 text-xs backdrop-blur-md">
+        <span className="max-w-32 truncate text-white">{result.title}</span>
+        <span className={outcomeStyle[result.outcome].text}>{outcomeStyle[result.outcome].label}</span>
+      </li>)}
+    </ul>}
+  </div>;
   return <div className="min-w-0 space-y-4">
     {event.checkInWindow !== "open" && <p className="rounded-lg border border-amber-400/50 bg-amber-400/10 p-3 text-sm text-amber-200" role="note">
       {event.checkInWindow === "not-open" ? "Check-in opens 30 minutes before the start. You can test the scanner now; new check-ins are refused until then."
         : event.checkInWindow === "closed" ? "Check-in has closed for this event. Scans can only confirm people already checked in."
         : "This event is not taking check-ins."}
     </p>}
-    <CheckInScanner continuous disabled={pending} onToken={value => void record(value)} />
-    <div aria-live="polite" aria-atomic="true">
-      {latest && style && <div key={latest.id} className={`flex items-start gap-3 rounded-xl border p-4 ${style.box}`} data-outcome={latest.outcome}>
-        <style.Icon className={`mt-0.5 size-6 shrink-0 ${style.text}`} aria-hidden="true" />
-        <div className="min-w-0">
-          <p className={`break-words text-lg font-bold ${style.text}`}>{latest.title}</p>
-          <p className="mt-1 text-sm text-text-secondary">{latest.detail}</p>
-        </div>
-      </div>}
-    </div>
+    <CheckInScanner continuous fullscreen title={event.title} subtitle={attendance} overlay={overlay} onActiveChange={setCameraOn} disabled={pending} onToken={value => void record(value)} />
+    {/* While the full-screen camera is up, the result is shown over it instead. */}
+    {!cameraOn && <div aria-live="polite" aria-atomic="true">{resultCard(false)}</div>}
     {results.length > 1 && <section aria-label="Recent scans">
       <p className="text-xs font-semibold uppercase tracking-widest text-text-secondary">Recent scans</p>
       <ul className="mt-2 divide-y divide-border-subtle rounded-lg border border-border-subtle">

@@ -55,7 +55,7 @@ export function EventDesk({ summary }: { summary: OrganizerEventSummary }) {
       <section className="min-w-0 rounded-2xl border border-border-strong bg-surface p-4 sm:p-6" aria-labelledby="desk-heading">
         <h2 id="desk-heading" className="text-xl font-bold text-white">Scan .fit IDs</h2>
         <p className="mt-1 mb-4 text-sm leading-relaxed text-text-secondary">Ask each person to open their .fit ID and flip it to the check-in QR. Only people on this event’s RSVP list can be checked in.</p>
-        <OrganizerCheckInForm event={{ id: event.id, title: event.title, checkInWindow: summary.checkInWindow }} />
+        <OrganizerCheckInForm event={{ id: event.id, title: event.title, checkInWindow: summary.checkInWindow, checkedIn: summary.checkedIn, confirmedRsvps: summary.confirmedRsvps }} />
       </section>
 
       <section className="min-w-0" aria-labelledby="guests-heading">
