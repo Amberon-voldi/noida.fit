@@ -97,10 +97,9 @@ async function validateReferences(kind: ContentKind, record: ContentRecord, prev
   }
   if (kind === "communities" && record.status === "published") {
     const community = record as CommunityRecord;
-    const [activity, place] = await Promise.all([
-      getRow("activities", community.activityId), community.primaryVenueSlug ? findBySlug("places", community.primaryVenueSlug) : Promise.resolve(null),
-    ]);
-    if (!published(activity) || (community.primaryVenueSlug && !published(place))) throw new HttpError(400, "INVALID_REFERENCE", "Published communities need valid published activity and primary venue references");
+    // The primary place is optional and not checked: the club page only links it once that place is published.
+    const activity = await getRow("activities", community.activityId);
+    if (!published(activity)) throw new HttpError(400, "INVALID_REFERENCE", "Published communities need a valid published activity");
   }
 }
 

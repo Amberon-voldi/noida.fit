@@ -212,3 +212,17 @@ test("slug edits cannot orphan linked events and backend reference failures fail
   await assert.rejects(service.deleteAdminContent(actor, "communities", "community", "community", "Delete draft community", version));
   assert.deepEqual(contentWrites(), []);
 });
+
+test("published communities need a published activity but not a published primary place", async t => {
+  t.mock.method(console, "info", () => {}); fixture();
+  const record = put("communities", "community", { status: "draft", primaryVenueSlug: "draft-place" });
+  put("places", "place", { status: "draft", slug: "draft-place" });
+  await assert.rejects(service.updateAdminContent(actor, "communities", "community", { ...record, status: "published" }, version, "Publish before activity"), /published activity/);
+  put("activities", "activity-running", { status: "published" });
+  const published = await service.updateAdminContent(actor, "communities", "community", { ...record, status: "published" }, version, "Publish with draft place");
+  assert.equal(published.record.status, "published");
+  assert.equal(published.record.primaryVenueSlug, "draft-place");
+  rows.set("places", []);
+  const missing = await service.updateAdminContent(actor, "communities", "community", { ...published.record, primaryVenueSlug: "not-a-place" }, published.updatedAt, "Publish with unknown place");
+  assert.equal(missing.record.primaryVenueSlug, "not-a-place");
+});
