@@ -51,24 +51,30 @@ export class SignupRecoveryError extends Error {
   }
 }
 
-export async function createAccountSession(name: string, email: string, password: string, username: string) {
-  // Preflight avoids creating an auth account for an already-taken username.
+/**
+ * One account, its profile, .fit ID and session. Without a chosen username one is generated
+ * from the name (or email). Steps that do not depend on each other run in parallel.
+ */
+export async function createAccountSession(name: string, email: string, password: string, username?: string) {
+  // An explicit choice is preflighted so a taken handle never creates an auth account.
   // The unique database index still wins concurrent races.
-  await assertUsernameAvailable(username);
-  const { account } = getAdminServices();
+  if (username) await assertUsernameAvailable(username);
+  const { account, users } = getAdminServices();
   const created = await account.create({ userId: ID.unique(), email, password, name });
-  try {
-    // Record each consent separately so either can be audited or re-requested on its own.
-    const acceptedAt = new Date().toISOString();
-    await getAdminServices().users.updatePrefs({ userId: created.$id, prefs: { termsAcceptedAt: acceptedAt, privacyAcceptedAt: acceptedAt } });
-    await ensureProfileForUser(created, { preferredUsername: username, displayName: name });
-    return { session: await openSession(email, password) };
-  } catch {
+  // Record each consent separately so either can be audited or re-requested on its own.
+  const acceptedAt = new Date().toISOString();
+  const [prefs, profile, session] = await Promise.allSettled([
+    users.updatePrefs({ userId: created.$id, prefs: { termsAcceptedAt: acceptedAt, privacyAcceptedAt: acceptedAt } }),
+    ensureProfileForUser(created, { preferredUsername: username, displayName: name, email, fresh: true }),
+    openSession(email, password),
+  ]);
+  if (prefs.status === "rejected" || profile.status === "rejected" || session.status === "rejected") {
     // Auth and database writes are not transactional. Preserve the new account:
     // a subsequent login repairs missing rows without resetting existing privacy.
     // Never delete a valid account because a dependent service was unavailable.
     throw new SignupRecoveryError();
   }
+  return { session: session.value, username: profile.value.username };
 }
 
 export async function deleteCurrentSession(secret: string): Promise<void> {

@@ -296,7 +296,8 @@ test("login repairs an auth-only account and revokes the newly opened session if
   assert.ok(backend.calls.some((call) => call.method === "DELETE" && call.path === "/account/sessions/current" && call.session === "server-only-session-secret"));
   backend.setFitnessFailure(false);
   await identity.createEmailSession("runner@example.test", "password123");
-  assert.match(String(backend.rows.get("profiles/private-auth-user")?.username), /^noida-runner-[a-f0-9]{8}$/);
+  // Repair generates a readable handle from the account name, not a random-looking one.
+  assert.equal(backend.rows.get("profiles/private-auth-user")?.username, "noida-runner");
 });
 
 test("a concurrent username claim cannot overwrite its winner; the new account can recover", async () => {
@@ -513,4 +514,48 @@ test("signup requires separate, explicit terms and privacy consent and records e
   const prefs = backend.calls.find((call) => /^\/users\/[^/]+\/prefs$/.test(call.path))?.body.prefs as Record<string, string>;
   assert.ok(!Number.isNaN(Date.parse(prefs.termsAcceptedAt)));
   assert.ok(!Number.isNaN(Date.parse(prefs.privacyAcceptedAt)));
+});
+
+test("signup without a username generates a readable one from the name, else the email", async () => {
+  const backend = fakeAppwrite();
+  const result = await identity.createAccountSession("Rahul Sharma", "rahul.s+fit@example.test", "password123");
+  assert.equal(result.username, "rahul-sharma");
+  assert.equal(backend.rows.get("profiles/private-auth-user")?.username, "rahul-sharma");
+  assert.ok(backend.rows.has("fitness_ids/private-auth-user"));
+  assert.equal(profiles.usernameBase("Rahul Sharma"), "rahul-sharma");
+  assert.equal(profiles.usernameBase("  José   Núñez!! "), "jose-nunez");
+  assert.equal(profiles.usernameBase("राहुल", "rahul.s+fit@example.test"), "rahul-s");
+  assert.equal(profiles.usernameBase("A", "ab@example.test"), "member");
+  assert.equal(profiles.usernameBase("x".repeat(80)).length, 30);
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    assert.ok(profiles.isValidUsername(profiles.usernameCandidate(profiles.usernameBase("x".repeat(80)), attempt)), `attempt ${attempt}`);
+  }
+});
+
+test("a generated username that is taken gets a short number instead of failing signup", async () => {
+  const backend = fakeAppwrite();
+  backend.rows.set("profiles/someone-else", { ...storedProfile({ userId: "someone-else", username: "rahul-sharma" }), $id: "someone-else" });
+  const result = await identity.createAccountSession("Rahul Sharma", "rahul@example.test", "password123");
+  assert.match(result.username, /^rahul-sharma-\d{2}$/);
+  assert.equal(backend.rows.get("profiles/someone-else")?.username, "rahul-sharma", "the existing owner keeps their handle");
+});
+
+test("signup without a username skips lookups for rows a new account cannot have", async () => {
+  const backend = fakeAppwrite();
+  await identity.createAccountSession("Rahul Sharma", "rahul@example.test", "password123");
+  const reads = backend.calls.filter(call => call.method === "GET" && call.path.includes("/collections/"));
+  assert.deepEqual(reads, [], "no username preflight, profile or .fit ID reads");
+  assert.equal(backend.calls.filter(call => call.method === "POST" && call.path.includes("/collections/")).length, 2);
+});
+
+test("the signup API accepts no username and still emails the verification link", async () => {
+  const backend = fakeAppwrite();
+  const { POST } = await import("../app/api/auth/signup/route");
+  const response = await POST(new NextRequest("https://noida.fit/api/auth/signup", {
+    method: "POST", headers: { Origin: "https://noida.fit", "content-type": "application/json" },
+    body: JSON.stringify({ name: "Rahul Sharma", email: "rahul@example.test", password: "password123", acceptTerms: true, acceptPrivacy: true }),
+  }));
+  assert.equal(response.status, 200);
+  assert.equal(backend.rows.get("profiles/private-auth-user")?.username, "rahul-sharma");
+  assert.equal(backend.calls.filter(call => call.path === "/account/verification" && call.method === "POST").length, 1);
 });

@@ -14,7 +14,8 @@ export const loginSchema = z.object({
 
 export const signupSchema = loginSchema.extend({
   name: displayNameSchema,
-  username: usernameSchema,
+  // Optional: without one, the server generates a handle from the name or email.
+  username: usernameSchema.optional(),
   password: passwordSchema.regex(/[A-Za-z]/).regex(/[0-9]/),
   // Separate, explicit opt-ins: each must be ticked by the member, never defaulted.
   acceptTerms: z.literal(true),

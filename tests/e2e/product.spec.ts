@@ -161,10 +161,11 @@ test("signup → save/follow/RSVP → organizer check-in → private/public .fit
   test.setTimeout(240_000);
   const email=`nf-test-${randomBytes(8).toString("hex")}@example.com`;
   const password=`Nf!${randomBytes(18).toString("base64url")}7`;
-  const username=`test-${randomBytes(6).toString("hex")}`;
+  const suffix=randomBytes(6).toString("hex");
+  // Signup has no username field: the server derives it from the name ("Test <hex>" -> "test-<hex>").
+  const username=`test-${suffix}`;
   await page.goto("/signup?callbackUrl=/account");
-  await page.getByLabel("Display name",{exact:true}).fill("Noida Test Member");
-  await page.getByLabel("Username",{exact:true}).fill(username);
+  await page.getByLabel("Your name",{exact:true}).fill(`Test ${suffix}`);
   await page.getByLabel("Email",{exact:true}).fill(email);
   await page.getByLabel("Password",{exact:true}).fill(password);
   await page.getByRole("checkbox",{name:/Terms and Conditions/}).check();

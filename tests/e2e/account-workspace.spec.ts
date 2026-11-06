@@ -1,4 +1,4 @@
-import { test, expect, type Page } from "@playwright/test";
+import { test, expect, devices, type Page } from "@playwright/test";
 import { build } from "esbuild";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
@@ -307,4 +307,30 @@ test("Long member and event names reflow on a phone with enlarged text", async (
   await page.getByRole("button", { name: /Open .fit ID for/ }).click();
   await expect(page.locator(".identity-dialog .fitness-card-name")).toHaveText(props.profile.name);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+
+test.describe("on a phone", () => {
+  // iPhone viewport, touch and mobile flags; Chromium engine (WebKit is not installed here).
+  const { defaultBrowserType: _engine, ...phone } = devices["iPhone 13"]; void _engine;
+  test.use(phone);
+  test("a tap anywhere on the .fit card opens it, and a tap on the open card flips it", async ({ page }) => {
+    await mount(page);
+    const card = page.getByRole("button", { name: /Open .fit ID for/ });
+    await expect(card).toHaveCSS("touch-action", "manipulation");
+    // Every point of the card belongs to its button, so no tap can fall through to the page.
+    const box = (await card.boundingBox())!;
+    for (const [fx, fy] of [[.1, .1], [.5, .5], [.9, .2], [.2, .85], [.85, .9]]) {
+      const x = box.x + box.width * fx, y = box.y + box.height * fy;
+      expect(await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.classList.contains("identity-card-trigger"), [x, y]), `${fx},${fy}`).toBe(true);
+    }
+    await card.tap({ position: { x: box.width * .15, y: box.height * .8 } });
+    const dialog = page.getByRole("dialog");
+    await expect(dialog).toBeVisible();
+    const flip = dialog.getByRole("button", { name: /\.fit ID for .*Front of card/ });
+    await expect(flip).toHaveCSS("touch-action", "manipulation");
+    const flipBox = (await flip.boundingBox())!;
+    expect(await page.evaluate(([x, y]) => document.elementFromPoint(x, y)?.classList.contains("fitness-card"), [flipBox.x + flipBox.width * .8, flipBox.y + flipBox.height * .3])).toBe(true);
+    await flip.tap();
+    await expect(dialog.getByRole("button", { name: /Back of card/ }).first()).toHaveAttribute("aria-pressed", "true");
+  });
 });

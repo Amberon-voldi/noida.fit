@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { after, NextRequest, NextResponse } from "next/server";
 import { ZodError } from "zod";
 import { createAccountSession, SignupRecoveryError, sendEmailVerification, sessionCookieOptions, APPWRITE_SESSION_COOKIE } from "@/lib/appwrite/auth";
 import { reportAppwriteFailure } from "@/lib/appwrite/errors";
@@ -6,6 +6,11 @@ import { backendErrorCode, guardMutation, safeCallbackUrl, verifyEmailUrl } from
 import { UsernameConflictError } from "@/lib/appwrite/profiles";
 import { signupSchema } from "@/components/auth/validation";
 import { HttpError, jsonError, readJson } from "@/lib/http";
+
+/** Next's after() in a real request (Cloudflare waitUntil); outside one, e.g. a direct call, just run it. */
+async function afterResponse(task: () => Promise<unknown>): Promise<void> {
+  try { after(task); } catch { await task(); }
+}
 
 export async function POST(request: NextRequest) {
   const rejected = guardMutation(request, "auth-signup");
@@ -15,8 +20,10 @@ export async function POST(request: NextRequest) {
     const input = await readJson(request, signupSchema);
     const { session } = await createAccountSession(input.name, input.email, input.password, input.username);
     // The account exists either way: a failed send must not fail signup. The banner offers a resend.
-    await sendEmailVerification(session.secret, verifyEmailUrl(request))
-      .catch(error => reportAppwriteFailure("auth.verification.create", error));
+    // Send after responding, so the member is not kept waiting on the email provider.
+    const verifyUrl = verifyEmailUrl(request);
+    await afterResponse(() => sendEmailVerification(session.secret, verifyUrl)
+      .catch(error => reportAppwriteFailure("auth.verification.create", error)));
     const response = NextResponse.json({ ok: true, redirectTo: safeCallbackUrl(input.callbackUrl) }, {
       headers: { "Cache-Control": "private, no-store" },
     });

@@ -22,7 +22,12 @@
   text-align: left;
   cursor: pointer;
   perspective: 1600px;
+  /* Tap to flip, without iOS treating it as the start of a double-tap zoom. */
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
+/* Every tap on the flip card lands on its button, not a 3D-transformed face (iOS hit-testing). */
+.fitness-card > * { pointer-events: none; }
 
 .fitness-card-body {
   display: grid;

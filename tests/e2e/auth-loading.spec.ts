@@ -28,8 +28,7 @@ for (const flow of ["login", "signup"] as const) {
     try {
       await page.goto(`/${flow}?callbackUrl=%2Fabout`);
       if (flow === "signup") {
-        await page.getByLabel("Display name", { exact: true }).fill("Loading Test");
-        await page.getByLabel("Username", { exact: true }).fill("loading-test");
+        await page.getByLabel("Your name", { exact: true }).fill("Loading Test");
       }
       await page.getByLabel("Email", { exact: true }).fill("loading@example.test");
       await page.getByLabel("Password", { exact: true }).fill("Test-password-123");
@@ -72,8 +71,7 @@ for (const flow of ["login", "signup"] as const) {
       });
       await page.goto(`/${flow}`);
       if (flow === "signup") {
-        await page.getByLabel("Display name", { exact: true }).fill("Loading Test");
-        await page.getByLabel("Username", { exact: true }).fill("loading-test");
+        await page.getByLabel("Your name", { exact: true }).fill("Loading Test");
       }
       await page.getByLabel("Email", { exact: true }).fill("loading@example.test");
       await page.getByLabel("Password", { exact: true }).fill("Test-password-123");

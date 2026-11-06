@@ -1,6 +1,6 @@
 import "server-only";
 
-import { randomBytes } from "node:crypto";
+import { randomBytes, randomInt } from "node:crypto";
 import { cache } from "react";
 import type { Models } from "node-appwrite";
 import { appwriteCollections } from "@/lib/appwrite/config";
@@ -56,8 +56,28 @@ export function isValidUsername(value: string): boolean {
   return parsed.success && parsed.data === value;
 }
 
-function generatedUsername(name: string): string {
-  const base = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 28) || "member";
+/** Lowercase ASCII handle text: accents dropped, anything else becomes single hyphens. */
+function handleText(value: string, max: number): string {
+  return value.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-").slice(0, max).replace(/^-+|-+$/g, "");
+}
+
+/** A readable base for a new username: the name, else the email's local part (without +tags), else "member". */
+export function usernameBase(name: string, email = ""): string {
+  const fromName = handleText(name, 30);
+  if (fromName.length >= 3) return fromName;
+  const fromEmail = handleText(email.split("@")[0].split("+")[0], 30);
+  return fromEmail.length >= 3 ? fromEmail : "member";
+}
+
+/**
+ * Candidates in the order they are tried against the unique username index:
+ * "rahul-sharma", then a short number, then a longer one, then random hex. All stay within 40 characters.
+ */
+export function usernameCandidate(base: string, attempt: number): string {
+  if (attempt === 0) return base;
+  if (attempt === 1) return `${base}-${randomInt(10, 100)}`;
+  if (attempt === 2) return `${base}-${randomInt(1000, 10000)}`;
   return `${base}-${randomBytes(4).toString("hex")}`;
 }
 
@@ -78,9 +98,8 @@ export async function getProfileDocumentByUserId(userId: string): Promise<Profil
   return getAppwriteDocument<ProfileData>(appwriteCollections.profiles, userId);
 }
 
-async function ensureFitnessId(profile: ProfileData): Promise<void> {
-  const existing = await getAppwriteDocument<FitnessIdData>(appwriteCollections.fitnessIds, profile.userId);
-  if (existing) return;
+async function ensureFitnessId(profile: ProfileData, fresh = false): Promise<void> {
+  if (!fresh && await getAppwriteDocument<FitnessIdData>(appwriteCollections.fitnessIds, profile.userId)) return;
   try {
     await createAppwriteDocument<FitnessIdData>(appwriteCollections.fitnessIds, {
       userId: profile.userId,
@@ -100,15 +119,24 @@ async function ensureFitnessId(profile: ProfileData): Promise<void> {
  */
 export async function ensureProfileForUser(
   user: Models.User<Models.Preferences>,
-  options: { preferredUsername?: string; displayName?: string } = {},
+  options: {
+    preferredUsername?: string; displayName?: string;
+    /** Used for the generated username when the name gives too little to work with. */
+    email?: string;
+    /** The account was created in this request: skip lookups for rows that cannot exist yet. */
+    fresh?: boolean;
+  } = {},
 ): Promise<ProfileData> {
-  let profile = await getProfileDocumentByUserId(user.$id);
+  let profile = options.fresh ? null : await getProfileDocumentByUserId(user.$id);
   if (!profile) {
-    if (options.preferredUsername) await assertUsernameAvailable(options.preferredUsername, user.$id);
+    // A signup preflight already checked an explicit choice; repairs re-check it here.
+    if (options.preferredUsername && !options.fresh) await assertUsernameAvailable(options.preferredUsername, user.$id);
+    const base = usernameBase(options.displayName || user.name, options.email ?? user.email);
     for (let attempt = 0; attempt < 4; attempt += 1) {
       const data: ProfileData = {
         userId: user.$id,
-        username: options.preferredUsername || generatedUsername(user.name),
+        // No preflight query for generated names: the unique index decides, and a clash tries the next candidate.
+        username: options.preferredUsername || usernameCandidate(base, attempt),
         displayName: options.displayName || user.name || "Noida member",
         city: "Noida",
         fitnessId: `NF-${randomBytes(8).toString("hex").toUpperCase()}`,
@@ -134,7 +162,7 @@ export async function ensureProfileForUser(
     }
   }
   if (!profile) throw new Error("Profile could not be created");
-  await ensureFitnessId(profile);
+  await ensureFitnessId(profile, options.fresh);
   return profile;
 }
 

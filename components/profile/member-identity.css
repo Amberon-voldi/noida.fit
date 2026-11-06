@@ -2,7 +2,14 @@
 
 /* The card itself is the header: tap it to lift it into the foreground. */
 .identity-card-trigger { position: relative; display: block; width: 100%; padding: 0; border: 0; border-radius: 16px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; transition: transform 200ms var(--ease-out), filter var(--motion-fast); }
-.identity-card-trigger:hover { filter: brightness(1.06); }
+/* Taps must land on the button itself. iOS Safari hit-tests 3D/backface-hidden
+ * descendants unreliably, so a tap on the card could miss and read as a scroll.
+ * `manipulation` also removes the double-tap-zoom wait that swallowed quick taps. */
+.identity-card-trigger, .identity-action, .identity-owner-links a { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+.identity-card-trigger > * { pointer-events: none; }
+/* The banner preview never flips, so it needs no 3D compositing at all. */
+.identity-card-trigger .fitness-card-face { backface-visibility: visible; -webkit-backface-visibility: visible; }
+@media (hover: hover) { .identity-card-trigger:hover { filter: brightness(1.06); } }
 .identity-card-trigger:active { transform: scale(.985); }
 .identity-card-trigger:focus-visible, .identity-action:focus-visible, .identity-dialog-toolbar button:focus-visible { outline: 2px solid var(--accent-velocity-glow); outline-offset: 3px; }
 

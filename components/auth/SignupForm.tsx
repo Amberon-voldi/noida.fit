@@ -3,14 +3,16 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { safeCallbackUrl, signupSchema, USERNAME_PATTERN } from "@/components/auth/validation";
+import { Eye, EyeOff } from "lucide-react";
+import { safeCallbackUrl, signupSchema } from "@/components/auth/validation";
 import { AuthSubmitButton, type AuthSubmitStatus } from "./AuthSubmitButton";
 
 const inputClass = "mt-1 min-h-11 w-full rounded-lg border border-border-strong bg-surface px-3 py-2 text-sm text-white";
 
 export function SignupForm({ callbackUrl }: { callbackUrl: string }) {
   const router = useRouter();
-  const [form, setForm] = useState({ name: "", username: "", email: "", password: "" });
+  const [form, setForm] = useState({ name: "", email: "", password: "" });
+  const [showPassword, setShowPassword] = useState(false);
   // Both start unchecked; members opt in to each separately.
   const [consent, setConsent] = useState({ acceptTerms: false, acceptPrivacy: false });
   const [error, setError] = useState("");
@@ -30,7 +32,7 @@ export function SignupForm({ callbackUrl }: { callbackUrl: string }) {
       return;
     }
     if (!signupSchema.safeParse({ ...form, ...consent, callbackUrl }).success) {
-      setError("Check your details. Your username must start and end with a letter or number. Your password needs at least 8 characters, a letter and a number.");
+      setError("Check your details. Use a valid email, and a password with at least 8 characters including a letter and a number.");
       return;
     }
     setStatus("submitting");
@@ -64,21 +66,22 @@ export function SignupForm({ callbackUrl }: { callbackUrl: string }) {
       <form onSubmit={handleSubmit} aria-busy={loading} aria-describedby={error ? "signup-error" : undefined} className="space-y-4">
         {error && <p id="signup-error" role="alert" className="text-sm text-rose-400">{error}</p>}
         <div>
-          <label htmlFor="name" className="text-sm text-text-secondary">Display name</label>
-          <input id="name" name="name" type="text" required minLength={2} maxLength={128} autoComplete="name" value={form.name} onChange={(e) => update("name", e.target.value)} aria-invalid={Boolean(error)} aria-describedby={error ? "signup-error" : undefined} className={inputClass} />
-        </div>
-        <div>
-          <label htmlFor="username" className="text-sm text-text-secondary">Username</label>
-          <input id="username" name="username" type="text" required minLength={3} maxLength={40} pattern={USERNAME_PATTERN} aria-invalid={Boolean(error)} aria-describedby={error ? "username-help signup-error" : "username-help"} autoComplete="username" autoCapitalize="none" spellCheck={false} value={form.username} onChange={(e) => update("username", e.target.value.toLowerCase())} placeholder="your-handle" className={inputClass} />
-          <p id="username-help" className="mt-1 text-xs text-text-secondary">3–40 characters. Start and end with a letter or number; dots, hyphens and underscores are allowed inside.</p>
+          <label htmlFor="name" className="text-sm text-text-secondary">Your name</label>
+          <input id="name" name="name" type="text" required minLength={2} maxLength={128} autoComplete="name" autoFocus value={form.name} onChange={(e) => update("name", e.target.value)} aria-invalid={Boolean(error)} aria-describedby={error ? "name-help signup-error" : "name-help"} className={inputClass} />
+          <p id="name-help" className="mt-1 text-xs text-text-secondary">We’ll make your username from this. You can change it any time in Settings.</p>
         </div>
         <div>
           <label htmlFor="signup-email" className="text-sm text-text-secondary">Email</label>
-          <input id="signup-email" name="email" type="email" required maxLength={320} autoComplete="email" value={form.email} onChange={(e) => update("email", e.target.value)} aria-invalid={Boolean(error)} aria-describedby={error ? "signup-error" : undefined} className={inputClass} />
+          <input id="signup-email" name="email" type="email" inputMode="email" required maxLength={320} autoComplete="email" autoCapitalize="none" spellCheck={false} value={form.email} onChange={(e) => update("email", e.target.value)} aria-invalid={Boolean(error)} aria-describedby={error ? "signup-error" : undefined} className={inputClass} />
         </div>
         <div>
           <label htmlFor="signup-password" className="text-sm text-text-secondary">Password</label>
-          <input id="signup-password" name="password" type="password" required minLength={8} maxLength={256} aria-invalid={Boolean(error)} aria-describedby={error ? "password-help signup-error" : "password-help"} autoComplete="new-password" value={form.password} onChange={(e) => update("password", e.target.value)} className={inputClass} />
+          <div className="relative">
+            <input id="signup-password" name="password" type={showPassword ? "text" : "password"} required minLength={8} maxLength={256} aria-invalid={Boolean(error)} aria-describedby={error ? "password-help signup-error" : "password-help"} autoComplete="new-password" value={form.password} onChange={(e) => update("password", e.target.value)} className={`${inputClass} pr-12`} />
+            <button type="button" onClick={() => setShowPassword(value => !value)} aria-pressed={showPassword} aria-controls="signup-password" aria-label={showPassword ? "Hide password" : "Show password"} className="absolute inset-y-0 right-0 mt-1 flex w-11 items-center justify-center rounded-r-lg text-text-secondary hover:text-white focus-visible:outline-2 focus-visible:outline-velocity">
+              {showPassword ? <EyeOff size={18} aria-hidden="true" /> : <Eye size={18} aria-hidden="true" />}
+            </button>
+          </div>
           <p id="password-help" className="mt-1 text-xs text-text-secondary">At least 8 characters, including a letter and number.</p>
         </div>
         <fieldset className="space-y-3">
