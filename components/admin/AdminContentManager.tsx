@@ -16,7 +16,13 @@ const imageFields: Record<ContentKind, [key: string, label: string, hint: string
   places: [["coverImageUrl", "Cover image", "Wide (about 3:1). Shown on the place page and cards."]],
   events: [["coverImageUrl", "Cover image", "Wide (about 16:9). Shown on the event page and cards."]],
 };
-const optionalKeys = new Set(["organizerUserId", "primaryVenueSlug", ...Object.values(imageFields).flat().map(([key]) => key)]);
+const optionalKeys = new Set(["organizerUserId", "primaryVenueSlug", "communityCrestUrl", ...Object.values(imageFields).flat().map(([key]) => key)]);
+const categories = ["running", "cycling", "strength", "sports", "wellness", "outdoor"] as const;
+/** Other content each editor links to, loaded for its dropdowns. */
+const referenceKinds: Record<ContentKind, ContentKind[]> = { activities: [], communities: ["activities", "places"], places: ["activities"], events: ["activities", "communities", "places"] };
+type Option = { value: string; label: string };
+type Member = { id: string; name: string; enabled: boolean };
+const statusNote = (record: Record<string, unknown>) => record.status === "published" ? "" : ` · ${String(record.status ?? "draft")}`;
 
 export function AdminContentManager({ kind, initialRecords, initialError = "", template, writesEnabled }: {
   kind: ContentKind; initialRecords: Entry[]; initialError?: string; template: Record<string, unknown>; writesEnabled: boolean;
@@ -35,6 +41,12 @@ export function AdminContentManager({ kind, initialRecords, initialError = "", t
   const newButtonRef = useRef<HTMLButtonElement>(null);
   const requestRef = useRef<AbortController | null>(null);
   useEffect(() => () => requestRef.current?.abort(), []);
+  const [refs, setRefs] = useState<Partial<Record<ContentKind, Entry[]>>>({});
+  const [refsError, setRefsError] = useState("");
+  const [memberQuery, setMemberQuery] = useState("");
+  const [members, setMembers] = useState<Member[] | null>(null);
+  const [membersError, setMembersError] = useState("");
+  const editing = Boolean(json);
 
   const visible = useMemo(() => records.filter(item =>
     (!search.trim() || JSON.stringify(item.record).toLowerCase().includes(search.trim().toLowerCase())) && (status === "all" || item.record.status === status),
@@ -44,6 +56,44 @@ export function AdminContentManager({ kind, initialRecords, initialError = "", t
     catch { return null; }
   }, [json]);
   const busy = Boolean(pending);
+  // Load the records this editor links to once it opens, so references are picked, not typed.
+  useEffect(() => {
+    const needed = referenceKinds[kind].filter(other => !refs[other]);
+    if (!editing || !needed.length) return;
+    const controller = new AbortController();
+    void Promise.all(needed.map(async other => {
+      const response = await fetch(`/api/admin/content/${other}`, { cache: "no-store", signal: controller.signal });
+      const data = await response.json().catch(() => null) as { records?: Entry[]; error?: string } | null;
+      if (!response.ok || !data?.records) throw new Error(data?.error || `${labels[other]} could not be loaded`);
+      return [other, data.records] as const;
+    })).then(loaded => { setRefs(current => ({ ...current, ...Object.fromEntries(loaded) })); setRefsError(""); })
+      .catch(caught => { if (!(caught instanceof Error && caught.name === "AbortError")) setRefsError(`${caught instanceof Error ? caught.message : "Linked records could not be loaded"}. Use Advanced JSON, or close and reopen the editor to retry.`); });
+    return () => controller.abort();
+  }, [editing, kind, refs]);
+  // Organizer search: member accounts by name, 25 at a time.
+  useEffect(() => {
+    if (!editing || kind !== "events") return;
+    const controller = new AbortController();
+    const timer = window.setTimeout(() => {
+      fetch(`/api/admin/members?q=${encodeURIComponent(memberQuery.trim())}`, { cache: "no-store", signal: controller.signal })
+        .then(async response => {
+          const data = await response.json().catch(() => null) as { members?: Member[]; error?: string } | null;
+          if (!response.ok || !data?.members) throw new Error(data?.error || "Members could not be loaded");
+          setMembers(data.members); setMembersError("");
+        })
+        .catch(caught => { if (!(caught instanceof Error && caught.name === "AbortError")) setMembersError(caught instanceof Error ? caught.message : "Members could not be loaded"); });
+    }, memberQuery ? 300 : 0);
+    return () => { window.clearTimeout(timer); controller.abort(); };
+  }, [editing, kind, memberQuery]);
+  function patchMany(changes: Record<string, unknown>) {
+    if (!draft || busy) return;
+    const next = { ...draft };
+    for (const [key, value] of Object.entries(changes)) {
+      if ((value === "" || value === undefined) && optionalKeys.has(key)) delete next[key];
+      else next[key] = value;
+    }
+    setJson(JSON.stringify(next, null, 2));
+  }
   function patch(key: string, value: unknown) {
     if (!draft || busy) return;
     const next = { ...draft };
@@ -156,6 +206,24 @@ export function AdminContentManager({ kind, initialRecords, initialError = "", t
   function textField(key: string, label: string, type = "text") {
     return <label key={key}><span>{label}</span><input type={type} value={String(draft?.[key] ?? "")} readOnly={busy || !draft} onChange={event => patch(key, type === "number" ? Number(event.target.value) : event.target.value)} className="admin-field" /></label>;
   }
+  function options(other: ContentKind, value: (record: Record<string, unknown>, id: string) => string): Option[] {
+    return (refs[other] ?? []).map(item => ({ value: value(item.record, item.id), label: `${nameOf(other, item.record)}${statusNote(item.record)}` }));
+  }
+  function selectField(key: string, label: string, choices: Option[] | null, settings: { optional?: string; onSelect?: (value: string) => void; help?: string } = {}) {
+    const current = String(draft?.[key] ?? "");
+    const known = choices?.some(choice => choice.value === current);
+    const helpId = settings.help ? `ref-${key}-help` : undefined;
+    // Label by id, not by wrapping: a wrapped <select> adds its chosen option to its own name.
+    return <div key={key} className="min-w-0"><label htmlFor={`ref-${key}`}><span>{label}</span></label>
+      <select id={`ref-${key}`} value={current} onChange={event => settings.onSelect ? settings.onSelect(event.target.value) : patch(key, event.target.value)} disabled={busy || !draft} className="admin-field" aria-describedby={helpId}>
+        {settings.optional !== undefined ? <option value="">{settings.optional}</option> : !current && <option value="" disabled>{choices ? "Choose…" : "Loading…"}</option>}
+        {/* Keep a saved value visible even when it is not (or not yet) in the list. */}
+        {current && !known && <option value={current}>{choices ? `${current} (not found)` : current}</option>}
+        {(choices ?? []).map(choice => <option key={choice.value} value={choice.value}>{choice.label}</option>)}
+      </select>
+      {settings.help && <small id={helpId} className="admin-note block">{settings.help}</small>}
+    </div>;
+  }
   function checkField(key: string, label: string) {
     return <label className="admin-checkbox" key={key}><input type="checkbox" checked={draft?.[key] === true} onChange={event => patch(key, event.target.checked)} disabled={busy || !draft} /><span>{label}</span></label>;
   }
@@ -179,19 +247,42 @@ export function AdminContentManager({ kind, initialRecords, initialError = "", t
       <fieldset className="admin-field-group"><legend>Listing basics</legend><div className="admin-fields">
         {textField(kind === "events" ? "title" : "name", kind === "events" ? "Title" : "Name")}{textField("slug", "Slug")}
         <label><span>Status (applies on save)</span><select value={String(draft?.status ?? "draft")} onChange={event => patch("status", event.target.value)} disabled={busy || !draft} className="admin-field"><option value="draft">Draft / unpublished</option><option value="published">Published</option><option value="cancelled">Cancelled</option></select></label>
-        {kind !== "activities" && textField("category", "Category")}
-        {(kind === "events" || kind === "communities") && textField("activityId", "Activity record ID")}
+        {kind === "places" && textField("category", "Category")}
+        {(kind === "events" || kind === "communities") && selectField("category", "Category", categories.map(value => ({ value, label: value[0].toUpperCase() + value.slice(1) })))}
+        {(kind === "events" || kind === "communities") && selectField("activityId", "Activity", refs.activities ? options("activities", (_record, id) => id) : null)}
         {kind === "activities" && textField("emoji", "Emoji")}
-        {kind === "communities" && <>{textField("baseLocation", "Base location")}{textField("primaryVenueSlug", "Primary place slug (optional)")}</>}
+        {kind === "communities" && <>{textField("baseLocation", "Base location")}{selectField("primaryVenueSlug", "Primary place", refs.places ? options("places", record => String(record.slug)) : null, { optional: "No primary place" })}</>}
         {kind === "places" && <>{textField("sector", "Sector")}{textField("address", "Address")}</>}
       </div></fieldset>
+      {kind === "places" && <fieldset className="admin-field-group"><legend>Activities offered here</legend>
+        {refs.activities ? <div className="admin-checkbox-row">{refs.activities.map(item => {
+          const slug = String(item.record.slug);
+          const selected = Array.isArray(draft?.activities) ? (draft.activities as unknown[]).map(String) : [];
+          return <label className="admin-checkbox" key={item.id}><input type="checkbox" checked={selected.includes(slug)} disabled={busy || !draft} onChange={event => patch("activities", event.target.checked ? [...selected, slug] : selected.filter(value => value !== slug))} /><span>{nameOf("activities", item.record)}{statusNote(item.record)}</span></label>;
+        })}{!refs.activities.length && <p className="admin-note">No activities yet.</p>}</div> : <p className="admin-note">Loading activities…</p>}
+      </fieldset>}
+      {refsError && <p className="admin-error mt-3" role="alert">{refsError}</p>}
       {kind === "events" && <>
-        <fieldset className="admin-field-group"><legend>Community, venue & organizer</legend><div className="admin-fields">{textField("communitySlug", "Community slug")}{textField("communityName", "Community display name")}{textField("venueSlug", "Place slug")}{textField("venueName", "Place display name")}{textField("sector", "Sector")}{textField("organizerUserId", "Organizer Appwrite user ID (blank removes assignment)")}</div></fieldset>
+        <fieldset className="admin-field-group"><legend>Community, venue & organizer</legend><div className="admin-fields">
+          {selectField("communitySlug", "Community", refs.communities ? options("communities", record => String(record.slug)) : null, { help: "Also sets the club name and logo shown on the event.", onSelect: slug => {
+            const club = refs.communities?.find(item => item.record.slug === slug)?.record;
+            patchMany({ communitySlug: slug, ...(club ? { communityName: String(club.name ?? slug), communityCrestUrl: club.crestUrl as string | undefined } : {}) });
+          } })}
+          {selectField("venueSlug", "Place", refs.places ? options("places", record => String(record.slug)) : null, { help: "Also sets the place name and sector.", onSelect: slug => {
+            const place = refs.places?.find(item => item.record.slug === slug)?.record;
+            patchMany({ venueSlug: slug, ...(place ? { venueName: String(place.name ?? slug), ...(typeof place.sector === "string" && place.sector ? { sector: place.sector } : {}) } : {}) });
+          } })}
+          {textField("sector", "Sector")}
+          <div className="admin-organizer-picker">
+            <label><span>Find organizer by name</span><input type="search" value={memberQuery} onChange={event => setMemberQuery(event.target.value)} placeholder="Search members…" readOnly={busy || !draft} className="admin-field" /></label>
+            {selectField("organizerUserId", "Organizer", members ? members.filter(member => member.enabled).map(member => ({ value: member.id, label: `${member.name} · ${member.id}` })) : null, { optional: "No organizer", help: membersError || "Gives this account event-scoped check-in access, not admin rights." })}
+          </div>
+        </div></fieldset>
         <fieldset className="admin-field-group"><legend>Schedule & capacity</legend><div className="admin-fields">{textField("date", "Date (IST)", "date")}{textField("startTime", "Start display time (e.g. 06:00 AM)")}{textField("endTime", "End display time (e.g. 07:00 AM)")}{textField("startsAt", "Start timestamp with timezone offset")}{textField("endsAt", "End timestamp with timezone offset")}{textField("capacity", "Capacity", "number")}{textField("price", "Price (FREE or information only)")}</div></fieldset>
       </>}
       {imageFields[kind].length > 0 && <fieldset className="admin-field-group"><legend>Images</legend><p className="admin-note">Uploads go to Appwrite Storage and appear on the site after you save the record.</p><div className="admin-image-fields">{imageFields[kind].map(([key, label, hint]) => imageField(key, label, hint))}</div></fieldset>}
       <fieldset className="admin-field-group"><legend>Description & flags</legend><label className="block"><span>Description (plain text)</span><textarea className="admin-field" value={String(draft?.description ?? "")} onChange={event => patch("description", event.target.value)} readOnly={busy || !draft} rows={3} /></label><div className="admin-checkbox-row">{checkField("demo", "Demo / fictional content")}{kind !== "activities" && checkField("featured", "Featured")}{kind === "communities" && checkField("verified", "Verified community")}</div></fieldset>
-      <details className="admin-editor-disclosure"><summary>Advanced record JSON</summary><label className="block"><span>Complete validated record</span><textarea value={json} onChange={event => { if (!busy) setJson(event.target.value); }} readOnly={busy} rows={14} spellCheck={false} className="admin-field font-mono" aria-describedby="json-help" /></label><p id="json-help" className="admin-note mt-2">No HTML or unknown fields. Images: upload above, or /images/... or HTTPS. Counts are derived from participation, not editable marketing figures. Published event references must be published. Start/end timestamps must agree with display times in Asia/Kolkata.</p></details>
+      <details className="admin-editor-disclosure"><summary>Advanced record JSON</summary><label className="block"><span>Complete validated record</span><textarea value={json} onChange={event => { if (!busy) setJson(event.target.value); }} readOnly={busy} rows={14} spellCheck={false} className="admin-field font-mono" aria-describedby="json-help" /></label><p id="json-help" className="admin-note mt-2">No HTML or unknown fields. Images: upload above, or /images/... or HTTPS. Counts are derived from participation, not editable marketing figures. Published event references must be published. Linked records are picked from dropdowns above. Start/end timestamps must agree with display times in Asia/Kolkata.</p></details>
       <div className="admin-field-group"><label className="block"><span>Mutation reason (required, 5–300 characters)</span><input value={reason} onChange={event => setReason(event.target.value)} readOnly={busy} maxLength={300} className="admin-field" aria-describedby={error ? "content-error" : undefined} /></label><div className="admin-actions mt-3"><button type="button" className="button-primary" onClick={save} disabled={busy || !writesEnabled}>{selected ? "Save changes" : "Create record"}</button></div></div>
       <p className="admin-note">Stale forms are rejected using updatedAt. This is a best-effort document check, not atomic compare-and-swap; simultaneous writes can still race. Reopen after refreshing to review the latest server version. Never blindly repeat an action with an incomplete audit result.</p>
       {selected && <details className="admin-editor-disclosure"><summary className="text-rose-300">Permanent deletion</summary><p className="admin-note">Prefer draft/unpublish to preserve history. Deletion is refused for editorial references or any private participation, saves or follows.</p><label className="mt-3 block"><span>Type the exact record ID: {selected.id}</span><input value={confirmation} onChange={event => setConfirmation(event.target.value)} readOnly={busy} autoComplete="off" className="admin-field" /></label><button type="button" className={`${buttonClass} mt-3 text-rose-300`} onClick={remove} disabled={busy || !writesEnabled}>Delete permanently</button></details>}

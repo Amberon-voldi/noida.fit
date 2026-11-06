@@ -183,6 +183,8 @@ test("club editor uploads a logo and banner to storage and saves their /media pa
     return route.fulfill({ status: 201, json: { media: { id: `file${uploads.length}`, path: `/media/file${uploads.length}` } } });
   });
   await page.route("**/media/file*", route => route.fulfill({ contentType: "image/png", body: png }));
+  await page.route("**/api/admin/content/activities", route => route.fulfill({ json: { records: [{ id: "activity-running", updatedAt: "v", record: { ...contentTemplates.activities, name: "Running", slug: "running", status: "published" } }] } }));
+  await page.route("**/api/admin/content/places", route => route.fulfill({ json: { records: [] } }));
   const saves: Record<string, unknown>[] = [];
   await page.route("**/api/admin/content/communities", async route => {
     const body = route.request().postDataJSON(); saves.push(body);
@@ -218,4 +220,76 @@ test("club editor uploads a logo and banner to storage and saves their /media pa
   await expect.poll(() => saves.length).toBe(2);
   expect(saves[1].record).not.toHaveProperty("crestUrl");
   expect(saves[1].record).toMatchObject({ bannerUrl: "/media/file2" });
+});
+
+test("event editor picks its activity, club, place and organizer from dropdowns instead of typed IDs", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 900 });
+  const record = { ...contentTemplates.events, id: "event", title: "Synthetic event" };
+  await mount(page, "content", { kind: "events", initialRecords: [{ id: "event", updatedAt: "version-one", record }], template: record, writesEnabled: true });
+  const entry = (kind: keyof typeof contentTemplates, id: string, changes: Record<string, unknown>) => ({ id, updatedAt: "v", record: { ...contentTemplates[kind], id, ...changes } });
+  await page.route("**/api/admin/content/activities", route => route.fulfill({ json: { records: [entry("activities", "act-cycle", { name: "Cycling", slug: "cycling", status: "published" }), entry("activities", "act-run", { name: "Running", slug: "running", status: "draft" })] } }));
+  await page.route("**/api/admin/content/communities", route => route.fulfill({ json: { records: [entry("communities", "club-1", { name: "Sunrise Riders", slug: "sunrise-riders", status: "published", crestUrl: "/media/crest1" })] } }));
+  await page.route("**/api/admin/content/places", route => route.fulfill({ json: { records: [entry("places", "place-1", { name: "Sector 18 Park", slug: "sector-18-park", sector: "Sector 18", status: "published" })] } }));
+  const searches: string[] = [];
+  await page.route("**/api/admin/members**", route => {
+    const q = new URL(route.request().url()).searchParams.get("q") ?? ""; searches.push(q);
+    const all = [{ id: "user-asha", name: "Asha Organizer", enabled: true }, { id: "user-blocked", name: "Asha Suspended", enabled: false }, { id: "user-ravi", name: "Ravi", enabled: true }];
+    return route.fulfill({ json: { total: 3, members: all.filter(member => member.name.toLowerCase().includes(q.toLowerCase())) } });
+  });
+  const saves: Record<string, unknown>[] = [];
+  await page.route("**/api/admin/content/events", async route => {
+    const body = route.request().postDataJSON(); saves.push(body);
+    return route.fulfill({ json: { record: { id: "event", updatedAt: "version-two", record: body.record } } });
+  });
+
+  await page.getByRole("button", { name: "Edit Synthetic event" }).click();
+  const activity = page.getByLabel("Activity", { exact: true });
+  await expect(activity.locator("option", { hasText: "Running · draft" })).toHaveCount(1);
+  await activity.selectOption({ label: "Cycling" });
+  await page.getByLabel("Category", { exact: true }).selectOption("cycling");
+  await page.getByLabel("Community", { exact: true }).selectOption({ label: "Sunrise Riders" });
+  await page.getByLabel("Place", { exact: true }).selectOption({ label: "Sector 18 Park" });
+  await expect(page.getByLabel("Sector", { exact: true })).toHaveValue("Sector 18");
+  await page.getByLabel("Find organizer by name").fill("asha");
+  const organizer = page.getByLabel("Organizer", { exact: true });
+  await expect(organizer.locator("option", { hasText: "Asha Organizer" })).toHaveCount(1);
+  await expect(organizer.locator("option", { hasText: "Asha Suspended" })).toHaveCount(0);
+  await organizer.selectOption({ label: "Asha Organizer · user-asha" });
+  await expect.poll(() => searches).toContain("asha");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  if (process.env.SCREENSHOT_DIR) await page.getByRole("group", { name: "Community, venue & organizer" }).screenshot({ path: `${process.env.SCREENSHOT_DIR}/admin-event-refs.png` });
+
+  await page.getByLabel("Mutation reason", { exact: false }).fill("Link event to club and place");
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await expect.poll(() => saves.length).toBe(1);
+  expect(saves[0].record).toMatchObject({ activityId: "act-cycle", category: "cycling", communitySlug: "sunrise-riders", communityName: "Sunrise Riders", communityCrestUrl: "/media/crest1", venueSlug: "sector-18-park", venueName: "Sector 18 Park", sector: "Sector 18", organizerUserId: "user-asha" });
+
+  // "No organizer" removes the assignment rather than saving an empty ID.
+  await organizer.selectOption("");
+  await page.getByLabel("Mutation reason", { exact: false }).fill("Remove organizer");
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await expect.poll(() => saves.length).toBe(2);
+  expect(saves[1].record).not.toHaveProperty("organizerUserId");
+});
+
+test("place editor ticks its activities and club editor picks an optional primary place", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 900 });
+  const place = { ...contentTemplates.places, id: "place", name: "Synthetic place", activities: ["running"] };
+  await mount(page, "content", { kind: "places", initialRecords: [{ id: "place", updatedAt: "version-one", record: place }], template: place, writesEnabled: true });
+  await page.route("**/api/admin/content/activities", route => route.fulfill({ json: { records: ["running", "yoga"].map(slug => ({ id: `act-${slug}`, updatedAt: "v", record: { ...contentTemplates.activities, name: slug === "yoga" ? "Yoga" : "Running", slug, status: "published" } })) } }));
+  const saves: Record<string, unknown>[] = [];
+  await page.route("**/api/admin/content/places", async route => {
+    if (route.request().method() === "GET") return route.fulfill({ json: { records: [] } });
+    const body = route.request().postDataJSON(); saves.push(body);
+    return route.fulfill({ json: { record: { id: "place", updatedAt: "version-two", record: body.record } } });
+  });
+  await page.getByRole("button", { name: "Edit Synthetic place" }).click();
+  const offered = page.getByRole("group", { name: "Activities offered here" });
+  await expect(offered.getByLabel("Running")).toBeChecked();
+  await offered.getByLabel("Yoga").check();
+  await offered.getByLabel("Running").uncheck();
+  await page.getByLabel("Mutation reason", { exact: false }).fill("Update activities offered");
+  await page.getByRole("button", { name: "Save changes", exact: true }).click();
+  await expect.poll(() => saves.length).toBe(1);
+  expect((saves[0].record as Record<string, unknown>).activities).toEqual(["yoga"]);
 });
