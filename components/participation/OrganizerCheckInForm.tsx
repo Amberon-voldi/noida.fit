@@ -88,7 +88,11 @@ export function OrganizerCheckInForm({ event }: { event: OperatorEvent }) {
   const attendance = typeof event.checkedIn === "number"
     ? `${event.checkedIn}${typeof event.confirmedRsvps === "number" ? ` of ${event.confirmedRsvps}` : ""} checked in`
     : "Hold each QR inside the frame";
+  const windowNote = event.checkInWindow === "not-open" ? "Check-in has not opened yet. Scans are refused until 30 minutes before the start."
+    : event.checkInWindow === "closed" ? "Check-in has closed. Scans can only confirm people already checked in."
+    : event.checkInWindow !== "open" ? "This event is not taking check-ins." : "";
   const overlay = <div className="mx-auto w-full max-w-xl space-y-2" aria-live="polite" aria-atomic="true">
+    {windowNote && <p className="rounded-xl border border-amber-400/60 bg-black/70 p-3 text-center text-sm text-amber-200 backdrop-blur-md" role="note">{windowNote}</p>}
     {pending && <p className="rounded-xl bg-black/70 p-4 text-center text-base font-semibold text-white backdrop-blur-md">Checking this participant…</p>}
     {!pending && resultCard(true)}
     {!pending && !latest && <p className="rounded-xl bg-black/60 p-4 text-center text-sm text-white/85 backdrop-blur-md">Point the camera at a participant’s check-in QR. Their details appear here.</p>}

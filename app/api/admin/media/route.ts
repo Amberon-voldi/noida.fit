@@ -9,7 +9,8 @@ const reason = z.string().trim().min(5).max(300);
 /** multipart/form-data: `file` (one image) and `reason` (for the admin audit log). */
 export async function POST(request: Request) {
   try {
-    const user = await requireAdminMutationUser(request, "admin-media");
+    // An editing session uploads several images (logo, banner, covers); the default 5 per 10 minutes is too tight.
+    const user = await requireAdminMutationUser(request, "admin-media", 40);
     // Refuse oversized bodies before buffering them; the form overhead is small.
     const length = Number(request.headers.get("content-length") ?? 0);
     if (length > MEDIA_MAX_BYTES + 64 * 1024) throw new HttpError(413, "MEDIA_TOO_LARGE", "Images must be 5 MB or smaller");

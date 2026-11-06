@@ -149,3 +149,45 @@ test("operator scanner goes full screen and shows each guest over the camera", a
   await expect(page.locator("[data-outcome=checked-in]")).toContainText("Synthetic desk guest");
   await expect(page.getByRole("button", { name: "Start scanner" })).toBeVisible();
 });
+
+test("the scanner survives the browser leaving full screen for the camera prompt, and returns focus when closed", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.addInitScript(() => {
+    // Camera permission stays pending until the test grants it, like a real prompt.
+    let grant!: () => void;
+    const granted = new Promise<void>(resolve => { grant = resolve; });
+    (window as unknown as { grantCamera: () => void }).grantCamera = grant;
+    Object.defineProperty(navigator, "mediaDevices", { configurable: true, value: { getUserMedia: async () => {
+      await granted;
+      const canvas = document.createElement("canvas"); canvas.width = 640; canvas.height = 480;
+      canvas.getContext("2d")!.fillRect(0, 0, 640, 480);
+      return canvas.captureStream(5);
+    } } });
+    Object.defineProperty(window, "BarcodeDetector", { configurable: true, value: class {
+      static async getSupportedFormats() { return ["qr_code"]; }
+      async detect() { return []; }
+    } });
+  });
+  await mount(page, true, { event: { ...event, checkInWindow: "closed" } });
+  const start = page.getByRole("button", { name: "Start scanner" });
+  await start.click();
+  const scanner = page.getByRole("dialog", { name: /Check-in scanner/ });
+  await expect(scanner).toBeVisible();
+  await expect(scanner.getByRole("button", { name: "Stop camera" })).toBeFocused();
+  await expect(scanner.getByRole("note")).toContainText("Check-in has closed");
+  await expect.poll(() => page.evaluate(() => Boolean(document.fullscreenElement))).toBe(true);
+  // The browser drops full screen to show the permission prompt: the scanner must stay open.
+  // As on a phone, leaving full screen is reported before the member can answer the prompt.
+  // Wait for that report specifically, not the earlier one for entering full screen.
+  await page.evaluate(() => new Promise<void>(resolve => {
+    const left = () => { if (!document.fullscreenElement) { document.removeEventListener("fullscreenchange", left); resolve(); } };
+    document.addEventListener("fullscreenchange", left);
+    void document.exitFullscreen();
+  }));
+  await page.evaluate(() => (window as unknown as { grantCamera: () => void }).grantCamera());
+  await expect(scanner.getByRole("status").filter({ hasText: "Scanner ready" })).toBeVisible();
+  await expect(scanner).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(start).toBeFocused();
+});

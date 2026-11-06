@@ -124,8 +124,8 @@ export function AdminContentManager({ kind, initialRecords, initialError = "", t
       const response = await fetch("/api/admin/media", { method: "POST", body: form, cache: "no-store" });
       const data = await response.json().catch(() => null) as { media?: { path?: string }; error?: string } | null;
       if (!response.ok || !data?.media?.path) throw new Error(data?.error || "The image could not be uploaded.");
-      const path = data.media.path;
-      setJson(current => { try { return JSON.stringify({ ...JSON.parse(current), [key]: path }, null, 2); } catch { return current; } });
+      // Fields and the Advanced JSON are read-only while an upload runs, so `draft` is still current.
+      setJson(JSON.stringify({ ...draft, [key]: data.media.path }, null, 2));
       setMessage(`${label} uploaded. Save the record to use it.`);
     } catch (caught) { setError(caught instanceof Error ? caught.message : "The image could not be uploaded."); }
     finally { setPending(""); }
@@ -146,7 +146,7 @@ export function AdminContentManager({ kind, initialRecords, initialError = "", t
         <div className="admin-actions">
           <label className={`${buttonClass} inline-flex cursor-pointer items-center ${busy || !draft || !writesEnabled ? "pointer-events-none opacity-60" : ""}`}>
             Upload image
-            <input id={inputId} type="file" accept={MEDIA_ACCEPT} className="sr-only" disabled={busy || !draft || !writesEnabled} onChange={event => { const file = event.target.files?.[0]; event.target.value = ""; void upload(key, label, file); }} />
+            <input id={inputId} type="file" accept={MEDIA_ACCEPT} aria-label={`Upload ${label.toLowerCase()}`} className="sr-only" disabled={busy || !draft || !writesEnabled} onChange={event => { const file = event.target.files?.[0]; event.target.value = ""; void upload(key, label, file); }} />
           </label>
           {value && <button type="button" className={buttonClass} onClick={() => patch(key, "")} disabled={busy || !draft}>Remove</button>}
         </div>

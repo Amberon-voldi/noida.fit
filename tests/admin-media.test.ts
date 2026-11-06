@@ -114,14 +114,14 @@ test("content accepts exact /media paths and image bytes are recognised by signa
   assert.equal(sniffImageType(new TextEncoder().encode("<svg>")), null);
 });
 
-test("GET /media/<id> returns the image with immutable caching and locked-down headers, else 404", async () => {
+test("GET /media/<id> returns the image with one-day caching and locked-down headers, else 404", async () => {
   const { GET } = await import("../app/media/[fileId]/route");
   files.set("public1", { bucket: "main", bytes: jpeg, mimeType: "image/jpeg", permissions: ['read("any")'], name: "x.jpg" });
   files.set("private1", { bucket: "main", bytes: jpeg, mimeType: "image/jpeg", permissions: [], name: "x.jpg" });
   const ok = await GET(new Request("https://noida.fit/media/public1"), { params: Promise.resolve({ fileId: "public1" }) });
   assert.equal(ok.status, 200);
   assert.equal(ok.headers.get("content-type"), "image/jpeg");
-  assert.match(ok.headers.get("cache-control") ?? "", /immutable/);
+  assert.equal(ok.headers.get("cache-control"), "public, max-age=86400");
   assert.match(ok.headers.get("content-security-policy") ?? "", /sandbox/);
   assert.deepEqual(new Uint8Array(await ok.arrayBuffer()), jpeg);
   const hidden = await GET(new Request("https://noida.fit/media/private1"), { params: Promise.resolve({ fileId: "private1" }) });
@@ -130,4 +130,25 @@ test("GET /media/<id> returns the image with immutable caching and locked-down h
   const down = await GET(new Request("https://noida.fit/media/public1"), { params: Promise.resolve({ fileId: "public1" }) });
   assert.equal(down.status, 503);
   assert.equal(down.headers.get("cache-control"), "no-store");
+});
+
+test("GET /media/<id> answers repeat requests from the edge cache without calling Appwrite", async () => {
+  const { GET } = await import("../app/media/[fileId]/route");
+  const store = new Map<string, Response>();
+  const edge = { match: async (request: Request) => store.get(request.url)?.clone(), put: async (request: Request, response: Response) => { store.set(request.url, response); } };
+  (globalThis as { caches?: unknown }).caches = { default: edge };
+  try {
+    files.set("cached1", { bucket: "main", bytes: jpeg, mimeType: "image/jpeg", permissions: ['read("any")'], name: "x.jpg" });
+    const first = await GET(new Request("https://noida.fit/media/cached1?v=1"), { params: Promise.resolve({ fileId: "cached1" }) });
+    assert.equal(first.status, 200);
+    assert.deepEqual([...store.keys()], ["https://noida.fit/media/cached1"], "the cache key ignores query strings");
+    files.clear();
+    storageFailure = { code: 503, type: "general_server_error" };
+    const second = await GET(new Request("https://noida.fit/media/cached1"), { params: Promise.resolve({ fileId: "cached1" }) });
+    assert.equal(second.status, 200);
+    assert.deepEqual(new Uint8Array(await second.arrayBuffer()), jpeg);
+    const missing = await GET(new Request("https://noida.fit/media/never"), { params: Promise.resolve({ fileId: "never" }) });
+    assert.equal(missing.status, 503);
+    assert.equal(store.size, 1, "failures are never cached");
+  } finally { delete (globalThis as { caches?: unknown }).caches; }
 });

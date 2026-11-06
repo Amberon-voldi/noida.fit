@@ -17,8 +17,8 @@ export async function requireAdminUser() {
   return user;
 }
 
-export async function requireAdminMutationUser(request: Request, bucket: string) {
-  const user = await requireMutationUser(request, bucket);
+export async function requireAdminMutationUser(request: Request, bucket: string, maxRequests?: number) {
+  const user = await requireMutationUser(request, bucket, maxRequests);
   assertAdmin(user);
   return user;
 }

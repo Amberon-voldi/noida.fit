@@ -78,7 +78,8 @@ export function CheckInScanner({ onToken, disabled = false, continuous = false, 
     });
     session.video.pause();
     session.video.srcObject = null;
-    if (typeof document !== "undefined" && document.fullscreenElement) void document.exitFullscreen?.().catch(() => {});
+    // Leave native full screen only if this scanner owns it.
+    if (typeof document !== "undefined" && document.fullscreenElement && document.fullscreenElement === shellRef.current) void document.exitFullscreen?.().catch(() => {});
   }, []);
 
   const stopCamera = useCallback(() => {
@@ -102,6 +103,8 @@ export function CheckInScanner({ onToken, disabled = false, continuous = false, 
   const onActiveChangeRef = useRef(onActiveChange);
   useEffect(() => { onActiveChangeRef.current = onActiveChange; }, [onActiveChange]);
   useEffect(() => { onActiveChangeRef.current?.(active); }, [active]);
+  const phaseRef = useRef(phase);
+  useEffect(() => { phaseRef.current = phase; }, [phase]);
   useEffect(() => {
     if (!immersive) return;
     // Keep the page behind the preview still; Escape or leaving native
@@ -109,14 +112,24 @@ export function CheckInScanner({ onToken, disabled = false, continuous = false, 
     const root = document.documentElement;
     const previous = root.style.overflow;
     root.style.overflow = "hidden";
+    // Move focus into the full-screen scanner and give it back afterwards.
+    const shell = shellRef.current;
+    const returnFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    shell?.querySelector<HTMLButtonElement>("button")?.focus({ preventScroll: true });
     const onKey = (event: KeyboardEvent) => { if (event.key === "Escape") stopCamera(); };
-    const onFullscreen = () => { if (!document.fullscreenElement && sessionRef.current) stopCamera(); };
+    // Browsers may leave full screen on their own, e.g. Android Chrome to show the camera
+    // permission prompt. Only a member leaving it while the camera runs closes the scanner.
+    const onFullscreen = () => {
+      if (!document.fullscreenElement && sessionRef.current && phaseRef.current === "scanning") stopCamera();
+    };
     window.addEventListener("keydown", onKey);
     document.addEventListener("fullscreenchange", onFullscreen);
     return () => {
       root.style.overflow = previous;
       window.removeEventListener("keydown", onKey);
       document.removeEventListener("fullscreenchange", onFullscreen);
+      if (returnFocus?.isConnected) returnFocus.focus({ preventScroll: true });
+      else shell?.querySelector<HTMLButtonElement>("button")?.focus({ preventScroll: true });
     };
   }, [immersive, stopCamera]);
 
