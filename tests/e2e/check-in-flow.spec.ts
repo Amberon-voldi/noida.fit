@@ -107,6 +107,8 @@ test("guest participant page and all check-in APIs stay protected", async ({ pag
 test("operator scanner goes full screen and shows each guest over the camera", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.addInitScript(qr => {
+    // Like iPhone Safari: no element Fullscreen API, so the fixed layout alone must cover the page.
+    Object.defineProperty(Element.prototype, "requestFullscreen", { configurable: true, value: undefined });
     // Synthetic camera (a canvas stream) and a detector that reads this guest's QR.
     Object.defineProperty(navigator, "mediaDevices", { configurable: true, value: { getUserMedia: async () => {
       const canvas = document.createElement("canvas"); canvas.width = 640; canvas.height = 480;
@@ -119,14 +121,23 @@ test("operator scanner goes full screen and shows each guest over the camera", a
     } });
   }, `NF-CHECKIN:${token}`);
   await mount(page, true, { event: { ...event, checkedIn: 12, confirmedRsvps: 40 } });
+  // Stand-ins for the site's sticky nav bar and mobile bottom dock.
+  await page.evaluate(() => {
+    document.body.insertAdjacentHTML("afterbegin", `<header id="site-nav" style="position:sticky;top:0;z-index:500;height:56px;background:#123">Nav</header>`);
+    document.body.insertAdjacentHTML("beforeend", `<nav id="site-dock" class="mobile-dock" style="height:72px;pointer-events:auto;background:#321">Dock</nav>`);
+  });
   await page.route("**/api/check-in/organizer", route => route.fulfill({ json: { checkedIn: true, displayName: "Synthetic desk guest", checkedInAt: new Date().toISOString() } }));
 
   await page.getByRole("button", { name: "Start scanner" }).click();
   const scanner = page.getByRole("dialog", { name: "Check-in scanner for Synthetic second session" });
   await expect(scanner).toBeVisible();
   await expect(scanner).toHaveCSS("position", "fixed");
-  expect(await scanner.boundingBox()).toEqual({ x: 0, y: 0, width: 390, height: 844 });
+  await expect.poll(() => scanner.boundingBox()).toEqual({ x: 0, y: 0, width: 390, height: 844 });
   await expect(scanner.getByText("12 of 40 checked in")).toBeVisible();
+  // Nothing from the page (nav bar, bottom dock) is drawn over the scanner.
+  for (const [x, y] of [[20, 20], [195, 28], [370, 40], [195, 820]]) {
+    expect(await page.evaluate(([x, y]) => !!document.elementFromPoint(x, y)?.closest("[role=dialog]"), [x, y])).toBe(true);
+  }
   await expect(scanner.getByLabel("Participant QR camera preview")).toBeVisible();
 
   await page.evaluate(() => { (window as unknown as { showQr: boolean }).showQr = true; });

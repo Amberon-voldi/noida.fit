@@ -261,8 +261,9 @@ export function CheckInScanner({ onToken, disabled = false, continuous = false, 
 
   const statusText = stops ? "Scanner paused while the current participant is being processed." : continuous && disabled && active ? "Checking this participant…" : message;
   // One stable tree in both layouts, so the <video> element is never remounted mid-session.
+  // z-[1000] sits above the site nav (z-500) and mobile dock (z-490).
   return <div ref={shellRef} data-fullscreen={immersive || undefined} className={immersive
-    ? "fixed inset-0 z-[100] flex flex-col overflow-hidden bg-black"
+    ? "fixed inset-0 z-[1000] m-0 flex flex-col overflow-hidden bg-black"
     : "min-w-0 space-y-3 rounded-xl border border-border-subtle bg-background/30 p-4"} role={immersive ? "dialog" : undefined} aria-modal={immersive || undefined} aria-label={immersive ? `Check-in scanner${title ? ` for ${title}` : ""}` : undefined}>
     <div className={immersive
       ? "relative z-10 flex items-start justify-between gap-3 bg-linear-to-b from-black/85 via-black/50 to-transparent px-4 pb-10 pt-[max(1rem,env(safe-area-inset-top))]"
