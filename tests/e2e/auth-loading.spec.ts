@@ -25,6 +25,19 @@ for (const flow of ["login", "signup"] as const) {
       await releaseNavigation.wait;
       await route.continue();
     });
+    let reportPending!: (state: { disabled: boolean; busy: string | null; spinner: boolean; text: string }) => void;
+    const pendingState = new Promise<{ disabled: boolean; busy: string | null; spinner: boolean; text: string }>(resolve => { reportPending = resolve; });
+    await page.exposeFunction("reportPending", (state: Parameters<typeof reportPending>[0]) => reportPending(state));
+    await page.addInitScript(() => {
+      (window as unknown as { navigation?: EventTarget }).navigation?.addEventListener("navigate", event => {
+        if (new URL((event as unknown as { destination: { url: string } }).destination.url).pathname !== "/about") return;
+        const form = document.querySelector("form");
+        const button = form?.querySelector<HTMLButtonElement>('button[type="submit"]');
+        // Even another submit event during navigation must not issue a second request.
+        form?.requestSubmit();
+        void (window as unknown as { reportPending: (state: object) => Promise<void> }).reportPending({ disabled: Boolean(button?.disabled), busy: form?.getAttribute("aria-busy") ?? null, spinner: Boolean(button?.querySelector("svg.animate-spin")), text: button?.textContent ?? "" });
+      });
+    });
     try {
       await page.goto(`/${flow}?callbackUrl=%2Fabout`);
       if (flow === "signup") {
@@ -44,12 +57,11 @@ for (const flow of ["login", "signup"] as const) {
       await expect(form).toHaveAttribute("aria-busy", "true");
       releaseApi.release();
       await navigationStarted.wait;
-      await expect(button).toBeDisabled({ timeout: 2000 });
-      await expect(form).toHaveAttribute("aria-busy", "true");
-      await expect(button.locator("svg.animate-spin")).toBeVisible();
-      await expect(button).toContainText("Opening your page");
-      // Even another submit event during navigation must not issue a second request.
-      await form.evaluate(node => (node as HTMLFormElement).requestSubmit());
+      // Success loads the callback as a new page (components/auth/navigation.ts); Playwright's
+      // locators wait for that load, so the page reports its state as the navigation starts.
+      const pending = await pendingState;
+      expect(pending).toMatchObject({ disabled: true, busy: "true", spinner: true });
+      expect(pending.text).toContain("Opening your page");
       expect(submissions).toBe(1);
       releaseNavigation.release();
       await page.waitForURL(url => url.pathname === "/about");

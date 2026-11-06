@@ -1,15 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import { flushSync } from "react-dom";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { safeCallbackUrl } from "@/components/auth/validation";
+import { navigateAfterAuth } from "./navigation";
 import { AuthSubmitButton, type AuthSubmitStatus } from "./AuthSubmitButton";
 
 const inputClass = "mt-1 min-h-11 w-full rounded-lg border border-border-strong bg-surface px-3 py-2 text-sm text-white";
 
 export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -33,11 +32,11 @@ export function LoginForm({ callbackUrl }: { callbackUrl: string }) {
         setStatus("idle");
         return;
       }
-      // replace() starts navigation but doesn't await it. Stay busy until this form unmounts.
-      setStatus("redirecting");
+      // Stay busy until the new page replaces this one.
+      // Show "Opening your page…" before the browser starts loading the next page.
+      flushSync(() => setStatus("redirecting"));
       window.dispatchEvent(new Event("noidafit:session"));
-      router.replace(safeCallbackUrl(data.redirectTo));
-      router.refresh();
+      navigateAfterAuth(data.redirectTo);
     } catch {
       setError("Unable to sign in right now. Please try again.");
       setStatus("idle");

@@ -1,16 +1,16 @@
 "use client";
 
 import { useState } from "react";
+import { flushSync } from "react-dom";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
-import { safeCallbackUrl, signupSchema } from "@/components/auth/validation";
+import { signupSchema } from "@/components/auth/validation";
+import { navigateAfterAuth } from "./navigation";
 import { AuthSubmitButton, type AuthSubmitStatus } from "./AuthSubmitButton";
 
 const inputClass = "mt-1 min-h-11 w-full rounded-lg border border-border-strong bg-surface px-3 py-2 text-sm text-white";
 
 export function SignupForm({ callbackUrl }: { callbackUrl: string }) {
-  const router = useRouter();
   const [form, setForm] = useState({ name: "", email: "", password: "" });
   const [showPassword, setShowPassword] = useState(false);
   // Both start unchecked; members opt in to each separately.
@@ -48,11 +48,11 @@ export function SignupForm({ callbackUrl }: { callbackUrl: string }) {
         setStatus("idle");
         return;
       }
-      // Keep the spinner through the route transition, not just the API request.
-      setStatus("redirecting");
+      // Keep the spinner until the new page replaces this one.
+      // Show "Opening your page…" before the browser starts loading the next page.
+      flushSync(() => setStatus("redirecting"));
       window.dispatchEvent(new Event("noidafit:session"));
-      router.replace(safeCallbackUrl(data.redirectTo));
-      router.refresh();
+      navigateAfterAuth(data.redirectTo);
     } catch {
       setError("Unable to create your account right now. Please try again.");
       setStatus("idle");
