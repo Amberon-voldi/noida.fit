@@ -266,7 +266,8 @@ summary::-webkit-details-marker { display: none; }
   .activity-guide-header .button-primary { margin-top: 12px; }
   .detail-header { padding-block: 16px; }
   .detail-header h1 { margin-top: 12px; font-size: 26px; line-height: 1.2; }
-  .detail-cover { max-height: 180px; margin-bottom: 16px; }
+  /* An explicit width: with aspect-ratio, max-height would otherwise also cap the width (180px × 16/9 = 320px). */
+  .detail-cover { width: 100%; max-height: 180px; margin-bottom: 16px; }
   .event-detail-layout { padding-top: 16px; gap: 24px; }
   .event-detail-layout .detail-header { padding-block: 0; }
 }
