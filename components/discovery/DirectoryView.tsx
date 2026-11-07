@@ -17,6 +17,13 @@ interface DirectoryViewProps {
   type?: DirectoryType;
 }
 
+function emptyDirectory(type?: DirectoryType): { title: string; description: string; href: string; label: string } {
+  if (type === "events") return { title: "No upcoming events listed yet", description: "Clubs post their sessions here. Meanwhile, explore their weekly schedules.", href: "/communities", label: "Explore clubs" };
+  if (type === "communities") return { title: "No communities listed yet", description: "Clubs are being added. Check places to move in the meantime.", href: "/places", label: "Explore places" };
+  if (type === "places") return { title: "No places listed yet", description: "Places are being added. See what clubs are up to in the meantime.", href: "/communities", label: "Explore clubs" };
+  return { title: "Nothing listed yet", description: "Events, clubs and places will appear here as they are added.", href: "/home", label: "Back to home" };
+}
+
 export async function DirectoryView({ params, path, title, type }: DirectoryViewProps) {
   const directory = await getDirectory();
   const filters = readFilters(params, type);
@@ -94,7 +101,10 @@ export async function DirectoryView({ params, path, title, type }: DirectoryView
           {active.length > 0 && <Link href={path} className="inline-flex min-h-11 items-center text-xs font-semibold text-velocity md:hidden">Clear filters</Link>}
           {results.events.length > 0 && <span className="text-xs text-text-secondary">Soonest first · IST</span>}
         </div>
-        {results.total === 0 ? <EmptyState title="No matches for this set of filters" description="Try all sectors, a broader activity, or clear the date. Your filters may be narrower than the current directory." href={path} label="Reset filters" /> : <Reveal key={JSON.stringify(filters)} className="directory-results space-y-10 sm:space-y-12">
+        {results.total === 0 ? (active.length
+          ? <EmptyState title="No matches for this set of filters" description="Try all sectors, a broader activity, or clear the date. Your filters may be narrower than the current directory." href={path} label="Reset filters" />
+          // Nothing is filtered: the directory itself is empty, so "reset filters" would do nothing.
+          : <EmptyState {...emptyDirectory(type)} />) : <Reveal key={JSON.stringify(filters)} className="directory-results space-y-10 sm:space-y-12">
           {results.events.length > 0 && <section aria-labelledby="results-events"><h2 id="results-events" data-reveal-item className="mb-5 text-2xl font-bold">Upcoming events <span className="text-sm font-normal text-text-secondary">({results.events.length})</span></h2><div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">{results.events.map((event, index) => <EventCard key={event.id} event={event} preloadImage={index === 0} />)}</div></section>}
           {results.communities.length > 0 && <section aria-labelledby="results-communities"><h2 id="results-communities" data-reveal-item className="mb-5 text-2xl font-bold">Communities <span className="text-sm font-normal text-text-secondary">({results.communities.length})</span></h2><div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">{results.communities.map((community, index) => <CommunityCard key={community.id} community={community} preloadImage={index === 0 && !results.events.length} />)}</div></section>}
           {results.places.length > 0 && <section aria-labelledby="results-places"><h2 id="results-places" data-reveal-item className="mb-5 text-2xl font-bold">Places to move <span className="text-sm font-normal text-text-secondary">({results.places.length})</span></h2><div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">{results.places.map((place, index) => <PlaceCard key={place.id} place={place} preloadImage={index === 0 && !results.events.length && !results.communities.length} />)}</div></section>}

@@ -1,5 +1,11 @@
 import { test, expect, type Page } from "@playwright/test";
 
+// These tests measure the landing scenes themselves; the floating cookie notice (dismissed by a
+// returning visitor) would sit over the bottom-left of the viewport and is covered elsewhere.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => { try { localStorage.setItem("noidafit:cookie-notice-dismissed", "1"); } catch { /* private mode */ } });
+});
+
 async function scrollProgress(page: Page, selector: string, progress: number) {
   await page.locator(selector).evaluate((node, progress) => {
     const rect = node.getBoundingClientRect();

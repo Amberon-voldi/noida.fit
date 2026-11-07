@@ -100,6 +100,15 @@ summary::-webkit-details-marker { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
 
+/* Cookie notice: a floating card above the mobile dock (bottom-left on desktop), out of the layout. */
+:root { --dock-clearance: calc(84px + env(safe-area-inset-bottom)); }
+.cookie-notice { position: fixed; z-index: 495; left: max(12px, env(safe-area-inset-left)); right: max(12px, env(safe-area-inset-right)); bottom: calc(var(--dock-clearance) + 8px); display: flex; align-items: flex-start; gap: 12px; max-width: 520px; margin-inline: auto; padding: 12px 12px 12px 16px; border: 1px solid var(--border-strong); border-radius: var(--radius-xl); background: color-mix(in srgb, var(--surface) 96%, transparent); box-shadow: 0 16px 40px rgb(0 0 0 / .55); backdrop-filter: blur(14px); }
+@media (min-width: 1024px) { .cookie-notice { left: 24px; right: auto; bottom: 24px; width: 420px; margin: 0; } }
+/* Keep focused controls from hiding behind the card while it shows. */
+html:has([data-cookie-notice]) { scroll-padding-bottom: calc(var(--dock-clearance) + 150px); }
+@media (min-width: 1024px) { html:has([data-cookie-notice]) { scroll-padding-bottom: 160px; } }
+@media (prefers-reduced-motion: no-preference) { .cookie-notice { animation: cookie-in 320ms var(--ease-out) both; } @keyframes cookie-in { from { opacity: 0; transform: translateY(12px); } } }
+
 .mobile-dock {
   position: fixed;
   inset-inline: 0;
@@ -482,5 +491,5 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { border-color
 .card-glyph[data-variant="cover"] .card-glyph-mark { font-size: 40px; }
 
 /* Compact hub cards carry a slim media band rather than a full cover. */
-.card-band { height: 68px; }
-@media (max-width: 767px) { .card-band { height: 60px; } }
+/* Compact cards: a 5:2 photo strip (about 140-160px), enough to read the photo without a full cover. */
+.card-band { aspect-ratio: 5 / 2; }

@@ -41,21 +41,15 @@ export function CookieNotice() {
   if (dismissed || dismissedThisRender) return null;
 
   return (
-    // In normal flow, not fixed: a floating notice covers whatever sits under it at every
-    // scroll offset, so a link beneath it can take keyboard focus while invisible (WCAG 2.2 2.4.11).
-    <aside
-      data-cookie-notice
-      aria-label="Cookie notice"
-      className="border-b border-border-subtle bg-surface px-4 py-3"
-    >
-      <div className="mx-auto flex w-full max-w-[1280px] items-start gap-4">
-        <p className="min-w-0 flex-1 text-sm leading-relaxed text-text-secondary">
-          {COOKIE_DISCLOSURE} <Link href="/privacy" className="font-semibold text-velocity underline hover:text-velocity-glow">Read our Privacy Policy</Link>.
-        </p>
-        <button type="button" onClick={dismiss} className="button-secondary shrink-0 px-3 text-xs">
-          Got it
-        </button>
-      </div>
+    // Floating, so it never shifts the page layout. While it shows, globals.css reserves its
+    // height as scroll padding, so a focused control is scrolled clear of it (WCAG 2.2 2.4.11).
+    <aside data-cookie-notice aria-label="Cookie notice" className="cookie-notice">
+      <p className="min-w-0 flex-1 text-[13px] leading-snug text-text-secondary">
+        {COOKIE_DISCLOSURE} <Link href="/privacy" className="font-semibold text-velocity underline hover:text-velocity-glow">Read our Privacy Policy</Link>.
+      </p>
+      <button type="button" onClick={dismiss} className="button-secondary min-h-11 shrink-0 self-center px-4 text-xs">
+        Got it
+      </button>
     </aside>
   );
 }

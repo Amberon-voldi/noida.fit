@@ -29,6 +29,10 @@ test("cookie notice explains the essential session cookie and remembers dismissa
   const notice = page.getByRole("complementary", { name: "Cookie notice" });
   await expect(notice).toBeVisible();
   await expect(notice).toContainText("essential HttpOnly session cookie");
+  // A floating card: it never pushes the page down, and focused controls get scroll room clear of it.
+  await expect(notice).toHaveCSS("position", "fixed");
+  expect((await page.locator(".app-topbar").boundingBox())!.y).toBe(0);
+  expect(Number.parseFloat(await page.evaluate(() => getComputedStyle(document.documentElement).scrollPaddingBottom))).toBeGreaterThan((await notice.boundingBox())!.height);
   await expect(notice).toContainText("does not use advertising, analytics or cross-site tracking cookies");
   await expect(notice.getByRole("link", { name: "Read our Privacy Policy" })).toHaveAttribute("href", "/privacy");
   await notice.getByRole("button", { name: "Got it" }).click();
