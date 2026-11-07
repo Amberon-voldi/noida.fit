@@ -33,10 +33,9 @@ export default async function CommunityPage({ params }: Props) {
   return (
     <div className="pb-16">
       {!community.demo && <StructuredData data={jsonLd} />}
-      <DetailHero image={community.bannerUrl} category={community.category} title={community.name} logo={community.crestUrl} logoAlt={`${community.name} logo`}>
+      <DetailHero image={community.bannerUrl} category={community.category} title={community.name} logo={community.crestUrl} logoAlt={`${community.name} logo`} verified={community.verified && !community.demo} verifiedLabel="Verified community">
           <div className="flex flex-wrap items-center gap-2">
             <Link href={activity ? `/activities/${activity.slug}` : `/communities?activity=${community.category}`} className="filter-chip text-velocity">{activity?.name ?? CATEGORY_LABELS[community.category]}</Link>
-            {community.verified && !community.demo && <span className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-indigo-300/70 px-3 text-xs font-semibold text-indigo-200">Verified community</span>}
             {community.demo && <span className="text-xs font-semibold uppercase text-text-secondary">Demo listing</span>}
           </div>
           <p className="mt-4 max-w-2xl text-lg text-text-secondary">{community.tagline}</p>

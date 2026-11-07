@@ -225,6 +225,9 @@ html:has([data-cookie-notice]) { scroll-padding-bottom: calc(var(--dock-clearanc
 .detail-hero-title { min-width: 0; font-size: clamp(2rem, 4.2vw, 3.25rem); font-weight: 800; line-height: 1.08; letter-spacing: -.025em; overflow-wrap: anywhere; text-shadow: 0 2px 14px rgb(0 0 0 / .85), 0 1px 3px rgb(0 0 0 / .7); }
 /* Without a logo, the first line of the title straddles the edge. */
 .detail-hero-identity:not(:has(.detail-hero-logo)) { margin-top: calc(-.62 * clamp(2rem, 4.2vw, 3.25rem)); }
+/* Verified tick after the title: a filled badge with a white check, kept on the title's last word. */
+.detail-hero-verified { display: inline-flex; vertical-align: -.08em; white-space: nowrap; }
+.detail-hero-verified svg { width: .78em; height: .78em; fill: #1d9bf0; color: #fff; stroke-width: 2.4; filter: drop-shadow(0 1px 4px rgb(0 0 0 / .6)); }
 .detail-hero-details { margin-top: 20px; }
 @media (prefers-reduced-motion: reduce) { .app-topbar:has(+ #main-content .detail-hero) { animation: none; } }
 

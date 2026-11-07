@@ -96,3 +96,22 @@ test("the navbar turns solid again once the banner has scrolled away", async ({ 
   await page.evaluate(() => window.scrollTo(0, 600));
   await expect.poll(() => navAlpha(page)).toBeGreaterThan(.9);
 });
+
+test("a verified club shows a labelled badge that stays with the last word of its name", async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 844 });
+  await mount(page, { ...club, title: "Sunrise Riders Noida Extension", verified: true, verifiedLabel: "Verified community" });
+  const heading = page.getByRole("heading", { level: 1 });
+  const badge = heading.getByRole("img", { name: "Verified community" });
+  await expect(badge).toBeVisible();
+  await expect(heading).toHaveAccessibleName("Sunrise Riders Noida Extension Verified community");
+  const [word, tick] = await page.evaluate(() => {
+    const title = document.querySelector(".detail-hero-title")!;
+    const range = document.createRange(); const text = title.firstChild!;
+    range.setStart(text, text.textContent!.lastIndexOf("Extension")); range.setEnd(text, text.textContent!.length);
+    return [range.getClientRects()[0].top, document.querySelector(".detail-hero-verified")!.getBoundingClientRect().top];
+  });
+  expect(Math.abs(word - tick)).toBeLessThan(12);
+  if (process.env.SCREENSHOT_DIR) await page.locator(".detail-hero-header").screenshot({ path: `${process.env.SCREENSHOT_DIR}/hero-verified.png` });
+  await mount(page, { ...club, verified: false });
+  await expect(page.getByRole("img", { name: /Verified/ })).toHaveCount(0);
+});
