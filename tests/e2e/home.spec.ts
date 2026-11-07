@@ -117,7 +117,7 @@ test("an empty directory is not an outage and real-only highlights need no illus
   await expect(page.locator(".hub-demo-note")).toHaveCount(0);
 });
 
-test("home logo, menu, breadcrumb and mobile dock use the hub rather than the landing page", async ({ page }) => {
+test("home logo, menu and mobile dock use the hub rather than the landing page; detail pages have no breadcrumb", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 900 });
   await page.goto("/events");
   await page.getByRole("navigation", { name: "Quick navigation" }).getByRole("link", { name: "Home", exact: true }).click();
@@ -129,7 +129,8 @@ test("home logo, menu, breadcrumb and mobile dock use the hub rather than the la
   await expect(page.getByRole("button", { name: "Open navigation menu" })).toBeFocused();
   await page.goto("/places");
   await page.getByRole("link", { name: /^View / }).first().click();
-  await expect(page.getByRole("navigation", { name: "Breadcrumb" }).getByRole("link", { name: "Home", exact: true })).toHaveAttribute("href", "/home");
+  await expect(page.locator("h1")).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "Breadcrumb" })).toHaveCount(0);
   await page.getByRole("navigation", { name: "Primary navigation" }).getByRole("link", { name: "NOIDA.FIT — Home", exact: true }).click();
   await expect(page).toHaveURL(/\/home$/);
 });

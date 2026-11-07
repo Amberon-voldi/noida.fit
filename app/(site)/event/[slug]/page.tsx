@@ -4,7 +4,7 @@ import { notFound } from "next/navigation";
 import { EventActions } from "@/components/participation/EventActions";
 import { SaveButton } from "@/components/participation/SaveButton";
 import { ShareButton } from "@/components/ui/ShareButton";
-import { Breadcrumb, StructuredData } from "@/components/discovery/DetailPrimitives";
+import { StructuredData } from "@/components/discovery/DetailPrimitives";
 import { ListingImage } from "@/components/discovery/ListingImage";
 import { eventIsUpcoming, eventTimestamp } from "@/components/discovery/filter";
 import { listingMetadata } from "@/components/discovery/metadata";
@@ -43,7 +43,6 @@ export default async function EventPage({ params }: Props) {
   return (
     <div className="pb-16">
       {!event.demo && <StructuredData data={jsonLd} />}
-      <Breadcrumb directory="Events" href="/events" title={event.title} />
       <div className="event-detail-layout mx-auto grid max-w-7xl gap-10 px-4 py-10 sm:px-6 sm:py-14 lg:grid-cols-[minmax(0,1fr)_350px] lg:px-8">
         <div className="min-w-0 space-y-8">
           <header className="detail-header">

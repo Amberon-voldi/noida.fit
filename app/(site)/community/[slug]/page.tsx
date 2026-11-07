@@ -9,7 +9,7 @@ import { EventCard } from "@/components/cards/EventCard";
 import { FollowButton } from "@/components/participation/FollowButton";
 import { SaveButton } from "@/components/participation/SaveButton";
 import { ShareButton } from "@/components/ui/ShareButton";
-import { Breadcrumb, StructuredData } from "@/components/discovery/DetailPrimitives";
+import { StructuredData } from "@/components/discovery/DetailPrimitives";
 import { ListingImage } from "@/components/discovery/ListingImage";
 import { eventIsUpcoming, eventTimestamp } from "@/components/discovery/filter";
 import { listingMetadata } from "@/components/discovery/metadata";
@@ -38,7 +38,6 @@ export default async function CommunityPage({ params }: Props) {
   return (
     <div className="pb-16">
       {!community.demo && <StructuredData data={jsonLd} />}
-      <Breadcrumb directory="Communities" href="/communities" title={community.name} />
       <header className="detail-header border-b border-border-subtle px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
         <div className="mx-auto max-w-7xl">
           <div className="detail-cover relative mb-8 aspect-[16/7] overflow-hidden rounded-2xl border border-border-subtle sm:aspect-[3/1]"><ListingImage src={community.bannerUrl} category={community.category} alt={community.name} hero sizes="(max-width: 1280px) 100vw, 1200px" /></div>

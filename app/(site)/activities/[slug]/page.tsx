@@ -5,7 +5,7 @@ import { getActivityBySlug, getDirectory } from "@/lib/data";
 import { EventCard } from "@/components/cards/EventCard";
 import { CommunityCard } from "@/components/cards/CommunityCard";
 import { PlaceCard } from "@/components/cards/PlaceCard";
-import { Breadcrumb, StructuredData } from "@/components/discovery/DetailPrimitives";
+import { StructuredData } from "@/components/discovery/DetailPrimitives";
 import { EmptyState } from "@/components/discovery/FilterLinks";
 import { filterDirectory, readFilters } from "@/components/discovery/filter";
 import { listingMetadata } from "@/components/discovery/metadata";
@@ -26,7 +26,6 @@ export default async function ActivityPage({ params }: Props) {
   return (
     <div className="pb-16">
       <StructuredData data={{ "@context": "https://schema.org", "@type": "CollectionPage", name: `${activity.name} in Noida`, description: activity.description, url: `${SITE_CONFIG.url}/activities/${activity.slug}` }} />
-      <Breadcrumb directory="Activities" href="/activities" title={activity.name} />
       <header className="activity-guide-header border-b border-border-subtle px-4 py-4 sm:px-6 sm:py-5 lg:px-8"><div className="mx-auto max-w-7xl"><h1 className="text-2xl font-bold tracking-tight">{activity.name}</h1><Link href={`/discover?activity=${encodeURIComponent(activity.slug)}`} className="button-primary mt-3">Filter by sector, date or cost →</Link></div></header>
       <div className="mx-auto max-w-7xl space-y-12 px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
         {!!events.length && <section aria-labelledby="activity-events-heading"><div className="mb-5 flex flex-wrap items-end justify-between gap-3"><h2 id="activity-events-heading" className="text-2xl font-bold">Upcoming {activity.name.toLowerCase()} sessions</h2><Link href={`/events?activity=${encodeURIComponent(activity.slug)}`} className="inline-flex min-h-11 items-center text-sm font-semibold text-velocity">Filter events →</Link></div><div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">{events.map((event) => <EventCard key={event.id} event={event} />)}</div></section>}
