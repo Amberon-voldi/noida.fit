@@ -224,6 +224,19 @@ export function AdminContentManager({ kind, initialRecords, initialError = "", t
       {settings.help && <small id={helpId} className="admin-note block">{settings.help}</small>}
     </div>;
   }
+  /** Distinct non-empty values of one field across records, for suggestions. */
+  function distinct(entries: Entry[] | undefined, key: string): string[] {
+    return [...new Set((entries ?? []).map(item => item.record[key]).filter((value): value is string => typeof value === "string" && value.trim() !== "").map(value => value.trim()))].sort((a, b) => a.localeCompare(b, "en", { numeric: true }));
+  }
+  /** Free text with a dropdown of values already in use: pick one, or type a new one. */
+  function suggestField(key: string, label: string, suggestions: string[], help: string) {
+    const listId = `suggest-${key}`;
+    return <div key={key} className="min-w-0"><label htmlFor={`${listId}-input`}><span>{label}</span></label>
+      <input id={`${listId}-input`} value={String(draft?.[key] ?? "")} readOnly={busy || !draft} onChange={event => patch(key, event.target.value)} list={listId} autoComplete="off" placeholder={suggestions.length ? "Pick or type a new one" : undefined} className="admin-field" aria-describedby={`${listId}-help`} />
+      <datalist id={listId}>{suggestions.map(value => <option key={value} value={value} />)}</datalist>
+      <small id={`${listId}-help`} className="admin-note block">{help}</small>
+    </div>;
+  }
   function checkField(key: string, label: string) {
     return <label className="admin-checkbox" key={key}><input type="checkbox" checked={draft?.[key] === true} onChange={event => patch(key, event.target.checked)} disabled={busy || !draft} /><span>{label}</span></label>;
   }
@@ -247,12 +260,12 @@ export function AdminContentManager({ kind, initialRecords, initialError = "", t
       <fieldset className="admin-field-group"><legend>Listing basics</legend><div className="admin-fields">
         {textField(kind === "events" ? "title" : "name", kind === "events" ? "Title" : "Name")}{textField("slug", "Slug")}
         <label><span>Status (applies on save)</span><select value={String(draft?.status ?? "draft")} onChange={event => patch("status", event.target.value)} disabled={busy || !draft} className="admin-field"><option value="draft">Draft / unpublished</option><option value="published">Published</option><option value="cancelled">Cancelled</option></select></label>
-        {kind === "places" && textField("category", "Category")}
+        {kind === "places" && suggestField("category", "Category", distinct(records, "category"), "Choose a category other places use, or type a new one.")}
         {(kind === "events" || kind === "communities") && selectField("category", "Category", categories.map(value => ({ value, label: value[0].toUpperCase() + value.slice(1) })))}
         {(kind === "events" || kind === "communities") && selectField("activityId", "Activity", refs.activities ? options("activities", (_record, id) => id) : null)}
         {kind === "activities" && textField("emoji", "Emoji")}
         {kind === "communities" && <>{textField("baseLocation", "Base location")}{selectField("primaryVenueSlug", "Primary place", refs.places ? options("places", record => String(record.slug)) : null, { optional: "No primary place" })}</>}
-        {kind === "places" && <>{textField("sector", "Sector")}{textField("address", "Address")}</>}
+        {kind === "places" && <>{suggestField("sector", "Sector", distinct(records, "sector"), "Choose a sector other places use, or type a new one.")}{textField("address", "Address")}</>}
       </div></fieldset>
       {kind === "places" && <fieldset className="admin-field-group"><legend>Activities offered here</legend>
         {refs.activities ? <div className="admin-checkbox-row">{refs.activities.map(item => {
@@ -272,7 +285,7 @@ export function AdminContentManager({ kind, initialRecords, initialError = "", t
             const place = refs.places?.find(item => item.record.slug === slug)?.record;
             patchMany({ venueSlug: slug, ...(place ? { venueName: String(place.name ?? slug), ...(typeof place.sector === "string" && place.sector ? { sector: place.sector } : {}) } : {}) });
           } })}
-          {textField("sector", "Sector")}
+          {suggestField("sector", "Sector", distinct(refs.places, "sector"), "Filled from the place; pick another sector or type one.")}
           <div className="admin-organizer-picker">
             <label><span>Find organizer by name</span><input type="search" value={memberQuery} onChange={event => setMemberQuery(event.target.value)} placeholder="Search members…" readOnly={busy || !draft} className="admin-field" /></label>
             {selectField("organizerUserId", "Organizer", members ? members.filter(member => member.enabled).map(member => ({ value: member.id, label: `${member.name} · ${member.id}` })) : null, { optional: "No organizer", help: membersError || "Gives this account event-scoped check-in access, not admin rights." })}

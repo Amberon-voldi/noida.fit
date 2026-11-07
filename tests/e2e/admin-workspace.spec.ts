@@ -293,3 +293,35 @@ test("place editor ticks its activities and club editor picks an optional primar
   await expect.poll(() => saves.length).toBe(1);
   expect((saves[0].record as Record<string, unknown>).activities).toEqual(["yoga"]);
 });
+
+test("place editor offers the categories and sectors other places use, and still accepts new ones", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 900 });
+  const place = (id: string, changes: Record<string, unknown>) => ({ id, updatedAt: "version-one", record: { ...contentTemplates.places, id, ...changes } });
+  const records = [
+    place("park", { name: "Meghdootam Park", slug: "meghdootam-park", category: "Public Park", sector: "Sector 50" }),
+    place("stadium", { name: "Noida Stadium", slug: "noida-stadium", category: "Sports Complex", sector: "Sector 21A" }),
+    place("city-park", { name: "City Park", slug: "city-park", category: "Public Park", sector: "Sector 9" }),
+  ];
+  await mount(page, "content", { kind: "places", initialRecords: records, template: contentTemplates.places, writesEnabled: true });
+  await page.route("**/api/admin/content/activities", route => route.fulfill({ json: { records: [] } }));
+  const saves: Record<string, unknown>[] = [];
+  await page.route("**/api/admin/content/places", async route => {
+    const body = route.request().postDataJSON(); saves.push(body);
+    return route.fulfill({ status: 201, json: { record: { id: "new", updatedAt: "version-two", record: body.record } } });
+  });
+
+  await page.getByRole("button", { name: "New place" }).click();
+  const category = page.getByLabel("Category", { exact: true });
+  const sector = page.getByLabel("Sector", { exact: true });
+  // Each value once, sorted, with "Sector 9" before "Sector 21A".
+  expect(await page.locator("#suggest-category option").evaluateAll(options => options.map(option => (option as HTMLOptionElement).value))).toEqual(["Public Park", "Sports Complex"]);
+  expect(await page.locator("#suggest-sector option").evaluateAll(options => options.map(option => (option as HTMLOptionElement).value))).toEqual(["Sector 9", "Sector 21A", "Sector 50"]);
+  await expect(category).toHaveAttribute("list", "suggest-category");
+  await category.fill("Public Park");
+  await sector.fill("Sector 62");
+  await page.getByLabel("Name", { exact: true }).fill("Sector 62 Park");
+  await page.getByLabel("Mutation reason", { exact: false }).fill("Add a new park");
+  await page.getByRole("button", { name: "Create record", exact: true }).click();
+  await expect.poll(() => saves.length).toBe(1);
+  expect(saves[0].record).toMatchObject({ category: "Public Park", sector: "Sector 62", name: "Sector 62 Park" });
+});
