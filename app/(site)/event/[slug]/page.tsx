@@ -5,7 +5,7 @@ import { EventActions } from "@/components/participation/EventActions";
 import { SaveButton } from "@/components/participation/SaveButton";
 import { ShareButton } from "@/components/ui/ShareButton";
 import { StructuredData } from "@/components/discovery/DetailPrimitives";
-import { ListingImage } from "@/components/discovery/ListingImage";
+import { DetailHero } from "@/components/discovery/DetailHero";
 import { eventIsUpcoming, eventTimestamp } from "@/components/discovery/filter";
 import { listingMetadata } from "@/components/discovery/metadata";
 import { getActivities, getEventBySlug } from "@/lib/data";
@@ -43,18 +43,16 @@ export default async function EventPage({ params }: Props) {
   return (
     <div className="pb-16">
       {!event.demo && <StructuredData data={jsonLd} />}
+      <DetailHero image={event.coverImageUrl ?? event.imageUrl} category={event.category} title={event.title} logo={event.communityCrestUrl} logoAlt={`${event.communityName} logo`}>
+        <div className="flex flex-wrap items-center gap-2">
+          <Link href={activity ? `/activities/${activity.slug}` : `/events?activity=${event.category}`} className="filter-chip text-velocity">{activity?.name ?? CATEGORY_LABELS[event.category]}</Link>
+          <Link href={`/discover?sector=${encodeURIComponent(event.sector)}`} className="filter-chip">{event.sector}</Link>
+          {event.demo && <span className="text-xs font-semibold uppercase text-text-secondary">Demo listing</span>}
+        </div>
+        <p className="mt-3 text-sm text-text-secondary">Hosted by <Link href={`/community/${event.communitySlug}`} className="font-semibold text-velocity hover:text-velocity-glow">{event.communityName}</Link></p>
+      </DetailHero>
       <div className="event-detail-layout mx-auto grid max-w-7xl gap-10 px-4 py-10 sm:px-6 sm:py-14 lg:grid-cols-[minmax(0,1fr)_350px] lg:px-8">
         <div className="min-w-0 space-y-8">
-          <header className="detail-header">
-            <div className="detail-cover relative mb-7 aspect-[16/9] overflow-hidden rounded-2xl border border-border-subtle sm:aspect-[16/7]"><ListingImage src={event.coverImageUrl ?? event.imageUrl} category={event.category} alt={event.title} hero sizes="(max-width: 1024px) 100vw, 760px" /></div>
-            <div className="flex flex-wrap items-center gap-2">
-              <Link href={activity ? `/activities/${activity.slug}` : `/events?activity=${event.category}`} className="filter-chip text-velocity">{activity?.name ?? CATEGORY_LABELS[event.category]}</Link>
-              <Link href={`/discover?sector=${encodeURIComponent(event.sector)}`} className="filter-chip">{event.sector}</Link>
-              {event.demo && <span className="text-xs font-semibold uppercase text-text-secondary">Demo listing</span>}
-            </div>
-            <h1 className="mt-4 text-4xl font-extrabold leading-tight tracking-tight sm:text-5xl">{event.title}</h1>
-            <p className="mt-4 text-sm text-text-secondary">Hosted by <Link href={`/community/${event.communitySlug}`} className="font-semibold text-velocity hover:text-velocity-glow">{event.communityName}</Link></p>
-          </header>
           {!upcoming && <p role="status" className="rounded-lg border border-border-strong bg-surface px-4 py-3 text-sm text-text-secondary">{event.status === "cancelled" ? "This gathering has been cancelled." : "This gathering has ended."} Check the host community for other sessions.</p>}
           <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {[["Date", formatDate(event.date)], ["Time · IST", `${event.startTime} – ${event.endTime}`], ["Cost", event.price], ["Level", event.level ?? "Ask the host"]].map(([label, value]) => <div key={label} className="min-w-0 rounded-lg border border-border-subtle bg-surface p-4"><dt className="font-mono text-[10px] uppercase tracking-widest text-text-secondary">{label}</dt><dd className="mt-2 break-words text-sm font-semibold">{value}</dd></div>)}

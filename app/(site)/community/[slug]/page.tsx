@@ -1,7 +1,4 @@
 import type { Metadata } from "next";
-import Image from "next/image";
-import { listingPhoto } from "@/components/cards/CardMedia";
-import { isMediaPath } from "@/lib/media";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getCommunityBySlug, getDirectory } from "@/lib/data";
@@ -10,7 +7,7 @@ import { FollowButton } from "@/components/participation/FollowButton";
 import { SaveButton } from "@/components/participation/SaveButton";
 import { ShareButton } from "@/components/ui/ShareButton";
 import { StructuredData } from "@/components/discovery/DetailPrimitives";
-import { ListingImage } from "@/components/discovery/ListingImage";
+import { DetailHero } from "@/components/discovery/DetailHero";
 import { eventIsUpcoming, eventTimestamp } from "@/components/discovery/filter";
 import { listingMetadata } from "@/components/discovery/metadata";
 import { CATEGORY_LABELS, SITE_CONFIG } from "@/lib/config";
@@ -29,8 +26,6 @@ export default async function CommunityPage({ params }: Props) {
   const directory = await getDirectory();
   const events = directory.events.filter((event) => event.communitySlug === community.slug && eventIsUpcoming(event)).sort((a, b) => eventTimestamp(a) - eventTimestamp(b));
   const place = directory.places.find((item) => item.slug === community.primaryVenueSlug);
-  // Only site-hosted logos (uploaded or bundled); arbitrary hosts are not passed to the image component.
-  const crest = listingPhoto(community.crestUrl);
   const activity = directory.activities.find((item) => item.id === community.activityId || item.slug === community.activityId) ?? directory.activities.find((item) => item.slug === community.category);
   const channels = Object.entries(community.socialLinks).filter((entry): entry is [string, string] => typeof entry[1] === "string" && /^https:\/\//i.test(entry[1]));
   const jsonLd = { "@context": "https://schema.org", "@type": "SportsClub", name: community.name, description: community.description, url: `${SITE_CONFIG.url}/community/${community.slug}`, address: { "@type": "PostalAddress", streetAddress: community.baseLocation, addressLocality: community.baseLocation.includes("Greater Noida") ? "Greater Noida" : "Noida", addressRegion: "Uttar Pradesh", addressCountry: "IN" } };
@@ -38,23 +33,16 @@ export default async function CommunityPage({ params }: Props) {
   return (
     <div className="pb-16">
       {!community.demo && <StructuredData data={jsonLd} />}
-      <header className="detail-header border-b border-border-subtle px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
-        <div className="mx-auto max-w-7xl">
-          <div className="detail-cover relative mb-8 aspect-[16/7] overflow-hidden rounded-2xl border border-border-subtle sm:aspect-[3/1]"><ListingImage src={community.bannerUrl} category={community.category} alt={community.name} hero sizes="(max-width: 1280px) 100vw, 1200px" /></div>
+      <DetailHero image={community.bannerUrl} category={community.category} title={community.name} logo={community.crestUrl} logoAlt={`${community.name} logo`}>
           <div className="flex flex-wrap items-center gap-2">
             <Link href={activity ? `/activities/${activity.slug}` : `/communities?activity=${community.category}`} className="filter-chip text-velocity">{activity?.name ?? CATEGORY_LABELS[community.category]}</Link>
             {community.verified && !community.demo && <span className="rounded-md border border-indigo-300 px-2 py-1 text-xs font-semibold text-indigo-200">Verified community</span>}
             {community.demo && <span className="text-xs font-semibold uppercase text-text-secondary">Demo listing</span>}
           </div>
-          <div className="mt-4 flex items-center gap-4">
-            {crest && <Image src={crest} alt={`${community.name} logo`} width={72} height={72} unoptimized={isMediaPath(crest)} className="size-14 shrink-0 rounded-xl border border-border-subtle bg-surface object-cover sm:size-[72px]" />}
-            <h1 className="min-w-0 text-4xl font-extrabold tracking-tight sm:text-5xl">{community.name}</h1>
-          </div>
-          <p className="mt-3 max-w-2xl text-lg text-text-secondary">{community.tagline}</p>
+          <p className="mt-4 max-w-2xl text-lg text-text-secondary">{community.tagline}</p>
           <div className="mt-5 flex flex-wrap gap-x-5 gap-y-2 text-sm text-text-secondary"><span>{community.baseLocation}</span><span>{community.meetingDays.join(" · ")}</span></div>
           <div className="mt-6 flex flex-wrap gap-2"><FollowButton communityId={community.id} /><SaveButton itemType="community" itemId={community.id} /><ShareButton title={community.name} text={community.tagline} /></div>
-        </div>
-      </header>
+      </DetailHero>
       <div className="mx-auto grid max-w-7xl gap-10 px-4 py-10 sm:px-6 sm:py-14 lg:grid-cols-[minmax(0,1fr)_350px] lg:px-8">
         <div className="min-w-0 space-y-10">
           <section aria-labelledby="community-about-heading"><h2 id="community-about-heading" className="text-2xl font-bold">About this community</h2><p className="mt-3 whitespace-pre-line leading-relaxed text-text-secondary">{community.description}</p></section>

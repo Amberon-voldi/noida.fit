@@ -6,7 +6,7 @@ import { EventCard } from "@/components/cards/EventCard";
 import { SaveButton } from "@/components/participation/SaveButton";
 import { ShareButton } from "@/components/ui/ShareButton";
 import { StructuredData } from "@/components/discovery/DetailPrimitives";
-import { ListingImage } from "@/components/discovery/ListingImage";
+import { DetailHero } from "@/components/discovery/DetailHero";
 import { eventIsUpcoming, eventTimestamp } from "@/components/discovery/filter";
 import { listingMetadata } from "@/components/discovery/metadata";
 import { SITE_CONFIG } from "@/lib/config";
@@ -32,19 +32,15 @@ export default async function PlacePage({ params }: Props) {
   return (
     <div className="pb-16">
       {!place.demo && <StructuredData data={jsonLd} />}
-      <header className="detail-header border-b border-border-subtle px-4 py-10 sm:px-6 sm:py-14 lg:px-8">
-        <div className="mx-auto max-w-7xl">
-          <div className="detail-cover relative mb-8 aspect-[16/7] overflow-hidden rounded-2xl border border-border-subtle sm:aspect-[3/1]"><ListingImage src={place.coverImageUrl ?? place.imageUrl} category={place.activities?.[0]} alt={place.name} hero sizes="(max-width: 1280px) 100vw, 1200px" /></div>
+      <DetailHero image={place.coverImageUrl ?? place.imageUrl} category={place.activities?.[0]} title={place.name}>
           <p className="eyebrow">{place.category}{place.demo ? " · Demo listing" : ""}</p>
-          <h1 className="mt-3 text-4xl font-extrabold tracking-tight sm:text-5xl">{place.name}</h1>
-          <p className="mt-3 text-sm text-text-secondary">{place.address}</p>
+          <p className="mt-2 text-sm text-text-secondary">{place.address}</p>
           <div className="mt-6 flex flex-wrap gap-2">
             {!place.demo && <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${place.name}, ${place.address}`)}`} target="_blank" rel="noopener noreferrer" className="button-primary">Get directions ↗</a>}
             <SaveButton itemType="place" itemId={place.id} /><ShareButton title={place.name} text={`${place.name}, ${place.sector}`} />
             <Link href={`/places?sector=${encodeURIComponent(place.sector)}`} className="button-secondary">More in {place.sector}</Link>
           </div>
-        </div>
-      </header>
+      </DetailHero>
       <div className="mx-auto grid max-w-7xl gap-10 px-4 py-10 sm:px-6 sm:py-14 lg:grid-cols-[minmax(0,1fr)_350px] lg:px-8">
         <div className="min-w-0 space-y-10">
           <section aria-labelledby="place-about-heading"><h2 id="place-about-heading" className="text-2xl font-bold">About this place</h2><p className="mt-3 whitespace-pre-line leading-relaxed text-text-secondary">{place.description}</p></section>
