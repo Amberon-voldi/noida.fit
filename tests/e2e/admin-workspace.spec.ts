@@ -325,3 +325,38 @@ test("place editor offers the categories and sectors other places use, and still
   await expect.poll(() => saves.length).toBe(1);
   expect(saves[0].record).toMatchObject({ category: "Public Park", sector: "Sector 62", name: "Sector 62 Park" });
 });
+
+test("slugs are made from the name for new records, stay put on existing ones, and can be regenerated", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 900 });
+  const existing = { id: "club-1", updatedAt: "version-one", record: { ...contentTemplates.communities, id: "club-1", name: "Sunrise Riders", slug: "sunrise-riders", status: "published" } };
+  await mount(page, "content", { kind: "communities", initialRecords: [existing], template: contentTemplates.communities, writesEnabled: true });
+  await page.route("**/api/admin/content/activities", route => route.fulfill({ json: { records: [] } }));
+  await page.route("**/api/admin/content/places", route => route.fulfill({ json: { records: [] } }));
+  const name = page.getByLabel("Name", { exact: true });
+  const slug = page.getByLabel("Slug", { exact: true });
+
+  // New record: the slug follows the name, accents and symbols included, and avoids a slug already in use.
+  await page.getByRole("button", { name: "New community" }).click();
+  await name.fill("Café Runners & Walkers");
+  await expect(slug).toHaveValue("cafe-runners-and-walkers");
+  await name.fill("Sunrise Riders");
+  await expect(slug).toHaveValue("sunrise-riders-2");
+  // Editing the slug by hand stops it following the name; "Make from name" brings it back.
+  await slug.fill("Riders-Of-Noida");
+  await expect(slug).toHaveValue("riders-of-noida");
+  await name.fill("Sunrise Riders Noida");
+  await expect(slug).toHaveValue("riders-of-noida");
+  await page.getByRole("button", { name: "Make from name" }).click();
+  await expect(slug).toHaveValue("sunrise-riders-noida");
+  await name.fill("Sunrise Riders Noida West");
+  await expect(slug).toHaveValue("sunrise-riders-noida-west");
+
+  // Existing record: renaming never changes its public address on its own.
+  await page.getByRole("button", { name: "Close editor" }).click();
+  await page.getByRole("button", { name: "Edit Sunrise Riders" }).click();
+  await name.fill("Sunrise Riders Club");
+  await expect(slug).toHaveValue("sunrise-riders");
+  await expect(page.getByText("Changing it breaks existing links.")).toBeVisible();
+  await page.getByRole("button", { name: "Make from name" }).click();
+  await expect(slug).toHaveValue("sunrise-riders-club");
+});

@@ -22,6 +22,11 @@ const categories = ["running", "cycling", "strength", "sports", "wellness", "out
 const referenceKinds: Record<ContentKind, ContentKind[]> = { activities: [], communities: ["activities", "places"], places: ["activities"], events: ["activities", "communities", "places"] };
 type Option = { value: string; label: string };
 type Member = { id: string; name: string; enabled: boolean };
+/** Lowercase hyphenated slug (the schema's format), from a name or title; "" if nothing usable is left. */
+export function slugify(value: string): string {
+  return value.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/&/g, " and ")
+    .replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 110).replace(/-+$/g, "");
+}
 const statusNote = (record: Record<string, unknown>) => record.status === "published" ? "" : ` · ${String(record.status ?? "draft")}`;
 
 export function AdminContentManager({ kind, initialRecords, initialError = "", template, writesEnabled }: {
@@ -47,6 +52,8 @@ export function AdminContentManager({ kind, initialRecords, initialError = "", t
   const [members, setMembers] = useState<Member[] | null>(null);
   const [membersError, setMembersError] = useState("");
   const editing = Boolean(json);
+  // New records keep their slug in step with the name until the slug is edited by hand.
+  const [slugFollowsName, setSlugFollowsName] = useState(false);
 
   const visible = useMemo(() => records.filter(item =>
     (!search.trim() || JSON.stringify(item.record).toLowerCase().includes(search.trim().toLowerCase())) && (status === "all" || item.record.status === status),
@@ -108,6 +115,7 @@ export function AdminContentManager({ kind, initialRecords, initialError = "", t
       const date = new Date(Date.now() + 24 * 60 * 60_000 + 330 * 60_000).toISOString().slice(0, 10);
       Object.assign(record, { date, startsAt: `${date}T06:00:00+05:30`, endsAt: `${date}T07:00:00+05:30` });
     }
+    setSlugFollowsName(!item);
     setSelected(item); setJson(JSON.stringify(record, null, 2)); setReason(""); setConfirmation(""); setMessage(""); setError("");
     requestAnimationFrame(() => headingRef.current?.focus());
   }
@@ -203,6 +211,31 @@ export function AdminContentManager({ kind, initialRecords, initialError = "", t
       </div>
     </div>;
   }
+  /** The name's slug, made unique against the other records on this page (-2, -3, …). */
+  function slugFromName(name: string): string {
+    const base = slugify(name);
+    if (!base) return "";
+    const taken = new Set(records.filter(item => item.id !== selected?.id).map(item => String(item.record.slug)));
+    let candidate = base;
+    for (let n = 2; taken.has(candidate); n += 1) candidate = `${base}-${n}`;
+    return candidate;
+  }
+  function nameField() {
+    const key = kind === "events" ? "title" : "name";
+    return <label key={key}><span>{kind === "events" ? "Title" : "Name"}</span><input value={String(draft?.[key] ?? "")} readOnly={busy || !draft} onChange={event => {
+      const value = event.target.value;
+      const slug = slugFollowsName ? slugFromName(value) : "";
+      patchMany(slug ? { [key]: value, slug } : { [key]: value });
+    }} className="admin-field" /></label>;
+  }
+  function slugField() {
+    const name = String(draft?.[kind === "events" ? "title" : "name"] ?? "");
+    return <div key="slug" className="min-w-0"><label htmlFor="content-slug"><span>Slug</span></label>
+      <input id="content-slug" value={String(draft?.slug ?? "")} readOnly={busy || !draft} onChange={event => { setSlugFollowsName(false); patch("slug", event.target.value.toLowerCase()); }} spellCheck={false} autoCapitalize="none" className="admin-field font-mono" aria-describedby="content-slug-help" />
+      <small id="content-slug-help" className="admin-note block">{slugFollowsName ? "Made from the name as you type. Edit it to choose your own." : selected ? "The page’s web address. Changing it breaks existing links." : "Your own slug; it no longer follows the name."}</small>
+      {!slugFollowsName && <button type="button" className={`${buttonClass} mt-2`} disabled={busy || !draft || !slugify(name)} onClick={() => { const slug = slugFromName(name); if (slug) patch("slug", slug); if (!selected) setSlugFollowsName(true); }}>Make from name</button>}
+    </div>;
+  }
   function textField(key: string, label: string, type = "text") {
     return <label key={key}><span>{label}</span><input type={type} value={String(draft?.[key] ?? "")} readOnly={busy || !draft} onChange={event => patch(key, type === "number" ? Number(event.target.value) : event.target.value)} className="admin-field" /></label>;
   }
@@ -258,7 +291,7 @@ export function AdminContentManager({ kind, initialRecords, initialError = "", t
       {selected && <p className="admin-note">Immutable ID: <code>{selected.id}</code></p>}
       <p className="admin-note">Set the basics, then save. Advanced JSON covers all optional fields, nested schedules, images, social links and amenities.</p>
       <fieldset className="admin-field-group"><legend>Listing basics</legend><div className="admin-fields">
-        {textField(kind === "events" ? "title" : "name", kind === "events" ? "Title" : "Name")}{textField("slug", "Slug")}
+        {nameField()}{slugField()}
         <label><span>Status (applies on save)</span><select value={String(draft?.status ?? "draft")} onChange={event => patch("status", event.target.value)} disabled={busy || !draft} className="admin-field"><option value="draft">Draft / unpublished</option><option value="published">Published</option><option value="cancelled">Cancelled</option></select></label>
         {kind === "places" && suggestField("category", "Category", distinct(records, "category"), "Choose a category other places use, or type a new one.")}
         {(kind === "events" || kind === "communities") && selectField("category", "Category", categories.map(value => ({ value, label: value[0].toUpperCase() + value.slice(1) })))}
