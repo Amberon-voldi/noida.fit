@@ -111,6 +111,29 @@ npm run test:e2e
 
 These tests create randomly named test accounts and two temporary events, exercise signup/session restoration, saving/following, concurrent RSVP capacity, organizer check-in, privacy, QR-card interaction and logout, then delete only their own fixtures. Traces/video/screenshots are disabled for auth tests to avoid retaining credentials. Run against a development/staging project, not a live public event database.
 
+## AWS deployment (ECS Fargate)
+
+The site runs on AWS as a container: Next.js 16 `output: "standalone"` server on Node 22 (`Dockerfile`), on ECS Fargate behind an Application Load Balancer. Public IDs are baked in at build time from `deploy/aws/public.env`; the two secrets come from AWS Secrets Manager at runtime and never enter the image. `.github/workflows/deploy-aws.yml` builds, pushes and deploys on every push to `main` once configured (it is skipped until then).
+
+One-time setup, in the AWS region closest to your Appwrite server:
+
+1. **ECR:** create a private repository, e.g. `noida-fit`.
+2. **Secrets Manager:** create a secret, e.g. `noida-fit/production`, with keys `APPWRITE_KEY` and `APPWRITE_CHECKIN_SECRET` (reuse the current check-in secret: a new one invalidates check-in QR codes already issued).
+3. **ECS:** create a Fargate cluster and a task definition (family e.g. `noida-fit`, Linux/x86_64, 0.5 vCPU / 1 GB):
+   - container `web`, image `<account>.dkr.ecr.<region>.amazonaws.com/noida-fit:latest`, port `3000`;
+   - environment `TRUSTED_PROXY_COUNT=1` (the load balancer appends each visitor's address; use `2` if you later put CloudFront in front);
+   - secrets `APPWRITE_KEY` and `APPWRITE_CHECKIN_SECRET`, each `valueFrom` `<secret-arn>:<KEY>::`;
+   - the task execution role needs ECR pull, CloudWatch Logs, and `secretsmanager:GetSecretValue` on that secret.
+4. **Load balancer:** an internet-facing ALB with an ACM certificate for `noida.fit`, HTTP→HTTPS redirect, and an IP target group on port 3000 with health check path `/api/health`. Create the ECS service (desired count `0` for now) attached to it.
+5. **GitHub → AWS sign-in:** add the IAM OIDC provider `token.actions.githubusercontent.com` (audience `sts.amazonaws.com`) and a role that trusts `repo:Amberon-voldi/noida.fit:environment:production`. Allow it to push to the ECR repository, `ecs:DescribeTaskDefinition`, `ecs:RegisterTaskDefinition`, `ecs:UpdateService`, `ecs:DescribeServices`, and `iam:PassRole` for the task and execution roles.
+6. **Repository variables** (*Settings → Secrets and variables → Actions → Variables*): `AWS_ROLE_ARN`, `AWS_REGION`, `ECR_REPOSITORY`, `ECS_CLUSTER`, `ECS_SERVICE`, `ECS_TASK_FAMILY`, `ECS_CONTAINER_NAME` (`web`).
+7. **First deploy:** run *Actions → Deploy to AWS → Run workflow*, then set the service's desired count to `1`. Test through the load balancer: sign up, sign in to `/account`, an admin image upload, and an organizer check-in scan.
+8. **Domain:** point `noida.fit` at the load balancer (DNS-only, not proxied, so `TRUSTED_PROXY_COUNT=1` stays correct). Keep the Cloudflare Worker until AWS serves the domain correctly, then remove the Worker route.
+
+Rough cost: Fargate (0.5 vCPU / 1 GB, one task) about $18/month plus the load balancer about $18/month plus data transfer. Uploaded images are served through the app; put CloudFront in front later if image traffic grows.
+
+Local check: `docker build -t noida-fit .` then `docker run -p 3000:3000 -e APPWRITE_KEY=… -e APPWRITE_CHECKIN_SECRET=… noida-fit`.
+
 ## Cloudflare Workers deployment (OpenNext)
 
 This is a server-rendered application, not a static Pages export. The repository includes a pinned OpenNext adapter and `wrangler.jsonc` for Worker **`noida-fit`**.

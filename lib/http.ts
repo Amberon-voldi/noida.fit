@@ -61,8 +61,18 @@ export function assertSameOrigin(request: Request): void {
 
 /** Forwarded IPs are used only with an explicitly trusted, overwriting ingress. */
 export function getClientKey(request: Request): string {
+  const forwarded = request.headers.get("x-forwarded-for")?.split(",").map(part => part.trim()).filter(Boolean) ?? [];
+  // Behind proxies that APPEND to X-Forwarded-For (e.g. CloudFront in front of AWS Amplify),
+  // only the entries they add are trustworthy: the client's address is the Nth from the right.
+  // Anything further left was sent by the client and can be forged.
+  const hops = Number(process.env.TRUSTED_PROXY_COUNT ?? "0");
+  if (Number.isInteger(hops) && hops >= 1 && hops <= 5) {
+    const ip = forwarded[forwarded.length - hops];
+    if (ip && ip.length <= 64) return ip;
+  }
+  // Only for an ingress that overwrites (not appends) the header.
   if (process.env.NEXT_PUBLIC_TRUST_PROXY_IP === "true") {
-    const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim();
+    const ip = forwarded[0];
     if (ip && ip.length <= 64) return ip;
   }
   return "untrusted-network";

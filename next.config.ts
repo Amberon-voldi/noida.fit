@@ -2,6 +2,8 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // Self-contained server for the AWS container image (Dockerfile). OpenNext (Cloudflare) also builds from it.
+  output: "standalone",
   experimental: {
     // Persistent compiler caches can retain build-time secrets; never ship/cache them in CI.
     turbopackFileSystemCacheForBuild: false,

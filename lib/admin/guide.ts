@@ -28,6 +28,7 @@ export const pageGuide = [
 ] as const;
 
 export const endpointGuide = [
+  ["GET", "/api/health", "Public", "Liveness check for the AWS load balancer and container; returns {ok:true} without calling Appwrite."],
   ["GET", "/api/admin/content/[kind]", "Admin", "List and open activities/communities/events/places; no-store."],
   ["POST", "/api/admin/content/[kind]", "Admin + audit", "Create a validated content record. Conflict if the ID is already occupied."],
   ["PUT", "/api/admin/content/[kind]", "Admin + audit", "Edit/publish/draft/cancel/feature/verify/assign via a validated record; rejects stale versions."],
