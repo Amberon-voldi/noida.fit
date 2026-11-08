@@ -24,11 +24,15 @@ function useFocusClearOfDock(panel: RefObject<HTMLDivElement | null>) {
       const target = event.target;
       const dock = panel.current;
       if (!(target instanceof HTMLElement) || !dock || dock.contains(target)) return;
+      // Only keyboard focus needs lifting. A tap focuses what was touched (or <main>, via
+      // tabIndex=-1), and scrolling then would move the page under the finger mid-click.
+      if (!target.matches(":focus-visible")) return;
       const bar = dock.getBoundingClientRect();
       // A hidden dock (tablet and above) measures zero and covers nothing.
       if (bar.height === 0) return;
       const box = target.getBoundingClientRect();
-      if (box.bottom <= bar.top) return;
+      // A region taller than the space above the dock (e.g. <main> after "Skip to content") cannot be cleared.
+      if (box.bottom <= bar.top || box.height >= bar.top) return;
       window.scrollBy({ top: box.bottom - bar.top + 12, behavior: "instant" });
     }
     document.addEventListener("focusin", onFocusIn);
