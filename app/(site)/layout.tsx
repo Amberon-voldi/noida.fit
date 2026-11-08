@@ -1,5 +1,6 @@
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
+import { MobileFooterGate } from "@/components/layout/MobileFooterGate";
 import { VerifyEmailBanner } from "@/components/auth/VerifyEmailBanner";
 
 export default function SectionLayout({
@@ -14,7 +15,9 @@ export default function SectionLayout({
       <main id="main-content" tabIndex={-1} className="min-w-0 flex-1">
         {children}
       </main>
-      <Footer />
+      <MobileFooterGate>
+        <Footer />
+      </MobileFooterGate>
     </>
   );
 }
