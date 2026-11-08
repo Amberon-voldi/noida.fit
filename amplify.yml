@@ -1,0 +1,18 @@
+version: 1
+frontend:
+  phases:
+    preBuild:
+      commands:
+        - npm ci
+    build:
+      commands:
+        # Amplify only exposes console env vars at build time; the SSR server reads them from .env.production.
+        - env | grep -e '^APPWRITE_KEY=' -e '^APPWRITE_CHECKIN_SECRET=' -e '^TRUSTED_PROXY_COUNT=' >> .env.production || true
+        - npm run build
+  artifacts:
+    baseDirectory: .next
+    files:
+      - '**/*'
+  cache:
+    paths:
+      - node_modules/**/*
