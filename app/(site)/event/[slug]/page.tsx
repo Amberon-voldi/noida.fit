@@ -6,6 +6,7 @@ import { SaveButton } from "@/components/participation/SaveButton";
 import { ShareButton } from "@/components/ui/ShareButton";
 import { StructuredData } from "@/components/discovery/DetailPrimitives";
 import { DetailHero } from "@/components/discovery/DetailHero";
+import { BioIntro } from "@/components/discovery/BioIntro";
 import { eventIsUpcoming, eventTimestamp } from "@/components/discovery/filter";
 import { listingMetadata } from "@/components/discovery/metadata";
 import { getActivities, getEventBySlug } from "@/lib/data";
@@ -43,6 +44,7 @@ export default async function EventPage({ params }: Props) {
   return (
     <div className="pb-16">
       {!event.demo && <StructuredData data={jsonLd} />}
+      <BioIntro kind="event" id={event.slug} title={event.title} date={formatDate(event.date)} time={event.startTime} host={`Hosted by ${event.communityName}`} image={event.coverImageUrl ?? event.imageUrl} category={event.category} />
       <DetailHero image={event.coverImageUrl ?? event.imageUrl} category={event.category} title={event.title} logo={event.communityCrestUrl} logoAlt={`${event.communityName} logo`}>
         <div className="flex flex-wrap items-center gap-2">
           <span className="filter-chip pointer-events-none text-velocity">{activity?.name ?? CATEGORY_LABELS[event.category]}</span>

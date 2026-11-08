@@ -1,0 +1,137 @@
+/* Bio-link intros for club and event pages. Hidden unless the inline gate in BioIntro.tsx
+   sets data-play; every animation ends hidden, so the page is usable even without hydration.
+   Its boot script then measures the hero, sets --fly-* / --view-* and the pass window's motion, plus data-aimed.
+   Without those the medal shrinks in place and the pass simply fades with the backdrop. */
+.bio-intro {
+  --mono: var(--font-geist-mono), ui-monospace, monospace;
+  --ease-drop: cubic-bezier(.55, .085, .68, .53);
+  --ease-out: cubic-bezier(.16, 1, .3, 1);
+  --ease-glide: cubic-bezier(.65, 0, .25, 1);
+  display: none; position: fixed; inset: 0; z-index: 1000; overflow: hidden; isolation: isolate; color: var(--foreground); -webkit-tap-highlight-color: transparent;
+}
+.bio-intro[data-kind="club"] { --bio-length: 1850ms; }
+.bio-intro[data-kind="event"] { --bio-length: 1800ms; }
+.bio-intro[data-play] { display: block; animation: bio-done var(--bio-length) linear forwards; }
+.bio-intro[data-skip] { pointer-events: none; animation: bio-skip 200ms ease-out forwards; }
+@keyframes bio-done { 0%, 99.9% { visibility: visible; } 100% { visibility: hidden; } }
+@keyframes bio-skip { to { opacity: 0; visibility: hidden; } }
+
+.bio-intro::before { content: ""; position: absolute; inset: 0; background: var(--bio-glow), var(--background); }
+.bio-intro[data-kind="club"]::before { --bio-glow: radial-gradient(60% 40% at 50% 44%, color-mix(in srgb, var(--accent-velocity) 16%, transparent), transparent 70%); animation: bio-backdrop-club 1850ms linear both; }
+.bio-intro[data-kind="event"]::before { --bio-glow: radial-gradient(70% 45% at 50% 44%, color-mix(in srgb, var(--accent-energy) 20%, transparent), transparent 70%); animation: bio-backdrop-event 1800ms linear both; }
+@keyframes bio-backdrop-club { 0%, 70% { opacity: 1; animation-timing-function: ease-in-out; } 100% { opacity: 0; } }
+@keyframes bio-backdrop-event { 0%, 76% { opacity: 1; animation-timing-function: ease-in-out; } 94%, 100% { opacity: 0; } }
+
+.bio-intro-piece { position: absolute; left: 50%; top: 44%; perspective: 760px; }
+.bio-intro-flight { width: 100%; height: 100%; will-change: transform; }
+
+/* ---------- Medal drop (club) ---------- */
+.bio-intro[data-kind="club"] .bio-intro-piece { width: 132px; height: 132px; margin: -66px 0 0 -66px; }
+.bio-intro[data-kind="club"] .bio-intro-flight { animation: bio-medal-path 1850ms linear both; }
+@keyframes bio-medal-path {
+  0% { transform: translateY(-62vh) scale(.72); animation-timing-function: var(--ease-drop); }
+  46% { transform: translateY(0) scale(1); animation-timing-function: ease-out; }
+  50% { transform: translateY(5px) scale(1.1, .88); animation-timing-function: ease-in-out; }
+  56% { transform: translateY(-3px) scale(.97, 1.04); animation-timing-function: ease-in-out; }
+  62%, 72% { transform: translate(0, 0) scale(1); animation-timing-function: var(--ease-glide); }
+  95% { opacity: 1; transform: translate(var(--fly-x, 0), var(--fly-y, 0)) scale(var(--fly-s, .5)); }
+  100% { opacity: 0; transform: translate(var(--fly-x, 0), var(--fly-y, 0)) scale(var(--fly-s, .5)); }
+}
+.bio-medal { position: relative; width: 100%; height: 100%; transform-style: preserve-3d; will-change: transform; animation: bio-medal-spin 1850ms linear both; }
+@keyframes bio-medal-spin {
+  0% { transform: rotateY(-1260deg) rotateX(28deg); animation-timing-function: cubic-bezier(.25, .6, .35, 1); }
+  46% { transform: rotateY(-14deg) rotateX(0); animation-timing-function: ease-out; }
+  53% { transform: rotateY(7deg); animation-timing-function: ease-in-out; }
+  60%, 100% { transform: none; }
+}
+.bio-medal > span { position: absolute; inset: 0; overflow: hidden; border-radius: 50%; }
+.bio-medal-edge { background: linear-gradient(90deg, color-mix(in srgb, var(--accent-velocity) 40%, black), color-mix(in srgb, var(--accent-velocity) 70%, black)); animation: bio-edge 1850ms step-end both; }
+/* The rim only shows while it spins; face-on it is hidden behind the faces anyway. */
+@keyframes bio-edge { 0% { visibility: visible; } 61%, 100% { visibility: hidden; } }
+.bio-medal-face { display: grid; place-items: center; background: radial-gradient(circle at 35% 30%, var(--accent-velocity-glow), var(--accent-velocity) 55%, color-mix(in srgb, var(--accent-velocity) 72%, black)); color: #0b0d06; font-size: 44px; font-weight: 900; letter-spacing: -.05em; backface-visibility: hidden; }
+.bio-medal-back { transform: translateZ(-11px) rotateY(180deg); font-size: 34px; }
+.bio-medal-front img { width: 100%; height: 100%; object-fit: cover; }
+/* Metal rim and inner bevel. */
+.bio-medal-front::before { content: ""; position: absolute; inset: 0; z-index: 1; border: 7px solid color-mix(in srgb, var(--accent-velocity) 88%, white); border-radius: inherit; box-shadow: inset 0 0 0 1px rgb(0 0 0 / .25), inset 0 2px 0 7px rgb(255 255 255 / .18); }
+/* One glint sweeps the face as it settles. Transform and opacity only, so it stays on the compositor. */
+.bio-medal-front::after { content: ""; position: absolute; top: -10%; bottom: -10%; left: -70%; z-index: 2; width: 55%; background: linear-gradient(90deg, transparent, rgb(255 255 255 / .55), transparent); transform: skewX(-18deg); opacity: 0; animation: bio-glint 1850ms linear both; }
+@keyframes bio-glint { 0%, 50% { opacity: 0; transform: translateX(0) skewX(-18deg); } 52% { opacity: 1; transform: translateX(0) skewX(-18deg); animation-timing-function: ease-in-out; } 66% { opacity: 1; transform: translateX(380%) skewX(-18deg); } 68%, 100% { opacity: 0; transform: translateX(380%) skewX(-18deg); } }
+/* An exact replica of the hero crest (same box, radius, border, image inset and shadow, all divided
+   by the flight scale) fades in over the medal during the flight. Shape change by opacity alone. */
+.bio-medal-crest { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; border: var(--fly-border, 0px) solid var(--background); border-radius: var(--fly-r, 22%); background: var(--surface); box-shadow: 0 calc(16px / var(--fly-s, 1)) calc(40px / var(--fly-s, 1)) rgb(0 0 0 / .65), 0 calc(2px / var(--fly-s, 1)) calc(8px / var(--fly-s, 1)) rgb(0 0 0 / .5); animation: bio-crest 1850ms linear both; }
+@keyframes bio-crest { 0%, 72% { opacity: 0; animation-timing-function: cubic-bezier(.4, 0, .2, 1); } 88%, 100% { opacity: 1; } }
+.bio-medal-glow { position: absolute; inset: -46px; border-radius: 50%; background: radial-gradient(closest-side, color-mix(in srgb, var(--accent-velocity) 55%, transparent), transparent); opacity: 0; animation: bio-glow 1850ms linear both; }
+@keyframes bio-glow { 0%, 45% { opacity: 0; transform: scale(.7); } 51% { opacity: .9; transform: scale(1); animation-timing-function: ease-out; } 72% { opacity: .35; transform: scale(1); } 86%, 100% { opacity: 0; transform: scale(1); } }
+
+.bio-floor { position: absolute; left: 50%; top: calc(44% + 76px); width: 128px; height: 18px; margin-left: -64px; border-radius: 50%; background: radial-gradient(closest-side, rgb(0 0 0 / .8), transparent); animation: bio-floor 1850ms linear both; }
+@keyframes bio-floor {
+  0% { opacity: 0; transform: scale(.25); animation-timing-function: var(--ease-drop); }
+  46% { opacity: .9; transform: scale(1); animation-timing-function: ease-out; }
+  50% { opacity: .9; transform: scale(1.18, 1); animation-timing-function: ease-in-out; }
+  62%, 72% { opacity: .75; transform: scale(1); animation-timing-function: ease-in; }
+  84%, 100% { opacity: 0; transform: scale(.6); }
+}
+.bio-ring { position: absolute; left: 50%; top: 44%; width: 132px; height: 132px; margin: -66px 0 0 -66px; border: 2px solid var(--accent-velocity); border-radius: 50%; opacity: 0; animation: bio-ring 760ms cubic-bezier(.2, .7, .3, 1) 850ms both; }
+.bio-ring + .bio-ring { border-width: 1px; animation-delay: 970ms; }
+@keyframes bio-ring { 0% { opacity: .85; transform: scale(.96); } 100% { opacity: 0; transform: scale(2.5); } }
+.bio-medal-name { position: absolute; left: 16px; right: 16px; top: calc(44% + 96px); margin: 0; text-align: center; font-size: clamp(22px, 7vw, 34px); font-weight: 900; line-height: 1.1; letter-spacing: .06em; text-transform: uppercase; text-wrap: balance; perspective: 300px; animation: bio-hold 760ms 780ms both; }
+.bio-medal-name span { display: inline-block; animation: bio-letter 320ms var(--ease-out) both; animation-delay: calc(780ms + min(var(--i), 14) * 18ms); }
+.bio-medal-sub { position: absolute; left: 16px; right: 16px; top: calc(44% + 144px); margin: 0; text-align: center; font: 600 11px var(--mono); letter-spacing: .22em; text-transform: uppercase; color: var(--accent-velocity); animation: bio-hold 640ms 900ms both; }
+@keyframes bio-letter { from { opacity: 0; transform: translateY(14px) rotateX(80deg); } }
+@keyframes bio-hold { 0% { opacity: 0; transform: translateY(4px); } 20%, 70% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translateY(-4px); } }
+
+/* The real crest appears the frame the medal arrives on it, then sends out one ring. Hand-offs key
+   off data-play, which is set in the same frame the intro starts, so their delays stay in sync. */
+body:has(.bio-intro[data-kind="club"][data-play]:not([data-skip])) .detail-hero-logo { animation: bio-logo-land 760ms 1757ms both; }
+@keyframes bio-logo-land { 0% { opacity: 0; outline: 2px solid var(--accent-velocity); outline-offset: 0; } .1% { opacity: 1; animation-timing-function: cubic-bezier(.2, .7, .3, 1); } 100% { opacity: 1; outline: 2px solid transparent; outline-offset: 18px; } }
+
+/* ---------- Event pass ---------- */
+.bio-intro[data-kind="event"] .bio-intro-piece { --pass-w: min(288px, calc(100vw - 48px)); width: var(--pass-w); height: 164px; margin: -82px 0 0 calc(var(--pass-w) / -2); }
+.bio-intro[data-kind="event"] .bio-intro-flight { animation: bio-pass-rise 1800ms linear both; }
+@keyframes bio-pass-rise { 0% { transform: translateY(72vh); animation-timing-function: var(--ease-out); } 40%, 100% { transform: none; } }
+.bio-pass { display: flex; width: 100%; height: 100%; transform-style: preserve-3d; will-change: transform; animation: bio-pass-tilt 1800ms linear both; }
+@keyframes bio-pass-tilt {
+  0% { transform: translateZ(-80px) rotateX(72deg) rotateZ(-16deg); animation-timing-function: var(--ease-out); }
+  40% { transform: rotateX(-5deg) rotateZ(-3deg); animation-timing-function: ease-in-out; }
+  50% { transform: rotateX(1.5deg) rotateZ(-3deg); animation-timing-function: ease-in-out; }
+  60%, 100% { transform: none; }
+}
+.bio-pass-main { position: relative; display: grid; flex: 1; min-width: 0; align-content: space-between; overflow: hidden; padding: 15px 16px 14px; border-radius: 16px 0 0 16px; background: repeating-linear-gradient(135deg, transparent 0 9px, rgb(255 255 255 / .05) 9px 10px), linear-gradient(135deg, color-mix(in srgb, var(--accent-energy) 78%, white), var(--accent-energy) 60%, color-mix(in srgb, var(--accent-energy) 88%, black)); color: #160a02; box-shadow: 0 34px 60px -28px color-mix(in srgb, var(--accent-energy) 70%, transparent), 0 12px 28px rgb(0 0 0 / .45); animation: bio-pass-main 1800ms linear both; }
+@keyframes bio-pass-main { 0%, 64% { opacity: 1; animation-timing-function: ease-in; } 72%, 100% { opacity: 0; } }
+.bio-pass-main::after { content: ""; position: absolute; inset: 0; background: linear-gradient(105deg, transparent 38%, rgb(255 255 255 / .4) 50%, transparent 62%) no-repeat; background-size: 260% 100%; opacity: 0; animation: bio-glint 1800ms linear both; }
+.bio-pass-main small { font: 600 9px/1.2 var(--mono); letter-spacing: .16em; }
+.bio-pass-main b { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 2; font-size: 22px; font-weight: 900; line-height: 1.05; letter-spacing: -.03em; text-wrap: balance; }
+.bio-pass-row { display: flex; justify-content: space-between; gap: 8px; padding-top: 8px; border-top: 1px solid rgb(22 10 2 / .2); font: 700 11px var(--mono); text-transform: uppercase; font-variant-numeric: tabular-nums; }
+.bio-pass-host { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; opacity: .72; }
+.bio-pass-stub { position: relative; display: grid; place-items: center; width: 64px; overflow: hidden; border-left: 2px dashed rgb(22 10 2 / .4); border-radius: 0 16px 16px 0; background: color-mix(in srgb, var(--accent-energy) 50%, white); color: #160a02; box-shadow: 0 12px 28px rgb(0 0 0 / .45); transform-origin: 0 100%; will-change: transform; animation: bio-tear 1800ms linear both; }
+.bio-pass-stub span { font: 700 9px/1 var(--mono); letter-spacing: .14em; writing-mode: vertical-rl; }
+/* Barcode along the stub's outer edge. */
+.bio-pass-stub::after { content: ""; position: absolute; top: 14px; bottom: 14px; right: 8px; width: 9px; background: repeating-linear-gradient(0deg, #160a02 0 2px, transparent 2px 4px, #160a02 4px 5px, transparent 5px 8px); opacity: .55; }
+@keyframes bio-tear {
+  0%, 52% { opacity: 1; transform: none; animation-timing-function: ease-out; }
+  56% { opacity: 1; transform: rotate(-4deg); animation-timing-function: ease-in; }
+  60% { opacity: 1; transform: translate(2px, 2px) rotate(10deg); animation-timing-function: var(--ease-drop); }
+  92% { opacity: 1; transform: translate(46px, 56vh) rotate(64deg); }
+  100% { opacity: 0; transform: translate(46px, 60vh) rotate(68deg); }
+}
+
+/* The window that grows from the pass into the banner, holding a copy of the banner. The boot script
+   drives its motion with sampled transform keyframes; CSS only places it and shows it from 64% to 92%. */
+.bio-slab { position: absolute; top: var(--view-t); left: var(--view-l); width: var(--view-w); height: var(--view-h); display: none; overflow: hidden; transform-origin: 0 0; will-change: transform; }
+.bio-intro[data-aimed] .bio-slab { display: block; animation: bio-slab 1800ms linear var(--bio-elapsed, 0ms) both; }
+/* Landed at 92%: the real banner takes over, so the title that overlaps it is never covered. */
+@keyframes bio-slab { 0%, 63.9% { visibility: hidden; } 64%, 92% { visibility: visible; } 92.1%, 100% { visibility: hidden; } }
+.bio-slab-frame { position: absolute; top: 0; left: 0; width: var(--hero-w); height: var(--hero-h); transform-origin: 0 0; will-change: transform; }
+.bio-slab-frame > .detail-hero { height: 100%; margin: 0 !important; }
+/* The real banner stays hidden until the copy lands on it, so the two never show at once. */
+body:has(.bio-intro[data-kind="event"][data-play]:not([data-skip])) .detail-hero-header .detail-hero { animation: bio-banner-land 1ms 1656ms both; }
+@keyframes bio-banner-land { from { visibility: hidden; } to { visibility: visible; } }
+
+/* ---------- Hand-off: title and details rise in on both pages ---------- */
+body:has(.bio-intro[data-kind="club"]) { --bio-start: 1550ms; }
+body:has(.bio-intro[data-kind="event"]) { --bio-start: 1640ms; }
+body:has(.bio-intro[data-play]:not([data-skip])) .detail-hero-title { animation: bio-rise 560ms cubic-bezier(.16, 1, .3, 1) var(--bio-start) both; }
+body:has(.bio-intro[data-play]:not([data-skip])) .detail-hero-details { animation: bio-rise 560ms cubic-bezier(.16, 1, .3, 1) calc(var(--bio-start) + 90ms) both; }
+@keyframes bio-rise { from { opacity: 0; transform: translateY(16px); } }
+
+@media (prefers-reduced-motion: reduce) { .bio-intro { display: none !important; } }

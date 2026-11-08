@@ -7,6 +7,8 @@ import { SaveButton } from "@/components/participation/SaveButton";
 import { ShareButton } from "@/components/ui/ShareButton";
 import { StructuredData } from "@/components/discovery/DetailPrimitives";
 import { DetailHero } from "@/components/discovery/DetailHero";
+import { BioIntro } from "@/components/discovery/BioIntro";
+import { listingPhoto } from "@/components/cards/CardMedia";
 import { eventIsUpcoming, eventTimestamp } from "@/components/discovery/filter";
 import { listingMetadata } from "@/components/discovery/metadata";
 import { Activity, CalendarDays, Clock3, ExternalLink, Info, MapPin, Navigation, type LucideIcon } from "lucide-react";
@@ -43,6 +45,7 @@ export default async function CommunityPage({ params }: Props) {
   return (
     <div className="pb-16">
       {!community.demo && <StructuredData data={jsonLd} />}
+      <BioIntro kind="club" id={community.slug} name={community.name} initials={initials(community.name)} crest={listingPhoto(community.crestUrl)} subtitle={`${activity?.name ?? CATEGORY_LABELS[community.category]} · ${community.baseLocation}`} />
       <DetailHero image={community.bannerUrl} category={community.category} title={community.name} logo={community.crestUrl} logoAlt={`${community.name} logo`} verified={community.verified && !community.demo} verifiedLabel="Verified community">
           <div className="flex flex-wrap items-center gap-2">
             <span className="filter-chip pointer-events-none text-velocity">{activity?.name ?? CATEGORY_LABELS[community.category]}</span>

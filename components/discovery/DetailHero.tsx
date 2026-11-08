@@ -20,6 +20,14 @@ interface DetailHeroProps {
   children?: ReactNode;
 }
 
+/** The banner itself; BioIntro renders a second copy so its event pass can land on identical pixels. */
+export function HeroBanner({ image, category, alt }: { image?: string; category?: string; alt: string }) {
+  return <div className="detail-hero">
+    <div className="detail-hero-media"><ListingImage src={image} category={category} alt={alt} hero sizes="100vw" /></div>
+    <div className="detail-hero-shade" aria-hidden="true" />
+  </div>;
+}
+
 /**
  * Full-bleed banner for club, place and event pages. Directly under the navbar it slides
  * beneath it (see .detail-hero in globals.css); the logo and title straddle its bottom edge.
@@ -27,10 +35,7 @@ interface DetailHeroProps {
 export function DetailHero({ image, category, title, logo, logoAlt, verified = false, verifiedLabel = "Verified", children }: DetailHeroProps) {
   const crest = listingPhoto(logo);
   return <header className="detail-hero-header">
-    <div className="detail-hero">
-      <div className="detail-hero-media"><ListingImage src={image} category={category} alt={title} hero sizes="100vw" /></div>
-      <div className="detail-hero-shade" aria-hidden="true" />
-    </div>
+    <HeroBanner image={image} category={category} alt={title} />
     <div className="detail-hero-body mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
       <div className="detail-hero-identity">
         {crest && <Image src={crest} alt={logoAlt ?? `${title} logo`} width={112} height={112} unoptimized={isMediaPath(crest)} className="detail-hero-logo" />}
