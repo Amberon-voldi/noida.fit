@@ -45,8 +45,8 @@ export default async function EventPage({ params }: Props) {
       {!event.demo && <StructuredData data={jsonLd} />}
       <DetailHero image={event.coverImageUrl ?? event.imageUrl} category={event.category} title={event.title} logo={event.communityCrestUrl} logoAlt={`${event.communityName} logo`}>
         <div className="flex flex-wrap items-center gap-2">
-          <Link href={activity ? `/activities/${activity.slug}` : `/events?activity=${event.category}`} className="filter-chip text-velocity">{activity?.name ?? CATEGORY_LABELS[event.category]}</Link>
-          <Link href={`/discover?sector=${encodeURIComponent(event.sector)}`} className="filter-chip">{event.sector}</Link>
+          <span className="filter-chip pointer-events-none text-velocity">{activity?.name ?? CATEGORY_LABELS[event.category]}</span>
+          <span className="filter-chip pointer-events-none">{event.sector}</span>
           {event.demo && <span className="text-xs font-semibold uppercase text-text-secondary">Demo listing</span>}
         </div>
         <p className="mt-3 text-sm text-text-secondary">Hosted by <Link href={`/community/${event.communitySlug}`} className="font-semibold text-velocity hover:text-velocity-glow">{event.communityName}</Link></p>
@@ -69,8 +69,7 @@ export default async function EventPage({ params }: Props) {
           </section>
           <section aria-labelledby="meeting-heading" className="rounded-xl border border-border-subtle bg-surface p-5">
             <h2 id="meeting-heading" className="eyebrow">Meeting point</h2><p className="mt-3 font-bold">{event.venueName}</p><p className="mt-1 text-sm text-text-secondary">{event.sector}</p>
-            <Link href={`/place/${event.venueSlug}`} className="mt-3 inline-flex min-h-11 items-center text-sm font-semibold text-velocity">See the place details →</Link>
-            {!event.demo && <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${event.venueName}, ${event.sector}, Noida`)}`} target="_blank" rel="noopener noreferrer" className="flex min-h-11 items-center text-sm text-text-secondary hover:text-white">Open directions ↗</a>}
+            {!event.demo && <a href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${event.venueName}, ${event.sector}, Noida`)}`} target="_blank" rel="noopener noreferrer" className="button-secondary mt-4 w-full">Get directions ↗</a>}
           </section>
           <Link href={`/community/${event.communitySlug}`} className="block rounded-xl border border-border-subtle bg-surface p-5 hover:border-border-strong"><p className="eyebrow">Host community</p><p className="mt-2 font-bold">{event.communityName}</p><p className="mt-1 text-sm text-velocity">View schedule →</p></Link>
         </aside>
