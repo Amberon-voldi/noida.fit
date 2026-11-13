@@ -17,6 +17,7 @@ import { SignOutButton } from "@/components/auth/SignOutButton";
 import { SaveButton } from "@/components/participation/SaveButton";
 import { FollowButton } from "@/components/participation/FollowButton";
 import { integrations } from "@/lib/integrations";
+import { formatInr } from "@/lib/pricing";
 import "./account-workspace.css";
 
 export interface AccountWorkspaceProps {
@@ -49,7 +50,7 @@ export function AccountWorkspace({ profile, settings, email, canOrganize, partic
   const plans: PlanTab[] = [
     { id: "rsvps", label: "Upcoming", count: rsvps.length, content: rsvps.length ? <>
       <ul className="member-list">{rsvps.map(({ rsvp, event }) => <li key={rsvp.id}>
-        {event ? <div className="member-list-row"><DateChip value={event.startsAt || `${event.date}T00:00:00+05:30`} /><div className="member-list-content"><Link href={`/event/${event.slug}`} className="member-list-title">{event.title}</Link><p><span className="sr-only">{accountDate(event.startsAt || `${event.date}T00:00:00+05:30`)} · </span>{event.startTime} · {event.venueName}</p>{event.demo && <span className="member-demo-label">Demo</span>}</div></div> : <div className="member-list-content"><p>This event is no longer publicly available.</p></div>}
+        {event ? <div className="member-list-row"><DateChip value={event.startsAt || `${event.date}T00:00:00+05:30`} /><div className="member-list-content"><Link href={`/event/${event.slug}`} className="member-list-title">{event.title}</Link><p><span className="sr-only">{accountDate(event.startsAt || `${event.date}T00:00:00+05:30`)} · </span>{event.startTime} · {event.venueName}{rsvp.amount ? ` · Ticket ${formatInr(rsvp.amount)} ${rsvp.paymentStatus === "paid" ? "paid" : "due"}` : ""}</p>{event.demo && <span className="member-demo-label">Demo</span>}</div></div> : <div className="member-list-content"><p>This event is no longer publicly available.</p></div>}
         {event && <Link href={`/event/${event.slug}`} className="member-row-action" aria-label={`Manage RSVP for ${event.title}`}><ChevronRight size={18} aria-hidden="true" /></Link>}
       </li>)}</ul>
       <p className="member-plan-note">Confirmed plans, not proof of attendance.</p>
@@ -78,7 +79,7 @@ export function AccountWorkspace({ profile, settings, email, canOrganize, partic
       <section className="member-next" aria-labelledby="next-plan-heading">
         <h2 id="next-plan-heading" className="member-eyebrow">Up next</h2>
         {nextEvent ? <>
-          <p className="member-confirmed">Confirmed RSVP</p>
+          <p className="member-confirmed">{rsvps[0].rsvp.amount ? "Ticket booked" : "Confirmed RSVP"}</p>
           <h3><Link href={`/event/${nextEvent.slug}`}>{nextEvent.title}</Link></h3>
           <p className="member-next-detail"><Clock3 size={16} aria-hidden="true" />{nextEvent.startTime} · {accountDate(nextEvent.startsAt || `${nextEvent.date}T00:00:00+05:30`)}</p>
           <p className="member-next-detail"><MapPin size={16} aria-hidden="true" />{nextEvent.venueName} · {nextEvent.sector}</p>

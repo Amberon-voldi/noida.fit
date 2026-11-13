@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { AlertTriangle, CheckCircle2, Clock3, UserX } from "lucide-react";
 import type { CheckInWindowState } from "@/types/organizer";
 import { participantTokenFromQr } from "@/lib/check-in-qr";
+import { formatInr } from "@/lib/pricing";
 import { CheckInScanner } from "./CheckInScanner";
 
 export interface OperatorEvent { id: string; title: string; checkInWindow: CheckInWindowState; checkedIn?: number; confirmedRsvps?: number; }
@@ -61,14 +62,14 @@ export function OrganizerCheckInForm({ event }: { event: OperatorEvent }) {
       }
       const response = await fetch("/api/check-in/organizer", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ eventId: event.id, token }) });
       if (response.status === 401) { router.push(`/login?callbackUrl=/organizer/events/${encodeURIComponent(event.id)}`); return; }
-      const data = await response.json().catch(() => null) as { checkedIn?: boolean; displayName?: string; checkedInAt?: string; alreadyCheckedIn?: boolean; error?: string; code?: string } | null;
+      const data = await response.json().catch(() => null) as { checkedIn?: boolean; displayName?: string; checkedInAt?: string; alreadyCheckedIn?: boolean; amountDue?: number; error?: string; code?: string } | null;
       if (!response.ok || !data?.checkedIn || !data.displayName) {
         push(failure(data?.code, data?.error || "Participant check-in could not be completed. Try again."));
         return;
       }
       push(data.alreadyCheckedIn
         ? { outcome: "already", title: data.displayName, detail: `Already checked in at ${data.checkedInAt ? timeFormatter.format(new Date(data.checkedInAt)) : "an earlier scan"}.` }
-        : { outcome: "checked-in", title: data.displayName, detail: "Checked in. Attendance is on their .fit ID." });
+        : { outcome: "checked-in", title: data.displayName, detail: data.amountDue ? `Checked in. Collect ${formatInr(data.amountDue)} for their ticket.` : "Checked in. Attendance is on their .fit ID." });
       setInput("");
       router.refresh();
     } catch {

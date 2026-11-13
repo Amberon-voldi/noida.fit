@@ -103,7 +103,8 @@ function getCollectionSpecs(): CollectionSpec[] {
   {
     key: "rsvps",
     name: "Event RSVPs",
-    attributes: [string("eventId", 36), string("userId", 36), string("status", 20), integer("seatNumber", true, 1), datetime("createdAt")],
+    // amount (paise), paymentStatus and paymentRef are set only on tickets for paid events.
+    attributes: [string("eventId", 36), string("userId", 36), string("status", 20), integer("seatNumber", true, 1), datetime("createdAt"), integer("amount", false, 1), string("paymentStatus", 20, false), string("paymentRef", 128, false)],
     indexes: [uniqueIndex("rsvps_event_user", ["eventId", "userId"]), uniqueIndex("rsvps_event_seat", ["eventId", "seatNumber"]), keyIndex("rsvps_user", ["userId"]), keyIndex("rsvps_event", ["eventId"])],
   },
   {

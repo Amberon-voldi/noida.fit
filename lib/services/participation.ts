@@ -9,6 +9,7 @@ import {
   type AppwriteDocument,
 } from "@/lib/appwrite/database";
 import { HttpError } from "@/lib/http";
+import { MAX_TICKET_RUPEES, parseEventPrice } from "@/lib/pricing";
 import type { AuthUser } from "@/lib/auth";
 import { getAdminServices } from "@/lib/appwrite/server";
 import type { RSVP, SavedItem, Membership, Participation, CheckIn } from "@/types/platform";
@@ -32,10 +33,13 @@ type EventRecord = {
   endsAt: string;
   organizerUserId?: string;
   activityId: string;
+  payload?: string;
 };
 
 export const documentIdSchema = z.string().trim().min(1).max(36).regex(/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/);
 export const eventInputSchema = z.object({ eventId: documentIdSchema }).strict();
+/** `amount` (paise) is the ticket price the member confirmed; omitted for free events. */
+export const rsvpInputSchema = z.object({ eventId: documentIdSchema, amount: z.number().int().positive().max(MAX_TICKET_RUPEES * 100).optional() }).strict();
 export const savedInputSchema = z.object({ itemType: z.enum(["event", "place", "community"]), itemId: documentIdSchema }).strict();
 export const followInputSchema = z.object({ communityId: documentIdSchema }).strict();
 export const checkInInputSchema = z.object({ eventId: documentIdSchema, token: z.string().trim().min(20).max(2048) }).strict();
@@ -54,7 +58,10 @@ function isCode(error: unknown, code: number): boolean {
 }
 
 /** Explicit field selection keeps DB metadata and future private attributes out of API DTOs. */
-const rsvpDto = (r: AppwriteDocument<Row<RSVP>>): RSVP => ({ id: r.$id, eventId: r.eventId, userId: r.userId, status: r.status, seatNumber: r.seatNumber, createdAt: r.createdAt });
+const rsvpDto = (r: AppwriteDocument<Row<RSVP>>): RSVP => ({
+  id: r.$id, eventId: r.eventId, userId: r.userId, status: r.status, seatNumber: r.seatNumber, createdAt: r.createdAt,
+  ...(r.amount ? { amount: r.amount, paymentStatus: r.paymentStatus === "paid" ? "paid" as const : "pending" as const } : {}),
+});
 const savedDto = (r: AppwriteDocument<Row<SavedItem>>): SavedItem => ({ id: r.$id, itemId: r.itemId, itemType: r.itemType, userId: r.userId, createdAt: r.createdAt });
 const membershipDto = (r: AppwriteDocument<Row<Membership>>): Membership => ({ id: r.$id, communityId: r.communityId, status: r.status, userId: r.userId, createdAt: r.createdAt });
 const checkinDto = (r: AppwriteDocument<Row<CheckIn>>): CheckIn => ({ id: r.$id, eventId: r.eventId, userId: r.userId, timestamp: r.timestamp, verificationMethod: r.verificationMethod });
@@ -66,6 +73,14 @@ async function getEvent(eventId: string, published = true) {
   if (!event) throw new HttpError(404, "EVENT_NOT_FOUND", "Event was not found");
   if (published && event.status !== "published") throw new HttpError(409, "EVENT_UNAVAILABLE", "This event is not available");
   return event;
+}
+
+function eventPricing(event: EventRecord) {
+  try {
+    return parseEventPrice((JSON.parse(event.payload ?? "") as { price?: unknown }).price);
+  } catch {
+    return parseEventPrice(undefined);
+  }
 }
 
 async function requireItem(itemType: SavedItemType, itemId: string): Promise<void> {
@@ -92,7 +107,8 @@ export type ParticipationControls = Pick<AccountParticipation, "rsvps" | "savedI
 export async function getParticipationControls(userId: string): Promise<ParticipationControls> {
   documentIdSchema.parse(userId);
   const [rsvps, savedItems, memberships] = await Promise.all([
-    listAppwriteDocuments<Row<RSVP>>(collections.rsvps, [Query.equal("userId", userId), Query.select(["userId", "eventId", "status", "seatNumber", "createdAt"])]),
+    // No select: Appwrite rejects a select naming the ticket attributes before `appwrite:setup` has added them.
+    listAppwriteDocuments<Row<RSVP>>(collections.rsvps, [Query.equal("userId", userId)]),
     listAppwriteDocuments<Row<SavedItem>>(collections.savedItems, [Query.equal("userId", userId), Query.select(["userId", "itemId", "itemType", "createdAt"])]),
     listAppwriteDocuments<Row<Membership>>(collections.memberships, [Query.equal("userId", userId), Query.select(["userId", "communityId", "status", "createdAt"])]),
   ]);
@@ -171,13 +187,19 @@ export async function getUserRsvp(eventId: string, userId: string): Promise<RSVP
  * unique(eventId,userId) index and deterministic user ID prohibit duplicate
  * reservations. Never upsert an RSVP: that could overwrite a seat owner.
  */
-export async function createRsvp(userId: string, eventId: string): Promise<RSVP> {
+export async function createRsvp(userId: string, eventId: string, expectedAmount?: number): Promise<RSVP> {
   documentIdSchema.parse(userId);
   const event = await getEvent(eventId);
   const { start } = eventWindow(event);
   if (Date.now() >= start) throw new HttpError(409, "EVENT_STARTED", "RSVP is closed for this event");
   const existing = await getUserRsvp(eventId, userId);
   if (existing?.status === "confirmed") return existing;
+  // A paid event issues a ticket at the price the member confirmed, never one that changed since.
+  const pricing = eventPricing(event);
+  if ((expectedAmount ?? 0) !== pricing.amount) {
+    throw new HttpError(409, "PRICE_CHANGED", pricing.kind === "paid" ? `This ticket is ${pricing.label}. Check the price and confirm again.` : "This event’s price has changed. Reload the page and try again.");
+  }
+  const ticket = pricing.kind === "paid" ? { amount: pricing.amount, paymentStatus: "pending" as const } : {};
   const capacity = event.capacity;
   if (!Number.isSafeInteger(capacity) || !capacity || capacity < 1 || capacity > 100_000) {
     throw new HttpError(409, "CAPACITY_UNAVAILABLE", "The organizer needs to confirm event capacity");
@@ -189,9 +211,11 @@ export async function createRsvp(userId: string, eventId: string): Promise<RSVP>
     if (Date.now() >= start) throw new HttpError(409, "EVENT_STARTED", "RSVP is closed for this event");
     try {
       return rsvpDto(await createAppwriteDocument<Row<RSVP>>(collections.rsvps, {
-        eventId, userId, status: "confirmed", seatNumber, createdAt: new Date().toISOString(),
+        eventId, userId, status: "confirmed", seatNumber, createdAt: new Date().toISOString(), ...ticket,
       }, rsvpDocumentId(eventId, userId), userDocumentPermissions(userId)));
     } catch (error) {
+      // `npm run appwrite:setup` adds the ticket attributes; until then Appwrite rejects them.
+      if (pricing.kind === "paid" && isCode(error, 400)) throw new HttpError(503, "TICKETS_NOT_CONFIGURED", "Tickets for paid events are not switched on yet. Please try again later.");
       if (!isCode(error, 409)) throw error;
       const afterRace = await getUserRsvp(eventId, userId);
       if (afterRace?.status === "confirmed") return afterRace;
@@ -207,10 +231,29 @@ export async function cancelRsvp(userId: string, eventId: string): Promise<void>
   // Cancellation is allowed for cancelled events but never erases verified attendance.
   const checkedIn = await getAppwriteDocument<Row<CheckIn>>(collections.checkins, checkInDocumentId(eventId, userId));
   if (checkedIn) throw new HttpError(409, "ALREADY_CHECKED_IN", "You have already checked in to this event");
+  // Deleting a paid ticket would erase the payment record; refunds go through the organizer.
+  if ((await getUserRsvp(eventId, userId))?.paymentStatus === "paid") {
+    throw new HttpError(409, "TICKET_PAID", "This ticket is paid for. Contact the organizer about a refund.");
+  }
   if (event.status !== "cancelled" && Date.now() >= eventWindow(event).start) {
     throw new HttpError(409, "EVENT_STARTED", "This event has already started");
   }
   await deleteIfPresent(collections.rsvps, rsvpDocumentId(eventId, userId));
+}
+
+/**
+ * Payment gateway seam: nothing calls this yet, so tickets stay "pending" and the organizer
+ * collects the amount. Once a gateway is connected, call this from its verified webhook (or
+ * server-side payment verification). Idempotent; the amount must match the issued ticket.
+ */
+export async function confirmTicketPayment(eventId: string, userId: string, amount: number, paymentRef: string): Promise<RSVP> {
+  const id = rsvpDocumentId(documentIdSchema.parse(eventId), documentIdSchema.parse(userId));
+  const ticket = await getAppwriteDocument<Row<RSVP>>(collections.rsvps, id);
+  if (!ticket?.amount || ticket.status !== "confirmed") throw new HttpError(404, "TICKET_NOT_FOUND", "No ticket is awaiting payment");
+  if (ticket.amount !== amount) throw new HttpError(409, "AMOUNT_MISMATCH", "The payment does not match the ticket price");
+  if (ticket.paymentStatus === "paid") return rsvpDto(ticket);
+  await updateAppwriteDocument(collections.rsvps, id, { paymentStatus: "paid", paymentRef: paymentRef.slice(0, 128) });
+  return rsvpDto({ ...ticket, paymentStatus: "paid" });
 }
 
 function secret(): string {
@@ -354,5 +397,7 @@ export async function checkInParticipant(organizer: Pick<AuthUser, "id" | "label
     eventId: event.$id, userId, timestamp: new Date().toISOString(), verificationMethod: "organizer_qr",
   }, userId));
   await ensureVerifiedParticipation(userId, event, checkin);
-  return { eventId: event.$id, displayName, checkedInAt: checkin.timestamp, alreadyCheckedIn: false };
+  // An unpaid ticket still admits its holder; the desk is told what to collect.
+  const amountDue = rsvp.amount && rsvp.paymentStatus !== "paid" ? rsvp.amount : undefined;
+  return { eventId: event.$id, displayName, checkedInAt: checkin.timestamp, alreadyCheckedIn: false, ...(amountDue ? { amountDue } : {}) };
 }

@@ -7,6 +7,8 @@ export interface OrganizerAttendee {
   displayName: string;
   rsvpStatus: "confirmed";
   seatNumber?: number;
+  /** Paid events only. `amount` is in paise. */
+  ticket?: { amount: number; paid: boolean };
   checkInStatus: "not_checked_in" | "checked_in";
   checkedInAt?: string;
 }

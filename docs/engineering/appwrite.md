@@ -84,7 +84,7 @@ Appwrite owns `$createdAt` and `$updatedAt`; code strips caller-supplied `$` met
 | Events | unique slug, title, activityId, communitySlug, venueSlug, sector, date, startsAt, endsAt, capacity, featured, optional organizerUserId, status, demo, payload |
 | Places | unique slug, sector, featured, status, demo, payload |
 | Communities | unique slug, activityId, status, demo, payload |
-| RSVPs | eventId, userId, status, seatNumber, createdAt; unique(eventId,userId), unique(eventId,seatNumber) |
+| RSVPs | eventId, userId, status, seatNumber, createdAt; tickets for paid events also set amount (paise), paymentStatus (pending/paid) and paymentRef; unique(eventId,userId), unique(eventId,seatNumber) |
 | Check-ins | eventId, userId, timestamp, verificationMethod; unique(eventId,userId) |
 | Memberships | userId, communityId, status, createdAt; unique(userId,communityId) |
 | Saved items | userId, itemId, itemType, createdAt; unique(userId,itemType,itemId) |

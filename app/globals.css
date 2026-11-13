@@ -163,6 +163,17 @@ html:has([data-cookie-notice]) { scroll-padding-bottom: calc(var(--dock-clearanc
 .mobile-dock-link[aria-current="page"] .mobile-dock-icon { transform: translateY(-2px) scale(1.05); }
 .mobile-dock-link:active .mobile-dock-icon { transform: scale(.88); }
 
+/* Event booking bar: a floating card directly above the mobile dock, aligned to it. */
+:root { --booking-bar-height: 66px; }
+.event-booking-bar { position: fixed; z-index: 490; left: max(8px, env(safe-area-inset-left)); right: max(8px, env(safe-area-inset-right)); bottom: var(--dock-clearance); max-width: 520px; min-height: var(--booking-bar-height); margin-inline: auto; padding: 10px 10px 10px 16px; border: 1px solid var(--border-strong); border-radius: var(--radius-2xl); background: var(--background); box-shadow: 0 8px 28px rgb(0 0 0 / .45); }
+.event-booking-toast { position: absolute; bottom: calc(100% + 8px); left: 50%; width: max-content; max-width: calc(100% - 32px); padding: 8px 14px; border: 1px solid var(--border-strong); border-radius: var(--radius-lg); background: var(--surface-elevated); color: var(--accent-velocity); font-size: 12px; font-weight: 600; line-height: 1.4; text-align: center; transform: translateX(-50%); }
+@media (max-width: 1023px) {
+  /* The cookie notice and focused controls clear the booking bar as well as the dock. */
+  body:has(.event-booking-bar) .cookie-notice { bottom: calc(var(--dock-clearance) + var(--booking-bar-height) + 8px); }
+  html:has(.event-booking-bar) { scroll-padding-bottom: calc(var(--dock-clearance) + var(--booking-bar-height) + 16px); }
+  html:has(.event-booking-bar):has([data-cookie-notice]) { scroll-padding-bottom: calc(var(--dock-clearance) + var(--booking-bar-height) + 158px); }
+}
+
 .mobile-rail { scroll-snap-type: x proximity; overscroll-behavior-x: contain; scroll-padding-inline: 2px; }
 .mobile-rail > * { scroll-snap-align: start; }
 .home-hero { background: radial-gradient(ellipse at 5% 5%, color-mix(in srgb, var(--accent-velocity) 5%, transparent), transparent 65%); }

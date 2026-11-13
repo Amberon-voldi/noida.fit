@@ -17,6 +17,8 @@ interface RsvpRow {
   userId: string;
   status: string;
   seatNumber?: number;
+  amount?: number;
+  paymentStatus?: string;
 }
 
 interface CheckInRow {
@@ -49,10 +51,10 @@ function safeDisplayName(value: unknown): string {
 }
 
 /** Appwrite caps `equal` at 100 values; each chunk is one (paginated) list call. */
-async function listForIds<T extends object>(collection: string, field: string, ids: string[], select: string[]): Promise<AppwriteDocument<T>[]> {
+async function listForIds<T extends object>(collection: string, field: string, ids: string[], select?: string[]): Promise<AppwriteDocument<T>[]> {
   const rows: AppwriteDocument<T>[] = [];
   for (let index = 0; index < ids.length; index += 100) {
-    rows.push(...await listAppwriteDocuments<T>(collection, [Query.equal(field, ids.slice(index, index + 100)), Query.select(select)]));
+    rows.push(...await listAppwriteDocuments<T>(collection, [Query.equal(field, ids.slice(index, index + 100)), ...(select ? [Query.select(select)] : [])]));
   }
   return rows;
 }
@@ -76,7 +78,8 @@ export async function getOrganizerEventSummaries(
   if (!events.length) return [];
   const eventIds = events.map(event => event.id);
   const [rsvps, checkins] = await Promise.all([
-    listForIds<RsvpRow>(collections.rsvps, "eventId", eventIds, ["eventId", "userId", "status", "seatNumber"]),
+    // No select: Appwrite rejects a select naming the ticket attributes before `appwrite:setup` has added them.
+    listForIds<RsvpRow>(collections.rsvps, "eventId", eventIds),
     listForIds<CheckInRow>(collections.checkins, "eventId", eventIds, ["eventId", "userId", "timestamp"]),
   ]);
   const confirmed = rsvps.filter(rsvp => rsvp.status === "confirmed");
@@ -91,6 +94,7 @@ export async function getOrganizerEventSummaries(
         displayName: safeDisplayName(names.get(rsvp.userId)),
         rsvpStatus: "confirmed",
         ...(Number.isSafeInteger(rsvp.seatNumber) ? { seatNumber: rsvp.seatNumber } : {}),
+        ...(rsvp.amount ? { ticket: { amount: rsvp.amount, paid: rsvp.paymentStatus === "paid" } } : {}),
         checkInStatus: checkin ? "checked_in" : "not_checked_in",
         ...(checkin ? { checkedInAt: checkin.timestamp } : {}),
       };

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, LoaderCircle } from "lucide-react";
+import { MAX_TICKET_RUPEES, paidPrice, parseEventPrice } from "@/lib/pricing";
 
 export interface EditorOption { slug: string; name: string; detail?: string; }
 export interface EditorValues {
@@ -42,7 +43,9 @@ const hint = "mt-1 text-xs text-text-secondary";
 
 export function EventEditor({ mode, clubs, venues, initial, eventId, expectedUpdatedAt, confirmedRsvps = 0, clubName }: Props) {
   const router = useRouter();
-  const [values, setValues] = useState({ ...initial, startTime: to24(initial.startTime), endTime: to24(initial.endTime), whatToBring: (initial.whatToBring ?? []).join("\n") });
+  const initialPricing = parseEventPrice(initial.price);
+  // Free-form price text is no longer accepted, so it opens as "Paid" with the amount left to fill in.
+  const [values, setValues] = useState({ ...initial, startTime: to24(initial.startTime), endTime: to24(initial.endTime), whatToBring: (initial.whatToBring ?? []).join("\n"), paid: initialPricing.kind !== "free", amount: initialPricing.kind === "paid" ? String(initialPricing.amount / 100) : "" });
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const set = <K extends keyof typeof values>(key: K, value: (typeof values)[K]) => setValues(current => ({ ...current, [key]: value }));
@@ -55,7 +58,7 @@ export function EventEditor({ mode, clubs, venues, initial, eventId, expectedUpd
       ...(mode === "create" ? { communitySlug: values.communitySlug } : {}),
       title: values.title, description: values.description, date: values.date,
       startTime: to12(values.startTime), endTime: to12(values.endTime),
-      venueSlug: values.venueSlug, capacity: Number(values.capacity), price: values.price, status: values.status,
+      venueSlug: values.venueSlug, capacity: Number(values.capacity), price: values.paid ? paidPrice(Number(values.amount)) : "FREE", status: values.status,
       level: values.level || undefined, distance: values.distance || undefined, pace: values.pace || undefined, routeOverview: values.routeOverview || undefined,
       whatToBring: values.whatToBring.split("\n").map(line => line.trim()).filter(Boolean),
     };
@@ -103,7 +106,10 @@ export function EventEditor({ mode, clubs, venues, initial, eventId, expectedUpd
         <legend className="px-1 text-sm font-bold uppercase tracking-widest text-velocity">Spots and details</legend>
         <div className="grid gap-4 sm:grid-cols-2">
           <label className={labelClass}>Spots available<input type="number" required min={Math.max(1, confirmedRsvps)} max={100000} value={values.capacity} onChange={change => set("capacity", Number(change.target.value))} className={field} />{confirmedRsvps > 0 && <span className={hint}>Can’t go below the {confirmedRsvps} people already going.</span>}</label>
-          <label className={labelClass}>Price<input required maxLength={30} value={values.price} onChange={change => set("price", change.target.value)} className={field} placeholder="FREE or ₹200" /></label>
+          <div>
+            <label className={labelClass}>Price<select value={values.paid ? "paid" : "free"} onChange={change => set("paid", change.target.value === "paid")} className={field}><option value="free">Free</option><option value="paid">Paid ticket</option></select></label>
+            {values.paid && <label className={`${labelClass} mt-3`}>Ticket price (₹)<input type="number" inputMode="numeric" required min={1} max={MAX_TICKET_RUPEES} step={1} value={values.amount} onChange={change => set("amount", change.target.value)} className={field} placeholder="199" /><span className={hint}>{initialPricing.kind === "info" ? `Was “${initial.price}”. Set an amount, or choose Free. ` : ""}Per person. Online payment isn’t open yet, so you collect it at the event. People who already have a ticket keep the price they booked at.</span></label>}
+          </div>
           <label className={labelClass}>Level <span className="font-normal text-text-secondary">(optional)</span><input maxLength={100} value={values.level ?? ""} onChange={change => set("level", change.target.value)} className={field} placeholder="All levels" /></label>
           <label className={labelClass}>Distance <span className="font-normal text-text-secondary">(optional)</span><input maxLength={100} value={values.distance ?? ""} onChange={change => set("distance", change.target.value)} className={field} placeholder="5 km" /></label>
         </div>

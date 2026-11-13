@@ -6,6 +6,7 @@ import { ArrowLeft, ArrowUpRight, Pencil, Search } from "lucide-react";
 import type { OrganizerEventSummary } from "@/types/organizer";
 import { OrganizerCheckInForm } from "@/components/participation/OrganizerCheckInForm";
 import { formatDate } from "@/lib/config";
+import { formatInr } from "@/lib/pricing";
 import { checkInLabel } from "./labels";
 
 type Filter = "all" | "waiting" | "in";
@@ -75,7 +76,7 @@ export function EventDesk({ summary }: { summary: OrganizerEventSummary }) {
           {visible.map((attendee, index) => <li key={`${attendee.displayName}-${attendee.seatNumber ?? index}`} className="flex min-h-12 items-center justify-between gap-3 px-4 py-2 text-sm">
             <span className="min-w-0">
               <span className="block truncate font-medium text-white">{attendee.displayName}</span>
-              {attendee.seatNumber !== undefined && <span className="block text-xs text-text-secondary">Spot #{attendee.seatNumber}</span>}
+              {(attendee.seatNumber !== undefined || attendee.ticket) && <span className="block text-xs text-text-secondary">{[attendee.seatNumber !== undefined && `Spot #${attendee.seatNumber}`, attendee.ticket && `${formatInr(attendee.ticket.amount)} ${attendee.ticket.paid ? "paid" : "due"}`].filter(Boolean).join(" · ")}</span>}
             </span>
             {attendee.checkInStatus === "checked_in"
               ? <span className="shrink-0 rounded-full bg-velocity/15 px-2.5 py-1 text-xs font-semibold text-velocity">In{attendee.checkedInAt ? ` · ${timeFormatter.format(new Date(attendee.checkedInAt))}` : ""}</span>

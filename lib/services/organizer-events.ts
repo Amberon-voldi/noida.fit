@@ -7,6 +7,7 @@ import { eventSlugTaken, getEventRecord, saveScopedEvent } from "@/lib/admin/con
 import { indiaDateTime } from "@/lib/calendar";
 import { getActivities, getCommunities, getOrganizerEvents, getPlaces } from "@/lib/data";
 import { HttpError } from "@/lib/http";
+import { parseEventPrice } from "@/lib/pricing";
 import { isAdminUser } from "@/lib/services/participation";
 import type { AuthUser } from "@/lib/auth";
 import type { Community } from "@/types/community";
@@ -26,7 +27,7 @@ export const organizerEventInputSchema = z.object({
   endTime: clock,
   venueSlug: text(120, 1),
   capacity: z.number().int().min(1).max(100000),
-  price: text(30, 1),
+  price: text(30, 1).refine(value => parseEventPrice(value).kind !== "info", "Use FREE or an amount like ₹200"),
   level: text(100).optional(),
   distance: text(100).optional(),
   pace: text(200).optional(),

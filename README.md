@@ -19,7 +19,7 @@ npm run dev
 
 Existing infrastructure is reused by configured IDs. Setup inspects resources before creation, validates schemas/indexes, and refuses to create same-named duplicates under a different ID. Secrets stay in ignored environment files; never commit `.env`, API keys, session cookies or the generated check-in signing secret.
 
-The current approved catalog contains **26 activities, 12 communities, 18 places, and 24 events** and has been synchronized to Appwrite. Four events are paid: **evt_06 Alpha doubles: rotate and rally — ₹199**, **evt_07 Sector 79 seven-a-side — ₹299**, **evt_12 Core & coffee: mat Pilates — ₹299**, and **evt_18 Alpha beginner doubles clinic — ₹199**; all other events are **FREE**. Venues, activities, and communities have no ticket pricing. Explicitly marked demo fixtures remain supported, but seed is for initial provisioning or updating still-demo IDs only: it preflights source IDs, refuses to overwrite any non-demo editorial record, preserves existing dates by refusing overwrite, and resolves dates for newly seeded records at seed-time Asia/Kolkata. No demo users/passwords, attendance or verified statistics are created. Displayed prices are informational; no payment checkout is included. The compact home uses one illustrative-listings notice instead of repeated card badges; standard directory/detail views retain per-listing provenance.
+The current approved catalog contains **26 activities, 12 communities, 18 places, and 24 events** and has been synchronized to Appwrite. Four events are paid: **evt_06 Alpha doubles: rotate and rally — ₹199**, **evt_07 Sector 79 seven-a-side — ₹299**, **evt_12 Core & coffee: mat Pilates — ₹299**, and **evt_18 Alpha beginner doubles clinic — ₹199**; all other events are **FREE**. Venues, activities, and communities have no ticket pricing. Explicitly marked demo fixtures remain supported, but seed is for initial provisioning or updating still-demo IDs only: it preflights source IDs, refuses to overwrite any non-demo editorial record, preserves existing dates by refusing overwrite, and resolves dates for newly seeded records at seed-time Asia/Kolkata. No demo users/passwords, attendance or verified statistics are created. A price of `FREE` takes RSVPs; a rupee amount such as `₹199` sells one ticket per account at that price (see Backend and permissions). No payment checkout is included. The compact home uses one illustrative-listings notice instead of repeated card badges; standard directory/detail views retain per-listing provenance.
 
 ## Product routes
 
@@ -27,7 +27,7 @@ The current approved catalog contains **26 activities, 12 communities, 18 places
 - `/home` — compact public home hub: a small greeting, search, quick plans, activities, and bounded event/community/place cards
 - `/discover`, `/search` — URL-based search, activity/type/sector/date/time/price filters
 - `/activities`, `/activities/[slug]` — activity directory and relevant listings
-- `/events`, `/event/[slug]` — events, RSVP/cancel, save, share and calendar export
+- `/events`, `/event/[slug]` — events, RSVP or ticket, cancel, save, share and calendar export; below desktop width a fixed bar above the dock carries the price and the booking button
 - `/places`, `/place/[slug]` — venues and related events/communities
 - `/communities`, `/community/[slug]` — groups, follow/unfollow and saved interests
 - `/signup`, `/login` — Appwrite email/password authentication
@@ -67,6 +67,7 @@ See [Appwrite operations and schema](docs/engineering/appwrite.md) for environme
 - Accounts/participation: owner-readable, not directly client-writable.
 - All mutations: server authenticated, ownership derived from the session, validated input, same-origin checks and bounded requests.
 - RSVP uniqueness: unique event/user and event/seat indexes; allocation uses atomic creates, not unsafe read-then-count writes.
+- Tickets: a paid event's RSVP is a ticket. `lib/pricing.ts` is the only code that reads `price` as money (integer paise); free-form price text is displayed but never ticketed. The member confirms the amount, the server rejects a stale price, and the ticket keeps the price it was issued at in the RSVP's optional `amount`, `paymentStatus` and `paymentRef` attributes. Run `npm run appwrite:setup` to add them; until then paid events refuse tickets rather than hand out free seats. A paid ticket cannot be cancelled by its holder.
 - Check-in: the participant shows a signed 15-minute QR; the assigned club/venue operator or Appwrite `admin` scans it for the selected event. Active account/Fitness ID, confirmed RSVP and the event window are required. Operator cameras use native QR detection or a lazily loaded on-device decoder; paste fallback is retained. Participant self-check-in and old event codes are retired. Retries do not duplicate attendance and repair incomplete participation writes.
 - Verified counts: derived from stored check-ins/verified participation, never marketing constants or RSVP totals.
 
@@ -171,7 +172,7 @@ References: [OpenNext setup](https://opennext.js.org/cloudflare/get-started), [c
 - **Strava:** provider registration exists, but OAuth is not enabled without official application credentials and callback setup.
 - **Apple Health:** requires a consented native HealthKit bridge; a website cannot access it directly.
 - **Cult.fit / FITPASS:** coming soon, dependent on official APIs/partnerships. No passwords, scraping or unofficial APIs are used.
-- Paid event prices are informational. RSVP does not charge, reserve paid inventory, or replace an organizer's payment flow.
+- **Payments:** no payment gateway is connected. A ticket for a paid event holds a spot with payment `pending`, and the organizer collects the amount at the event. `confirmTicketPayment` in `lib/services/participation.ts` is where a gateway's verified webhook marks a ticket paid.
 - Organizer intake remains an explicit email listing-review process. Stories do not pretend to have an active newsletter.
 - No storage bucket or cloud function is needed for this slice. Editorial imagery is explicitly illustrative, not proof of a venue or partnership.
 

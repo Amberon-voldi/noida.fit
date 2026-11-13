@@ -1,5 +1,6 @@
 export type RSVPStatus = "confirmed" | "cancelled" | "waitlist";
 export type ParticipationStatus = "verified" | "connected" | "self_reported" | "pending";
+export type PaymentStatus = "pending" | "paid";
 
 export interface RSVP {
   id: string;
@@ -8,6 +9,9 @@ export interface RSVP {
   status: RSVPStatus;
   seatNumber: number;
   createdAt: string;
+  /** Paid events only: the ticket price in paise, fixed when the ticket was taken. */
+  amount?: number;
+  paymentStatus?: PaymentStatus;
 }
 
 export interface CheckIn {

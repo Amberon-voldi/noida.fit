@@ -1,13 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { loginUrl, refreshParticipation, useParticipation } from "./useParticipation";
-import { indiaDateTime } from "@/lib/calendar";
 import { CalendarPlus, Check, LoaderCircle, Share2 } from "lucide-react";
 import { createIcs } from "@/lib/calendar";
+import { formatInr } from "@/lib/pricing";
 import { SaveButton } from "@/components/participation/SaveButton";
+import { TicketCheckout } from "./TicketCheckout";
+import { useEventBooking } from "./useEventBooking";
 
 export interface EventActionsProps {
   eventId: string;
@@ -18,6 +17,9 @@ export interface EventActionsProps {
   endTime: string;
   venueName: string;
   communityName?: string;
+  price: string;
+  /** Display date and time, e.g. "Sat, 15 Nov · 06:00 AM". */
+  when: string;
   compact?: boolean;
 }
 
@@ -36,53 +38,8 @@ function downloadCalendarEvent(props: EventActionsProps): void {
 }
 
 export function EventActions(props: EventActionsProps) {
-  const router = useRouter();
-  const state = useParticipation();
-  const rsvped = state.rsvps.some(rsvp => rsvp.eventId === props.eventId && rsvp.status === "confirmed");
-  const started = state.loaded && indiaDateTime(props.date, props.startTime).getTime() <= state.observedAt;
-  const [pending, setPending] = useState(false);
-  const [feedback, setFeedback] = useState<string | null>(null);
-  // Cancelling gives the spot away, so it takes a second, deliberate tap.
-  const [confirmCancel, setConfirmCancel] = useState(false);
-
-  useEffect(() => {
-    if (!confirmCancel) return;
-    const timeout = window.setTimeout(() => setConfirmCancel(false), 4000);
-    return () => window.clearTimeout(timeout);
-  }, [confirmCancel]);
-
-  function showFeedback(message: string): void {
-    setFeedback(message);
-    window.setTimeout(() => setFeedback(null), 2800);
-  }
-
-  async function toggleRsvp(): Promise<void> {
-    if (!state.authenticated && !state.error) { router.push(loginUrl()); return; }
-    if (rsvped && !confirmCancel) { setConfirmCancel(true); return; }
-    setConfirmCancel(false);
-    setPending(true);
-    try {
-      const response = await fetch("/api/participation/rsvp", {
-        method: rsvped ? "DELETE" : "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ eventId: props.eventId }),
-      });
-      if (response.status === 401) {
-        router.push(loginUrl());
-        return;
-      }
-      const data = await response.json().catch(() => null) as { rsvped?: boolean; error?: string } | null;
-      if (!response.ok) throw new Error(data?.error || "Could not update RSVP");
-      await refreshParticipation();
-      showFeedback(data?.rsvped ? "You're going. See you there!" : "RSVP cancelled");
-      router.refresh();
-    } catch (error) {
-      showFeedback(error instanceof Error ? error.message : "Could not update RSVP");
-    } finally {
-      setPending(false);
-    }
-  }
+  const { pricing, booking, pending, feedback, confirmCancel, label, act, showFeedback, disabled, checkout } = useEventBooking(props);
+  const rsvped = Boolean(booking);
 
   async function shareEvent(): Promise<void> {
     const url = `${window.location.origin}/event/${props.eventSlug}`;
@@ -111,13 +68,13 @@ export function EventActions(props: EventActionsProps) {
         <SaveButton itemType="event" itemId={props.eventId} compact={props.compact} />
         <button
           type="button"
-          onClick={toggleRsvp}
-          disabled={pending || !state.loaded || started}
+          onClick={act}
+          disabled={disabled}
           aria-pressed={rsvped}
           className={`${buttonClass} ${confirmCancel ? "border-rose-400 bg-rose-500/15 text-rose-200 hover:bg-rose-500/25" : rsvped ? "border-velocity bg-velocity text-slate-950 hover:bg-velocity-glow" : "bg-velocity text-slate-950 hover:bg-velocity-glow"}`}
         >
           {pending ? <LoaderCircle className="h-3.5 w-3.5 animate-spin" aria-hidden="true" /> : rsvped ? <Check className="h-3.5 w-3.5" aria-hidden="true" /> : null}
-          <span>{confirmCancel ? "Tap again to cancel" : rsvped ? "You're going" : started ? "RSVP closed" : state.loaded && !state.authenticated && !state.error ? "Sign in to RSVP" : "RSVP"}</span>
+          <span>{label}</span>
         </button>
         {!props.compact && (
           <>
@@ -132,8 +89,10 @@ export function EventActions(props: EventActionsProps) {
           </>
         )}
       </div>
+      {booking?.amount && !props.compact && <p className="text-xs leading-relaxed text-text-secondary">Spot #{booking.seatNumber} · <span className="font-semibold text-white">{formatInr(booking.amount)} {booking.paymentStatus === "paid" ? "paid" : "due"}</span>{booking.paymentStatus === "paid" ? "." : ". Online payment isn’t open yet, so pay the organizer at the event."}</p>}
       {rsvped && !props.compact && <p className="text-xs leading-relaxed text-text-secondary">On the day, open your <Link href="/account" className="font-semibold text-velocity underline-offset-2 hover:underline">.fit ID</Link> and show the check-in QR on its back to the organizer.</p>}
       {feedback && <p className="text-[11px] text-velocity" role="status" aria-live="polite">{feedback}</p>}
+      <TicketCheckout open={checkout.open} title={props.title} when={props.when} venueName={props.venueName} priceLabel={pricing.label} pending={pending} error={checkout.error} onConfirm={checkout.confirm} onClose={checkout.close} />
     </div>
   );
 }
