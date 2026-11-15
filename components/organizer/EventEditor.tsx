@@ -138,7 +138,7 @@ export function EventEditor({ mode, clubs, venues, initial, eventId, expectedUpd
           </label>
           {values.coverImageUrl && <button type="button" onClick={() => { set("coverImageUrl", ""); setBannerError(""); }} className="inline-flex min-h-11 items-center rounded-lg px-4 text-sm font-semibold text-text-secondary hover:text-white">Remove</button>}
         </div>
-        <p id="banner-hint" className={hint}>A wide photo, about 16:9 (for example 1600 × 900), shown at the top of the session page and on its card. JPEG, PNG, WebP, GIF or AVIF, up to 5 MB.</p>
+        <p id="banner-hint" className={hint}>A wide photo, about 16:9 (for example 1600 × 900), shown at the top of the session page and on its card. Keep key text away from the top edge, where the menu sits over it. JPEG, PNG, WebP, GIF or AVIF, up to 5 MB.</p>
         {bannerError && <p className="rounded-lg border border-rose-400/60 bg-rose-400/10 p-3 text-sm text-rose-200" role="alert">{bannerError}</p>}
       </fieldset>
 

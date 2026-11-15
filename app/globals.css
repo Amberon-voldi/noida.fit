@@ -209,20 +209,25 @@ html:has([data-cookie-notice]) { scroll-padding-bottom: calc(var(--dock-clearanc
   .filter-dialog-panel { border-bottom: 1px solid var(--border-strong); border-radius: var(--radius-2xl); }
 }
 
-/* Detail page hero. Right under the navbar (no verify-email bar in between) it slides beneath it, and
- * the navbar goes transparent over it. The banner is shown whole (16:9 fills the width on phones, up to
- * 440px tall) between the navbar and the title strip, over a blurred, darkened copy of itself. */
-:root { --topbar-h: 65px; --hero-banner-h: min(56.25vw, 440px); --hero-straddle: 56px; }
+/* Detail page hero: a full-bleed banner. Right under the navbar (no verify-email bar in between) it
+ * slides beneath it, and the navbar goes transparent over it. The banner is 16:9 at full width, so a
+ * 16:9 upload is shown whole, capped at 82% of the screen height so the title stays in view. */
+:root { --topbar-h: 65px; --hero-banner-h: min(56.25vw, 82vh); --hero-straddle: 56px; }
 /* The glow behind the title may reach past the screen edge; never let it scroll the page sideways. */
 .detail-hero-header { overflow-x: clip; }
-.detail-hero { position: relative; height: calc(var(--topbar-h) + var(--hero-banner-h) + var(--hero-straddle)); overflow: hidden; background: var(--surface); }
+.detail-hero { position: relative; height: calc(var(--hero-banner-h) + var(--hero-straddle)); overflow: hidden; background: var(--background); }
 .app-topbar + #main-content .detail-hero { margin-top: calc(-1 * var(--topbar-h)); }
-.detail-hero-backdrop { position: absolute; inset: -48px; filter: blur(32px) brightness(.42) saturate(1.25); }
 /* Anchored to the bottom so BioIntro's copy, given the same height, lands on identical pixels. */
 .detail-hero-media { position: absolute; inset-inline: 0; bottom: var(--hero-straddle); height: var(--hero-banner-h); }
-.detail-hero-media .listing-credit { top: 8px; bottom: auto; }
-/* Fades the title strip into the page; the banner above it stays untouched. */
-.detail-hero-shade { position: absolute; inset: 0; pointer-events: none; background: linear-gradient(to top, var(--background), transparent var(--hero-straddle)); }
+.detail-hero-media .listing-credit { top: calc(var(--topbar-h) + 8px); bottom: auto; }
+/* A soft shadow at the top keeps the navbar's links readable over light banners; the bottom edge
+ * fades into the page under the title. */
+.detail-hero-shade { position: absolute; inset-inline: 0; bottom: var(--hero-straddle); height: var(--hero-banner-h); pointer-events: none; background:
+  linear-gradient(to bottom, rgb(0 0 0 / .62), rgb(0 0 0 / .28) var(--topbar-h), transparent calc(var(--topbar-h) + 64px)),
+  linear-gradient(to top, var(--background), transparent 48px); }
+/* Over a banner the navbar's text and icons carry a soft shadow, so they read on light posters too. */
+.app-topbar:has(+ #main-content .detail-hero) nav { text-shadow: 0 1px 6px rgb(0 0 0 / .75); }
+.app-topbar:has(+ #main-content .detail-hero) nav :is(svg, .app-logo) { filter: drop-shadow(0 1px 4px rgb(0 0 0 / .6)); }
 /* Without scroll-driven animations the bar can't turn solid again, so it stays tinted to keep its links readable. */
 .app-topbar:has(+ #main-content .detail-hero) { border-bottom-color: transparent; background-color: color-mix(in srgb, var(--background) 22%, transparent); }
 @supports (animation-timeline: scroll()) {

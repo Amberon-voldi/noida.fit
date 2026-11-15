@@ -20,19 +20,17 @@ interface DetailHeroProps {
   children?: ReactNode;
 }
 
-/** The banner itself; BioIntro renders a second copy so its event pass can land on identical pixels.
- * The banner is shown whole, never cropped, over a blurred copy of itself that fills the rest. */
+/** The banner itself; BioIntro renders a second copy so its event pass can land on identical pixels. */
 export function HeroBanner({ image, category, alt }: { image?: string; category?: string; alt: string }) {
   return <div className="detail-hero">
-    <div className="detail-hero-backdrop" aria-hidden="true"><ListingImage src={image} category={category} alt="" hero sizes="100vw" backdrop /></div>
-    <div className="detail-hero-media"><ListingImage src={image} category={category} alt={alt} hero sizes="100vw" fit="contain" /></div>
+    <div className="detail-hero-media"><ListingImage src={image} category={category} alt={alt} hero sizes="100vw" /></div>
     <div className="detail-hero-shade" aria-hidden="true" />
   </div>;
 }
 
 /**
- * Banner for club, place and event pages. Directly under the navbar it slides beneath the
- * (then transparent) navbar (see .detail-hero in globals.css); the logo and title sit in the strip
+ * Full-bleed banner for club, place and event pages. Directly under the navbar it slides beneath
+ * the (then transparent) navbar (see .detail-hero in globals.css); the logo and title sit just
  * below the banner, straddling the hero's bottom edge.
  */
 export function DetailHero({ image, category, title, logo, logoAlt, verified = false, verifiedLabel = "Verified", children }: DetailHeroProps) {
