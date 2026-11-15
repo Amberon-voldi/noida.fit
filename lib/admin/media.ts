@@ -22,32 +22,49 @@ function bucket(): string {
   }
 }
 
-/** Store one validated image as publicly readable and return its site path. Audited like other admin writes. */
-export async function uploadAdminMedia(user: AdminActor, file: unknown, reason: string): Promise<{ id: string; path: string; type: MediaType; size: number }> {
-  assertAdmin(user);
+interface UploadedMedia { id: string; path: string; type: MediaType; size: number }
+
+/** A supported image within the size limit, recognised by its bytes rather than its name or declared type. */
+async function readImage(file: unknown): Promise<{ bytes: Uint8Array<ArrayBuffer>; type: MediaType }> {
   if (!(file instanceof Blob) || file.size === 0) throw new HttpError(400, "MEDIA_REQUIRED", "Choose an image file to upload");
   if (file.size > MEDIA_MAX_BYTES) throw new HttpError(413, "MEDIA_TOO_LARGE", "Images must be 5 MB or smaller");
   const bytes = new Uint8Array(await file.arrayBuffer());
   const type = sniffImageType(bytes);
   if (!type) throw new HttpError(415, "MEDIA_TYPE_UNSUPPORTED", "Upload a JPEG, PNG, WebP, GIF or AVIF image");
+  return { bytes, type };
+}
+
+async function storeImage(bucketId: string, id: string, { bytes, type }: { bytes: Uint8Array<ArrayBuffer>; type: MediaType }): Promise<UploadedMedia> {
+  // The stored name is generated: the uploader's file name never reaches storage or logs.
+  const upload = new File([bytes], `listing-${id}.${extensions[type]}`, { type });
+  const storage = new Storage(getAdminClient());
+  try {
+    await storage.createFile({ bucketId, fileId: id, file: upload, permissions: [PUBLIC_READ] });
+  } catch (error) {
+    const { code, type: kind } = backend(error);
+    if (kind === "storage_bucket_not_found") throw new HttpError(503, "MEDIA_NOT_CONFIGURED", `The Appwrite Storage bucket "${bucketId}" was not found`);
+    if (kind === "storage_file_type_unsupported") throw new HttpError(415, "MEDIA_TYPE_UNSUPPORTED", "The storage bucket does not allow this image type. Allow it in the bucket settings or upload another format.");
+    if (kind === "storage_invalid_file_size") throw new HttpError(413, "MEDIA_TOO_LARGE", "The storage bucket's size limit rejected this image");
+    if (code === 401 || kind === "general_unauthorized_scope") throw new HttpError(503, "MEDIA_NOT_CONFIGURED", "The server API key cannot write files. Give it the files.read and files.write scopes.");
+    throw new HttpError(503, "MEDIA_UPLOAD_FAILED", "The image could not be uploaded. Try again.");
+  }
+  return { id, path: mediaPath(id), type, size: bytes.length };
+}
+
+/** Store one validated image as publicly readable and return its site path. Audited like other admin writes. */
+export async function uploadAdminMedia(user: AdminActor, file: unknown, reason: string): Promise<UploadedMedia> {
+  assertAdmin(user);
+  const image = await readImage(file);
   const bucketId = bucket();
   const id = ID.unique();
-  // The stored name is generated: the operator's file name never reaches storage or logs.
-  const upload = new File([bytes], `listing-${id}.${extensions[type]}`, { type });
-  await runAdminMutation(user, "media.upload", `media:${id}`, reason, async () => {
-    const storage = new Storage(getAdminClient());
-    try {
-      await storage.createFile({ bucketId, fileId: id, file: upload, permissions: [PUBLIC_READ] });
-    } catch (error) {
-      const { code, type: kind } = backend(error);
-      if (kind === "storage_bucket_not_found") throw new HttpError(503, "MEDIA_NOT_CONFIGURED", `The Appwrite Storage bucket "${bucketId}" was not found`);
-      if (kind === "storage_file_type_unsupported") throw new HttpError(415, "MEDIA_TYPE_UNSUPPORTED", "The storage bucket does not allow this image type. Allow it in the bucket settings or upload another format.");
-      if (kind === "storage_invalid_file_size") throw new HttpError(413, "MEDIA_TOO_LARGE", "The storage bucket's size limit rejected this image");
-      if (code === 401 || kind === "general_unauthorized_scope") throw new HttpError(503, "MEDIA_NOT_CONFIGURED", "The server API key cannot write files. Give it the files.read and files.write scopes.");
-      throw new HttpError(503, "MEDIA_UPLOAD_FAILED", "The image could not be uploaded. Try again.");
-    }
-  });
-  return { id, path: mediaPath(id), type, size: bytes.length };
+  return runAdminMutation(user, "media.upload", `media:${id}`, reason, () => storeImage(bucketId, id, image));
+}
+
+/** The same public listing image, for a caller that has already authorized the uploader (an organizer's
+ * event banner). Not an admin action, so not in the admin audit log. */
+export async function uploadListingImage(file: unknown): Promise<UploadedMedia> {
+  const image = await readImage(file);
+  return storeImage(bucket(), ID.unique(), image);
 }
 
 /**

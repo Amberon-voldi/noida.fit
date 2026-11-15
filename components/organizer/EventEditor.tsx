@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, LoaderCircle } from "lucide-react";
+import { ArrowLeft, ImagePlus, LoaderCircle } from "lucide-react";
+import { isMediaPath, MEDIA_ACCEPT, MEDIA_MAX_BYTES } from "@/lib/media";
 import { MAX_TICKET_RUPEES, paidPrice, parseEventPrice } from "@/lib/pricing";
 
 export interface EditorOption { slug: string; name: string; detail?: string; }
@@ -12,6 +13,8 @@ export interface EditorValues {
   title: string; description: string; date: string; startTime: string; endTime: string;
   venueSlug: string; capacity: number; price: string; status: "draft" | "published" | "cancelled";
   level?: string; distance?: string; pace?: string; routeOverview?: string; whatToBring?: string[];
+  /** The banner at the top of the session page: an uploaded /media path, or one the team set. */
+  coverImageUrl?: string;
 }
 interface Props {
   mode: "create" | "edit";
@@ -47,14 +50,38 @@ export function EventEditor({ mode, clubs, venues, initial, eventId, expectedUpd
   const router = useRouter();
   const initialPricing = parseEventPrice(initial.price);
   // Free-form price text is no longer accepted, so it opens as "Paid" with the amount left to fill in.
-  const [values, setValues] = useState({ ...initial, startTime: to24(initial.startTime), endTime: to24(initial.endTime), whatToBring: (initial.whatToBring ?? []).join("\n"), paid: initialPricing.kind !== "free", amount: initialPricing.kind === "paid" ? String(initialPricing.amount / 100) : "" });
+  const [values, setValues] = useState({ ...initial, startTime: to24(initial.startTime), endTime: to24(initial.endTime), whatToBring: (initial.whatToBring ?? []).join("\n"), paid: initialPricing.kind !== "free", amount: initialPricing.kind === "paid" ? String(initialPricing.amount / 100) : "", coverImageUrl: initial.coverImageUrl ?? "" });
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const [bannerError, setBannerError] = useState("");
   const set = <K extends keyof typeof values>(key: K, value: (typeof values)[K]) => setValues(current => ({ ...current, [key]: value }));
+  // Preview only site-hosted images; a banner the team set from elsewhere is described instead.
+  const bannerPreview = isMediaPath(values.coverImageUrl) || values.coverImageUrl.startsWith("/images/") ? values.coverImageUrl : "";
+
+  async function uploadBanner(file: File | undefined) {
+    if (!file || uploading) return;
+    setBannerError("");
+    if (file.size > MEDIA_MAX_BYTES) { setBannerError("Images must be 5 MB or smaller."); return; }
+    setUploading(true);
+    try {
+      const form = new FormData();
+      form.set("file", file);
+      const response = await fetch("/api/organizer/media", { method: "POST", credentials: "include", body: form, cache: "no-store" });
+      if (response.status === 401) { router.push(`/login?callbackUrl=${encodeURIComponent(location.pathname)}`); return; }
+      const data = await response.json().catch(() => null) as { media?: { path?: string }; error?: string } | null;
+      if (!response.ok || !data?.media?.path) throw new Error(data?.error || "The banner could not be uploaded. Try again.");
+      set("coverImageUrl", data.media.path);
+    } catch (reason) {
+      setBannerError(reason instanceof Error ? reason.message : "The banner could not be uploaded.");
+    } finally {
+      setUploading(false);
+    }
+  }
 
   async function submit(form: React.FormEvent) {
     form.preventDefault();
-    if (pending) return;
+    if (pending || uploading) return;
     setPending(true); setError("");
     const event = {
       ...(mode === "create" ? { communitySlug: values.communitySlug } : {}),
@@ -63,6 +90,8 @@ export function EventEditor({ mode, clubs, venues, initial, eventId, expectedUpd
       venueSlug: values.venueSlug, capacity: Number(values.capacity), price: values.paid ? paidPrice(Number(values.amount)) : "FREE", status: values.status,
       level: values.level || undefined, distance: values.distance || undefined, pace: values.pace || undefined, routeOverview: values.routeOverview || undefined,
       whatToBring: values.whatToBring.split("\n").map(line => line.trim()).filter(Boolean),
+      // On edit, only a changed banner is sent ("" removes it), so one the team set is left alone.
+      ...(values.coverImageUrl !== (initial.coverImageUrl ?? "") ? { coverImageUrl: values.coverImageUrl } : {}),
     };
     try {
       const response = await fetch(mode === "create" ? "/api/organizer/events" : `/api/organizer/events/${encodeURIComponent(eventId ?? "")}`, {
@@ -91,6 +120,26 @@ export function EventEditor({ mode, clubs, venues, initial, eventId, expectedUpd
         {mode === "create" && <label className={labelClass}>Club<select required value={values.communitySlug ?? ""} onChange={change => set("communitySlug", change.target.value)} className={field}><option value="" disabled>Choose a club</option>{clubs.map(club => <option key={club.slug} value={club.slug}>{club.name}</option>)}</select></label>}
         <label className={labelClass}>Title<input required minLength={2} maxLength={200} value={values.title} onChange={change => set("title", change.target.value)} className={field} placeholder="Sunday sunrise 5K" /></label>
         <label className={labelClass}>Description<textarea required minLength={20} maxLength={12000} rows={5} value={values.description} onChange={change => set("description", change.target.value)} className={`${field} py-2`} placeholder="Who it’s for, where to meet, what to expect." /><span className={hint}>At least 20 characters. Plain text only.</span></label>
+      </fieldset>
+
+      <fieldset className="space-y-3 rounded-xl border border-border-subtle bg-surface p-4 sm:p-6" disabled={pending || uploading} aria-describedby="banner-hint">
+        <legend className="px-1 text-sm font-bold uppercase tracking-widest text-velocity">Banner <span className="font-normal normal-case tracking-normal text-text-secondary">(optional)</span></legend>
+        <div className="relative aspect-video overflow-hidden rounded-lg border border-dashed border-border-strong bg-surface-elevated">
+          {bannerPreview
+            // eslint-disable-next-line @next/next/no-img-element -- preview of the uploaded file, no optimization needed
+            ? <img src={bannerPreview} alt="Banner preview" className="h-full w-full object-cover" />
+            : <div className="flex h-full flex-col items-center justify-center gap-2 px-4 text-center text-sm text-text-secondary"><ImagePlus size={28} aria-hidden="true" />{values.coverImageUrl ? "Banner set by the NOIDA.FIT team" : "No banner yet. Without one, the session shows a stock photo for its activity."}</div>}
+          {uploading && <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/60 text-sm font-semibold text-white" role="status"><LoaderCircle size={18} className="animate-spin" aria-hidden="true" />Uploading…</div>}
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <label className={`button-secondary cursor-pointer focus-within:ring-2 focus-within:ring-velocity ${pending || uploading ? "pointer-events-none opacity-60" : ""}`}>
+            <input type="file" accept={MEDIA_ACCEPT} className="sr-only" onChange={change => { const file = change.target.files?.[0]; change.target.value = ""; void uploadBanner(file); }} />
+            {values.coverImageUrl ? "Replace banner" : "Upload banner"}
+          </label>
+          {values.coverImageUrl && <button type="button" onClick={() => { set("coverImageUrl", ""); setBannerError(""); }} className="inline-flex min-h-11 items-center rounded-lg px-4 text-sm font-semibold text-text-secondary hover:text-white">Remove</button>}
+        </div>
+        <p id="banner-hint" className={hint}>A wide photo, about 16:9 (for example 1600 × 900), shown at the top of the session page and on its card. JPEG, PNG, WebP, GIF or AVIF, up to 5 MB.</p>
+        {bannerError && <p className="rounded-lg border border-rose-400/60 bg-rose-400/10 p-3 text-sm text-rose-200" role="alert">{bannerError}</p>}
       </fieldset>
 
       <fieldset className="space-y-4 rounded-xl border border-border-subtle bg-surface p-4 sm:p-6" disabled={pending}>
@@ -133,7 +182,7 @@ export function EventEditor({ mode, clubs, venues, initial, eventId, expectedUpd
 
       {error && <p className="rounded-lg border border-rose-400/60 bg-rose-400/10 p-3 text-sm text-rose-200" role="alert">{error}</p>}
       <div className="flex flex-wrap gap-3">
-        <button type="submit" disabled={pending} className="button-primary inline-flex min-h-11 items-center gap-2 px-5">{pending && <LoaderCircle size={16} className="animate-spin" aria-hidden="true" />}{mode === "create" ? "Create session" : "Save changes"}</button>
+        <button type="submit" disabled={pending || uploading} className="button-primary inline-flex min-h-11 items-center gap-2 px-5">{pending && <LoaderCircle size={16} className="animate-spin" aria-hidden="true" />}{mode === "create" ? "Create session" : "Save changes"}</button>
         <Link href={eventId ? `/organizer/events/${encodeURIComponent(eventId)}` : "/organizer"} className="inline-flex min-h-11 items-center rounded-lg px-4 text-sm font-semibold text-text-secondary hover:text-white">Cancel</Link>
       </div>
     </form>

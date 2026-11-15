@@ -7,7 +7,9 @@ const stranger = { id: "someone-else", labels: [] as string[] };
 const originalFetch = globalThis.fetch;
 let service: typeof import("../lib/services/organizer-events");
 let rows: Map<string, Record<string, unknown>[]>;
+let uploads: { bucket: string; name: string; permissions: string[] }[];
 let sequence = 0;
+const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 73, 72, 68, 82]);
 
 const doc = (collection: string, row: Record<string, unknown>) => rows.set(collection, [...(rows.get(collection) ?? []), { $updatedAt: "2026-10-01T00:00:00.000Z", ...row }]);
 const futureDate = new Date(Date.now() + 330 * 60_000 + 7 * 86_400_000).toISOString().slice(0, 10);
@@ -23,13 +25,19 @@ before(async () => {
   require.cache[serverPath] = { id: serverPath, filename: serverPath, loaded: true, exports: { ...require("next/server"), connection: async () => undefined } } as NodeJS.Module;
   Object.assign(process.env, {
     NEXT_PUBLIC_APPWRITE_ENDPOINT: "https://appwrite.test/v1", NEXT_PUBLIC_APPWRITE_PROJECT_ID: "organizer-events-test",
-    APPWRITE_KEY: "synthetic-key", NEXT_PUBLIC_APPWRITE_DATABASE_ID: "organizer-events-test",
+    APPWRITE_KEY: "synthetic-key", NEXT_PUBLIC_APPWRITE_DATABASE_ID: "organizer-events-test", NEXT_PUBLIC_APPWRITE_BUCKET_MEDIA: "main",
     ...Object.fromEntries(["PROFILES", "FITNESS_IDS", "EVENTS", "RSVPS", "CHECKINS", "ACTIVITIES", "PLACES", "COMMUNITIES", "MEMBERSHIPS", "SAVED_ITEMS", "PARTICIPATIONS"].map(key => [`NEXT_PUBLIC_APPWRITE_COLLECTION_${key}`, key.toLowerCase()])),
   });
   globalThis.fetch = async (input, init) => {
     const url = new URL(String(input));
     assert.equal(url.origin, "https://appwrite.test", "tests never contact a real backend");
     if (/\/users\//.test(url.pathname)) return Response.json({ $id: url.pathname.split("/").at(-1), status: true });
+    const storage = /^\/v1\/storage\/buckets\/([^/]+)\/files$/.exec(url.pathname);
+    if (storage && init?.method === "POST") {
+      const upload = init.body as FormData;
+      uploads.push({ bucket: storage[1], name: (upload.get("file") as File).name, permissions: [...upload.getAll("permissions[]")].map(String) });
+      return Response.json({ $id: upload.get("fileId"), bucketId: storage[1] }, { status: 201 });
+    }
     const match = /collections\/([^/]+)\/documents(?:\/([^/]+))?$/.exec(url.pathname);
     assert.ok(match, `Unexpected SDK request: ${url.pathname}`);
     const [, collection, id] = match;
@@ -57,6 +65,7 @@ after(() => { globalThis.fetch = originalFetch; });
 
 beforeEach(async () => {
   rows = new Map();
+  uploads = [];
   // Shared reads are cached per isolate; start every test from a clean slate.
   const { invalidateSharedReads } = await import("../lib/appwrite/database");
   for (const collection of ["events", "communities", "places", "activities", "memberships", "rsvps"]) invalidateSharedReads(collection);
@@ -110,4 +119,41 @@ test("editing keeps team-owned fields, enforces ownership, versions and RSVP cap
   await assert.rejects(service.updateOrganizerEvent(stranger, "existing", form(), String(row.$updatedAt)), { code: "ORGANIZER_REQUIRED" });
   for (const seat of [1, 2, 3]) doc("rsvps", { $id: `rsvp-${seat}`, eventId: "existing", userId: `member-${seat}`, status: "confirmed", seatNumber: seat });
   await assert.rejects(service.updateOrganizerEvent(organizer, "existing", form({ capacity: 2 }), String(row.$updatedAt)), { code: "CAPACITY_TOO_SMALL" });
+});
+
+const eventRow = (id: string) => rows.get("events")!.find(item => item.$id === id)!;
+const eventRecord = (id: string) => JSON.parse(String(eventRow(id).payload));
+
+test("a new session takes a banner the organizer uploaded, and nothing else", async () => {
+  const created = await service.createOrganizerEvent(organizer, { ...form({ coverImageUrl: "/media/banner123" }), communitySlug: "dawn-runners" });
+  assert.equal(eventRecord(created.id).coverImageUrl, "/media/banner123");
+  for (const coverImageUrl of ["https://example.com/banner.jpg", "/images/run.jpg", "/media/../secret", "/media/a?x=1", "javascript:alert(1)"]) {
+    await assert.rejects(service.createOrganizerEvent(organizer, { ...form({ title: "Another run", coverImageUrl }), communitySlug: "dawn-runners" }), { code: "INVALID_EVENT" }, coverImageUrl);
+  }
+  const plain = await service.createOrganizerEvent(organizer, { ...form({ title: "No banner run", coverImageUrl: "" }), communitySlug: "dawn-runners" });
+  assert.equal("coverImageUrl" in eventRecord(plain.id), false);
+});
+
+test("editing keeps a banner the team set until the organizer replaces or removes it", async () => {
+  eventRow("existing").payload = JSON.stringify({ ...eventRecord("existing"), coverImageUrl: "https://images.unsplash.com/photo-team" });
+  const version = () => String(eventRow("existing").$updatedAt);
+  await service.updateOrganizerEvent(organizer, "existing", form({ title: "Renamed run" }), version());
+  assert.equal(eventRecord("existing").coverImageUrl, "https://images.unsplash.com/photo-team", "an edit that doesn't touch the banner keeps it");
+  await assert.rejects(service.updateOrganizerEvent(organizer, "existing", form({ coverImageUrl: "https://example.com/x.png" }), version()), { code: "INVALID_EVENT" });
+  await service.updateOrganizerEvent(organizer, "existing", form({ coverImageUrl: "/media/newbanner" }), version());
+  assert.equal(eventRecord("existing").coverImageUrl, "/media/newbanner");
+  await service.updateOrganizerEvent(organizer, "existing", form({ coverImageUrl: "" }), version());
+  assert.equal("coverImageUrl" in eventRecord("existing"), false);
+  assert.equal(eventRecord("existing").imageUrl, "/images/run.jpg", "other images stay with the team");
+});
+
+test("only club organizers can upload a banner, and only a real image is stored", async () => {
+  await assert.rejects(service.uploadOrganizerBanner(stranger, new File([png], "x.png")), { code: "ORGANIZER_REQUIRED" });
+  assert.equal(uploads.length, 0);
+  const { path } = await service.uploadOrganizerBanner(organizer, new File([png], "../../my banner.svg", { type: "image/svg+xml" }));
+  assert.match(path, /^\/media\/[a-zA-Z0-9]+$/);
+  assert.deepEqual(uploads.map(upload => ({ ...upload, name: upload.name.replace(/^listing-[a-zA-Z0-9]+/, "listing-<id>") })), [{ bucket: "main", name: "listing-<id>.png", permissions: ['read("any")'] }]);
+  await assert.rejects(service.uploadOrganizerBanner(organizer, new File([new TextEncoder().encode("<svg onload=alert(1)>")], "x.png", { type: "image/png" })), { code: "MEDIA_TYPE_UNSUPPORTED" });
+  await assert.rejects(service.uploadOrganizerBanner(organizer, "not a file"), { code: "MEDIA_REQUIRED" });
+  assert.equal(uploads.length, 1);
 });

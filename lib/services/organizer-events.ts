@@ -4,9 +4,11 @@ import { randomBytes } from "node:crypto";
 import { z } from "zod";
 import { ID } from "node-appwrite";
 import { eventSlugTaken, getEventRecord, saveScopedEvent } from "@/lib/admin/content";
+import { uploadListingImage } from "@/lib/admin/media";
 import { indiaDateTime } from "@/lib/calendar";
 import { getActivities, getCommunities, getOrganizerEvents, getPlaces } from "@/lib/data";
 import { HttpError } from "@/lib/http";
+import { isMediaPath } from "@/lib/media";
 import { parseEventPrice } from "@/lib/pricing";
 import { isAdminUser } from "@/lib/services/participation";
 import type { AuthUser } from "@/lib/auth";
@@ -18,7 +20,7 @@ type Actor = Pick<AuthUser, "id" | "labels">;
 const text = (max: number, min = 0) => z.string().trim().min(min).max(max);
 const clock = z.string().regex(/^(?:0?[1-9]|1[0-2]):[0-5]\d (AM|PM)$/, "Use a time like 06:30 AM");
 
-/** The fields an organizer edits. Slug, club, images, featured and demo flags stay with the team. */
+/** The fields an organizer edits. Slug, club, other images, featured and demo flags stay with the team. */
 export const organizerEventInputSchema = z.object({
   title: text(200, 2),
   description: text(12000, 20),
@@ -34,6 +36,8 @@ export const organizerEventInputSchema = z.object({
   routeOverview: text(2000).optional(),
   whatToBring: z.array(text(200, 1)).max(30).optional(),
   status: z.enum(["draft", "published", "cancelled"]),
+  /** The banner: an image uploaded through /api/organizer/media, or "" to remove it. Omitted on edit: unchanged. */
+  coverImageUrl: z.union([z.literal(""), z.string().refine(isMediaPath, "Upload the banner image again")]).optional(),
 }).strict();
 export const organizerEventCreateSchema = organizerEventInputSchema.extend({ communitySlug: text(120, 1) }).strict();
 export type OrganizerEventInput = z.infer<typeof organizerEventInputSchema>;
@@ -110,9 +114,17 @@ async function create(user: Actor, value: unknown): Promise<{ id: string; slug: 
     ...(club.crestUrl ? { communityCrestUrl: club.crestUrl } : {}),
     venueSlug: place.slug, venueName: place.name, sector: place.sector,
     ...clean(input), ...schedule(input.date, input.startTime, input.endTime),
+    ...(input.coverImageUrl ? { coverImageUrl: input.coverImageUrl } : {}),
     organizerUserId: user.id,
   });
   return { id: saved.id, slug: String(saved.record.slug) };
+}
+
+/** An event banner from the organizer form. Only people who run a club, or admins, may upload. */
+export async function uploadOrganizerBanner(user: Actor, file: unknown): Promise<{ path: string }> {
+  if (!isAdminUser(user) && !(await organizerClubs(user)).length) throw new HttpError(403, "ORGANIZER_REQUIRED", "Only club organizers can upload event banners");
+  const { path } = await uploadListingImage(file);
+  return { path };
 }
 
 /** Loads an event the caller manages, for the edit form. */
@@ -137,6 +149,9 @@ async function update(user: Actor, eventId: string, value: unknown, expectedUpda
   // Start from the stored record so team-owned fields (slug, club, images, featured) survive untouched.
   const next: Record<string, unknown> = { ...stored.record, ...clean(input), venueSlug: place.slug, venueName: place.name, sector: place.sector, ...schedule(input.date, input.startTime, input.endTime) };
   for (const key of ["level", "distance", "pace", "routeOverview", "whatToBring"]) if (next[key] === undefined) delete next[key];
+  // A banner the team set stays unless the organizer changed it.
+  if (input.coverImageUrl) next.coverImageUrl = input.coverImageUrl;
+  else if (input.coverImageUrl === "") delete next.coverImageUrl;
   // The version the editor loaded, not the one just read: a concurrent save must not be overwritten.
   const saved = await saveScopedEvent(next, { updatedAt: expectedUpdatedAt });
   return { id: saved.id, slug: String(saved.record.slug) };

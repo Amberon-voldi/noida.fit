@@ -35,6 +35,7 @@ export default async function EditEventPage({ params }: Props) {
     startTime: String(record.startTime), endTime: String(record.endTime), venueSlug: String(record.venueSlug),
     capacity: Number(record.capacity), price: String(record.price), status: record.status as EditorValues["status"],
     level: text("level"), distance: text("distance"), pace: text("pace"), routeOverview: text("routeOverview"),
+    coverImageUrl: text("coverImageUrl"),
     whatToBring: Array.isArray(record.whatToBring) ? record.whatToBring.map(String) : [],
   };
   return <EventEditor mode="edit" eventId={eventId} expectedUpdatedAt={stored.updatedAt} clubs={[]} venues={venueList} initial={initial} payOnline={isPayuConfigured() && record.demo !== true}
