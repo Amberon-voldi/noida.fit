@@ -19,7 +19,7 @@ npm run dev
 
 Existing infrastructure is reused by configured IDs. Setup inspects resources before creation, validates schemas/indexes, and refuses to create same-named duplicates under a different ID. Secrets stay in ignored environment files; never commit `.env`, API keys, session cookies or the generated check-in signing secret.
 
-The current approved catalog contains **26 activities, 12 communities, 18 places, and 24 events** and has been synchronized to Appwrite. Four events are paid: **evt_06 Alpha doubles: rotate and rally — ₹199**, **evt_07 Sector 79 seven-a-side — ₹299**, **evt_12 Core & coffee: mat Pilates — ₹299**, and **evt_18 Alpha beginner doubles clinic — ₹199**; all other events are **FREE**. Venues, activities, and communities have no ticket pricing. Explicitly marked demo fixtures remain supported, but seed is for initial provisioning or updating still-demo IDs only: it preflights source IDs, refuses to overwrite any non-demo editorial record, preserves existing dates by refusing overwrite, and resolves dates for newly seeded records at seed-time Asia/Kolkata. No demo users/passwords, attendance or verified statistics are created. A price of `FREE` takes RSVPs; a rupee amount such as `₹199` sells one ticket per account at that price (see Backend and permissions). No payment checkout is included. The compact home uses one illustrative-listings notice instead of repeated card badges; standard directory/detail views retain per-listing provenance.
+The current approved catalog contains **26 activities, 12 communities, 18 places, and 24 events** and has been synchronized to Appwrite. Four events are paid: **evt_06 Alpha doubles: rotate and rally — ₹199**, **evt_07 Sector 79 seven-a-side — ₹299**, **evt_12 Core & coffee: mat Pilates — ₹299**, and **evt_18 Alpha beginner doubles clinic — ₹199**; all other events are **FREE**. Venues, activities, and communities have no ticket pricing. Explicitly marked demo fixtures remain supported, but seed is for initial provisioning or updating still-demo IDs only: it preflights source IDs, refuses to overwrite any non-demo editorial record, preserves existing dates by refusing overwrite, and resolves dates for newly seeded records at seed-time Asia/Kolkata. No demo users/passwords, attendance or verified statistics are created. A price of `FREE` takes RSVPs; a rupee amount such as `₹199` sells one ticket per account at that price (see Backend and permissions), paid online through PayU when it is configured (see Online payments). The compact home uses one illustrative-listings notice instead of repeated card badges; standard directory/detail views retain per-listing provenance.
 
 ## Product routes
 
@@ -112,6 +112,17 @@ npm run test:e2e
 
 These tests create randomly named test accounts and two temporary events, exercise signup/session restoration, saving/following, concurrent RSVP capacity, organizer check-in, privacy, QR-card interaction and logout, then delete only their own fixtures. Traces/video/screenshots are disabled for auth tests to avoid retaining credentials. Run against a development/staging project, not a live public event database.
 
+## Online payments (PayU)
+
+With `PAYU_MERCHANT_KEY` and `PAYU_MERCHANT_SALT` set, tickets for paid events are paid through PayU's hosted checkout. Without them, a ticket holds a spot and the organizer collects at the event. Demo listings never take payment.
+
+- **Flow:** *Get ticket* asks for a mobile number (PayU requires one), holds the seat with payment `pending`, and posts a server-signed form to PayU. PayU sends the member back to `/api/payments/payu/return`, which checks PayU's response hash and then asks PayU's Verify Payment API for the transaction. Only a transaction PayU reports as captured, for the ticket's issued amount, marks it paid. The posted fields are never trusted on their own.
+- **Unfinished payments:** the seat stays held with payment due. The event page offers *Pay ₹…* again, and the check-in desk still shows the amount to collect. Unpaid holds do not expire.
+- **Webhook:** in the PayU dashboard, point the payment success and failure webhooks at `https://noida.fit/api/payments/payu/webhook`. It settles payments whose member closed the tab before coming back.
+- **Refunds are manual.** Money that no ticket can take (a second payment for a paid ticket, a different amount, or a seat given away while the member was paying) is logged as `[PayU] Captured payment has no ticket to settle` with its txnid, and the member is told it was flagged. Refund it from the PayU dashboard. A ticket cancelled while paying is reissued as paid if a seat is still free.
+- **Settings:** `PAYU_MERCHANT_KEY`, `PAYU_MERCHANT_SALT` (secret, server-only, never `NEXT_PUBLIC_`) and `PAYU_MODE=live` for production; anything else uses PayU's test environment. Amplify passes them to the server through `amplify.yml`; on ECS add them to the task's secrets; on Cloudflare set them as Worker secrets. The browser artifact scan fails a build that leaks the salt.
+- **Testing:** use the test key and salt from your PayU test dashboard with `PAYU_MODE` unset, and PayU's [test cards and UPI IDs](https://docs.payu.in/docs/test-cards-upi-id-and-wallets).
+
 ## AWS deployment (ECS Fargate)
 
 The site runs on AWS as a container: Next.js 16 `output: "standalone"` server on Node 22 (`Dockerfile`), on ECS Fargate behind an Application Load Balancer. Public IDs are baked in at build time from `deploy/aws/public.env`; the two secrets come from AWS Secrets Manager at runtime and never enter the image. `.github/workflows/deploy-aws.yml` builds, pushes and deploys on every push to `main` once configured (it is skipped until then).
@@ -172,7 +183,7 @@ References: [OpenNext setup](https://opennext.js.org/cloudflare/get-started), [c
 - **Strava:** provider registration exists, but OAuth is not enabled without official application credentials and callback setup.
 - **Apple Health:** requires a consented native HealthKit bridge; a website cannot access it directly.
 - **Cult.fit / FITPASS:** coming soon, dependent on official APIs/partnerships. No passwords, scraping or unofficial APIs are used.
-- **Payments:** no payment gateway is connected. A ticket for a paid event holds a spot with payment `pending`, and the organizer collects the amount at the event. `confirmTicketPayment` in `lib/services/participation.ts` is where a gateway's verified webhook marks a ticket paid.
+- **Payments:** PayU hosted checkout, only when its merchant credentials are set (see Online payments). Without them a ticket holds a spot with payment `pending` and the organizer collects at the event. Refunds are made in the PayU dashboard, not in the app.
 - Organizer intake remains an explicit email listing-review process. Stories do not pretend to have an active newsletter.
 - No storage bucket or cloud function is needed for this slice. Editorial imagery is explicitly illustrative, not proof of a venue or partnership.
 

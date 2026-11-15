@@ -22,6 +22,8 @@ interface Props {
   expectedUpdatedAt?: string;
   confirmedRsvps?: number;
   clubName?: string;
+  /** PayU is set up: people pay for tickets online when they book. */
+  payOnline?: boolean;
 }
 
 /** "06:30 AM" <-> "06:30" for <input type="time">. */
@@ -41,7 +43,7 @@ const field = "mt-1.5 min-h-11 w-full min-w-0 rounded-lg border border-border-st
 const labelClass = "block text-sm font-semibold text-white";
 const hint = "mt-1 text-xs text-text-secondary";
 
-export function EventEditor({ mode, clubs, venues, initial, eventId, expectedUpdatedAt, confirmedRsvps = 0, clubName }: Props) {
+export function EventEditor({ mode, clubs, venues, initial, eventId, expectedUpdatedAt, confirmedRsvps = 0, clubName, payOnline = false }: Props) {
   const router = useRouter();
   const initialPricing = parseEventPrice(initial.price);
   // Free-form price text is no longer accepted, so it opens as "Paid" with the amount left to fill in.
@@ -108,7 +110,7 @@ export function EventEditor({ mode, clubs, venues, initial, eventId, expectedUpd
           <label className={labelClass}>Spots available<input type="number" required min={Math.max(1, confirmedRsvps)} max={100000} value={values.capacity} onChange={change => set("capacity", Number(change.target.value))} className={field} />{confirmedRsvps > 0 && <span className={hint}>Can’t go below the {confirmedRsvps} people already going.</span>}</label>
           <div>
             <label className={labelClass}>Price<select value={values.paid ? "paid" : "free"} onChange={change => set("paid", change.target.value === "paid")} className={field}><option value="free">Free</option><option value="paid">Paid ticket</option></select></label>
-            {values.paid && <label className={`${labelClass} mt-3`}>Ticket price (₹)<input type="number" inputMode="numeric" required min={1} max={MAX_TICKET_RUPEES} step={1} value={values.amount} onChange={change => set("amount", change.target.value)} className={field} placeholder="199" /><span className={hint}>{initialPricing.kind === "info" ? `Was “${initial.price}”. Set an amount, or choose Free. ` : ""}Per person. Online payment isn’t open yet, so you collect it at the event. People who already have a ticket keep the price they booked at.</span></label>}
+            {values.paid && <label className={`${labelClass} mt-3`}>Ticket price (₹)<input type="number" inputMode="numeric" required min={1} max={MAX_TICKET_RUPEES} step={1} value={values.amount} onChange={change => set("amount", change.target.value)} className={field} placeholder="199" /><span className={hint}>{initialPricing.kind === "info" ? `Was “${initial.price}”. Set an amount, or choose Free. ` : ""}Per person. {payOnline ? "People pay online through PayU when they book; anyone who hasn’t paid yet shows as due at check-in." : "Online payment isn’t open yet, so you collect it at the event."} People who already have a ticket keep the price they booked at.</span></label>}
           </div>
           <label className={labelClass}>Level <span className="font-normal text-text-secondary">(optional)</span><input maxLength={100} value={values.level ?? ""} onChange={change => set("level", change.target.value)} className={field} placeholder="All levels" /></label>
           <label className={labelClass}>Distance <span className="font-normal text-text-secondary">(optional)</span><input maxLength={100} value={values.distance ?? ""} onChange={change => set("distance", change.target.value)} className={field} placeholder="5 km" /></label>

@@ -25,7 +25,11 @@ export interface AccountParticipation {
 }
 
 type Row<T> = Omit<T, "id">;
+/** paymentRef stays server-side: it never reaches an RSVP DTO. */
+type TicketRow = Row<RSVP> & { paymentRef?: string };
 type EventRecord = {
+  slug: string;
+  demo?: boolean;
   title: string;
   status: string;
   capacity?: number;
@@ -75,12 +79,20 @@ async function getEvent(eventId: string, published = true) {
   return event;
 }
 
-function eventPricing(event: EventRecord) {
+function eventPayload(event: EventRecord): { price?: unknown; demo?: unknown } {
   try {
-    return parseEventPrice((JSON.parse(event.payload ?? "") as { price?: unknown }).price);
+    return JSON.parse(event.payload ?? "") ?? {};
   } catch {
-    return parseEventPrice(undefined);
+    return {};
   }
+}
+
+const eventPricing = (event: EventRecord) => parseEventPrice(eventPayload(event).price);
+
+/** What a payment needs to name an event and link back to it. Demo listings never take real money. */
+export async function getTicketEvent(eventId: string): Promise<{ title: string; slug: string; demo: boolean }> {
+  const event = await getEvent(eventId, false);
+  return { title: event.title, slug: event.slug, demo: Boolean(event.demo ?? eventPayload(event).demo) };
 }
 
 async function requireItem(itemType: SavedItemType, itemId: string): Promise<void> {
@@ -200,6 +212,11 @@ export async function createRsvp(userId: string, eventId: string, expectedAmount
     throw new HttpError(409, "PRICE_CHANGED", pricing.kind === "paid" ? `This ticket is ${pricing.label}. Check the price and confirm again.` : "This event’s price has changed. Reload the page and try again.");
   }
   const ticket = pricing.kind === "paid" ? { amount: pricing.amount, paymentStatus: "pending" as const } : {};
+  return allocateSeat(event, eventId, userId, ticket, start);
+}
+
+/** Takes the lowest free seat for a new RSVP or ticket; seat holders are never displaced. */
+async function allocateSeat(event: EventRecord, eventId: string, userId: string, ticket: Partial<TicketRow>, closesAt = Infinity): Promise<RSVP> {
   const capacity = event.capacity;
   if (!Number.isSafeInteger(capacity) || !capacity || capacity < 1 || capacity > 100_000) {
     throw new HttpError(409, "CAPACITY_UNAVAILABLE", "The organizer needs to confirm event capacity");
@@ -208,14 +225,14 @@ export async function createRsvp(userId: string, eventId: string, expectedAmount
   const occupied = new Set(current.map((row) => row.seatNumber));
   for (let seatNumber = 1; seatNumber <= capacity; seatNumber += 1) {
     if (occupied.has(seatNumber)) continue;
-    if (Date.now() >= start) throw new HttpError(409, "EVENT_STARTED", "RSVP is closed for this event");
+    if (Date.now() >= closesAt) throw new HttpError(409, "EVENT_STARTED", "RSVP is closed for this event");
     try {
-      return rsvpDto(await createAppwriteDocument<Row<RSVP>>(collections.rsvps, {
+      return rsvpDto(await createAppwriteDocument<TicketRow>(collections.rsvps, {
         eventId, userId, status: "confirmed", seatNumber, createdAt: new Date().toISOString(), ...ticket,
       }, rsvpDocumentId(eventId, userId), userDocumentPermissions(userId)));
     } catch (error) {
       // `npm run appwrite:setup` adds the ticket attributes; until then Appwrite rejects them.
-      if (pricing.kind === "paid" && isCode(error, 400)) throw new HttpError(503, "TICKETS_NOT_CONFIGURED", "Tickets for paid events are not switched on yet. Please try again later.");
+      if (ticket.amount && isCode(error, 400)) throw new HttpError(503, "TICKETS_NOT_CONFIGURED", "Tickets for paid events are not switched on yet. Please try again later.");
       if (!isCode(error, 409)) throw error;
       const afterRace = await getUserRsvp(eventId, userId);
       if (afterRace?.status === "confirmed") return afterRace;
@@ -242,17 +259,26 @@ export async function cancelRsvp(userId: string, eventId: string): Promise<void>
 }
 
 /**
- * Payment gateway seam: nothing calls this yet, so tickets stay "pending" and the organizer
- * collects the amount. Once a gateway is connected, call this from its verified webhook (or
- * server-side payment verification). Idempotent; the amount must match the issued ticket.
+ * Marks a ticket paid. Call only with a payment the gateway itself confirmed server to server
+ * (lib/services/ticket-payments.ts). Idempotent for the same paymentRef; the amount must match
+ * the issued ticket. A 404/409 here means the money arrived but no ticket can take it: refund it.
  */
 export async function confirmTicketPayment(eventId: string, userId: string, amount: number, paymentRef: string): Promise<RSVP> {
   const id = rsvpDocumentId(documentIdSchema.parse(eventId), documentIdSchema.parse(userId));
-  const ticket = await getAppwriteDocument<Row<RSVP>>(collections.rsvps, id);
+  const ref = paymentRef.slice(0, 128);
+  let ticket = await getAppwriteDocument<TicketRow>(collections.rsvps, id);
+  if (!ticket) {
+    // The holder cancelled while paying. The money arrived, so issue the ticket again if a seat is free.
+    await allocateSeat(await getEvent(eventId), eventId, userId, { amount, paymentStatus: "paid", paymentRef: ref });
+    ticket = await getAppwriteDocument<TicketRow>(collections.rsvps, id);
+  }
   if (!ticket?.amount || ticket.status !== "confirmed") throw new HttpError(404, "TICKET_NOT_FOUND", "No ticket is awaiting payment");
   if (ticket.amount !== amount) throw new HttpError(409, "AMOUNT_MISMATCH", "The payment does not match the ticket price");
-  if (ticket.paymentStatus === "paid") return rsvpDto(ticket);
-  await updateAppwriteDocument(collections.rsvps, id, { paymentStatus: "paid", paymentRef: paymentRef.slice(0, 128) });
+  if (ticket.paymentStatus === "paid") {
+    if (ticket.paymentRef === ref) return rsvpDto(ticket);
+    throw new HttpError(409, "DUPLICATE_PAYMENT", "This ticket was already paid for");
+  }
+  await updateAppwriteDocument(collections.rsvps, id, { paymentStatus: "paid", paymentRef: ref });
   return rsvpDto({ ...ticket, paymentStatus: "paid" });
 }
 

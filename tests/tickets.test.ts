@@ -89,7 +89,8 @@ test("payment confirmation is amount-checked and idempotent, and a paid ticket c
   assert.equal(ticketRow("paid")!.paymentStatus, "pending");
   writes = [];
   assert.equal((await service.confirmTicketPayment("paid", member, 19900, "pay_synthetic")).paymentStatus, "paid");
-  assert.equal((await service.confirmTicketPayment("paid", member, 19900, "pay_repeat")).paymentStatus, "paid");
+  assert.equal((await service.confirmTicketPayment("paid", member, 19900, "pay_synthetic")).paymentStatus, "paid", "the same payment settles twice harmlessly");
+  await assert.rejects(service.confirmTicketPayment("paid", member, 19900, "pay_repeat"), { code: "DUPLICATE_PAYMENT" }, "a second payment is refunded, not absorbed");
   assert.equal(writes.length, 1);
   assert.equal(ticketRow("paid")!.paymentRef, "pay_synthetic");
   await assert.rejects(service.cancelRsvp(member, "paid"), { code: "TICKET_PAID" });

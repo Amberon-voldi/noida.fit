@@ -50,6 +50,9 @@ export const endpointGuide = [
   ["GET", "/api/profile/public?username=", "Public opt-in", "Read explicit public DTO, never email or private history."],
   ["GET", "/api/participation?view=controls", "Account owner", "RSVP/save/follow state only. Without view=controls also returns private participation history."],
   ["POST / DELETE", "/api/participation/rsvp", "Account owner + same origin", "Reserve/release a seat before start; cannot cancel recorded attendance. POST needs a verified email; DELETE does not."],
+  ["POST", "/api/payments/payu/checkout", "Account owner + same origin", "Hold a paid ticket (payment pending) and return the signed PayU form at its issued price. Needs a verified email, a 10-digit mobile number and PAYU_MERCHANT_KEY/SALT; demo listings are refused."],
+  ["POST", "/api/payments/payu/return", "PayU-signed form (member's browser)", "PayU's surl/furl. Settles the ticket from PayU's Verify Payment API, never the posted fields, then redirects to the event with ?payment=paid|failed|pending|refund."],
+  ["POST", "/api/payments/payu/webhook", "PayU-signed form (PayU servers)", "Settles payments whose member never came back from checkout. 400 when the hash does not verify; 503 asks PayU to retry."],
   ["POST / DELETE", "/api/participation/saved", "Account owner + same origin", "Save/remove an event, community or place. POST needs a verified email; DELETE does not."],
   ["POST / DELETE", "/api/participation/follow", "Account owner + same origin", "Follow/unfollow a community; this is interest, not club enrollment. POST needs a verified email; DELETE does not."],
   ["POST", "/api/check-in/pass", "Account owner + same origin", "Issue a 15-minute signed participant QR for the authenticated owner only; no client-selected member ID. Needs a verified email."],
@@ -69,5 +72,7 @@ export const adminFailures = [
   ["503 AUDIT_NOT_CONFIGURED / AUDIT_UNAVAILABLE", "No operation runs if durable audit intent cannot be stored. Provision the private audit store and verify document scopes."],
   ["503 AUDIT_COMPLETION_PENDING", "The operation may have succeeded. Reload the target and inspect started audit records before retrying."],
   ["503 REQUEST_FAILED", "Check backend reachability and scoped credentials in server logs. Do not paste raw SDK errors or keys into reports."],
+  ["[PayU] Captured payment has no ticket to settle", "Money arrived that no ticket could take (wrong amount, a second payment, or the seat went to someone else). Find the txnid in the PayU dashboard and refund it there."],
+  ["[PayU] Return/Webhook rejected: its hash did not verify", "Check PAYU_MERCHANT_KEY/SALT and PAYU_MODE match the PayU account. Repeated webhook rejections with good credentials mean PayU signs notifications differently: check its webhook docs."],
   ["CHECKIN_TOKEN_EXPIRED / CHECKIN_CLOSED", "Ask the participant to refresh their QR or review the selected event times. Do not invent attendance outside the window."],
 ] as const;

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { EventActions } from "@/components/participation/EventActions";
 import { EventBookingBar } from "@/components/participation/EventBookingBar";
+import { PaymentReturnNotice } from "@/components/participation/PaymentReturnNotice";
 import { SaveButton } from "@/components/participation/SaveButton";
 import { ShareButton } from "@/components/ui/ShareButton";
 import { StructuredData } from "@/components/discovery/DetailPrimitives";
@@ -13,8 +14,9 @@ import { listingMetadata } from "@/components/discovery/metadata";
 import { getActivities, getEventBySlug } from "@/lib/data";
 import { CATEGORY_LABELS, formatDate, SITE_CONFIG } from "@/lib/config";
 import { parseEventPrice } from "@/lib/pricing";
+import { isPayuConfigured } from "@/lib/payments/payu";
 
-type Props = { params: Promise<{ slug: string }> };
+type Props = { params: Promise<{ slug: string }>; searchParams: Promise<{ payment?: string | string[] }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const event = await getEventBySlug((await params).slug);
@@ -22,8 +24,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return listingMetadata({ title: `${event.title} — ${formatDate(event.date)} at ${event.venueName}`, description: `${event.startTime} IST · ${event.sector} · ${event.price}. ${event.description}`, path: `/event/${event.slug}`, image: event.coverImageUrl ?? event.imageUrl, demo: event.demo });
 }
 
-export default async function EventPage({ params }: Props) {
+export default async function EventPage({ params, searchParams }: Props) {
   const event = await getEventBySlug((await params).slug);
+  const { payment } = await searchParams;
   if (!event) notFound();
   const activities = await getActivities();
   const activity = activities.find((item) => item.id === event.activityId || item.slug === event.activityId) ?? activities.find((item) => item.slug === event.category);
@@ -31,6 +34,8 @@ export default async function EventPage({ params }: Props) {
   const start = eventTimestamp(event);
   const end = eventTimestamp(event, true);
   const pricing = parseEventPrice(event.price);
+  // Demo listings never take real money.
+  const payOnline = pricing.kind === "paid" && !event.demo && isPayuConfigured();
   const when = `${formatDate(event.date)} · ${event.startTime}`;
   const jsonLd = {
     "@context": "https://schema.org", "@type": "SportsEvent", name: event.title, description: event.description,
@@ -58,6 +63,7 @@ export default async function EventPage({ params }: Props) {
       </DetailHero>
       <div className="event-detail-layout mx-auto grid max-w-7xl gap-10 px-4 py-10 sm:px-6 sm:py-14 lg:grid-cols-[minmax(0,1fr)_350px] lg:px-8">
         <div className="min-w-0 space-y-8">
+          <PaymentReturnNotice outcome={typeof payment === "string" ? payment : undefined} />
           {!upcoming && <p role="status" className="rounded-lg border border-border-strong bg-surface px-4 py-3 text-sm text-text-secondary">{event.status === "cancelled" ? "This gathering has been cancelled." : "This gathering has ended."} Check the host community for other sessions.</p>}
           <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {[["Date", formatDate(event.date)], ["Time · IST", `${event.startTime} – ${event.endTime}`], ["Cost", event.price], ["Level", event.level ?? "Ask the host"]].map(([label, value]) => <div key={label} className="min-w-0 rounded-lg border border-border-subtle bg-surface p-4"><dt className="font-mono text-[10px] uppercase tracking-widest text-text-secondary">{label}</dt><dd className="mt-2 break-words text-sm font-semibold">{value}</dd></div>)}
@@ -70,7 +76,7 @@ export default async function EventPage({ params }: Props) {
           <section aria-labelledby="event-actions-heading" className="rounded-xl border border-border-strong bg-surface p-5">
             <h2 id="event-actions-heading" className="eyebrow mb-4">{event.demo ? "Try participation" : "Your next step"}</h2>
             {event.demo && <p className="mb-4 text-xs leading-relaxed text-text-secondary">Saving or RSVPing stores a real account record for this demo. It does not book a real session or take a payment.</p>}
-            {upcoming ? <EventActions eventId={event.id} eventSlug={event.slug} title={event.title} date={event.date} startTime={event.startTime} endTime={event.endTime} venueName={event.venueName} communityName={event.communityName} price={event.price} when={when} /> : <div className="flex flex-wrap gap-2"><SaveButton itemType="event" itemId={event.id} /><ShareButton title={event.title} /></div>}
+            {upcoming ? <EventActions eventId={event.id} eventSlug={event.slug} title={event.title} date={event.date} startTime={event.startTime} endTime={event.endTime} venueName={event.venueName} communityName={event.communityName} price={event.price} when={when} payOnline={payOnline} /> : <div className="flex flex-wrap gap-2"><SaveButton itemType="event" itemId={event.id} /><ShareButton title={event.title} /></div>}
           </section>
           <section aria-labelledby="meeting-heading" className="rounded-xl border border-border-subtle bg-surface p-5">
             <h2 id="meeting-heading" className="eyebrow">Meeting point</h2><p className="mt-3 font-bold">{event.venueName}</p><p className="mt-1 text-sm text-text-secondary">{event.sector}</p>
@@ -79,7 +85,7 @@ export default async function EventPage({ params }: Props) {
           <Link href={`/community/${event.communitySlug}`} className="block rounded-xl border border-border-subtle bg-surface p-5 hover:border-border-strong"><p className="eyebrow">Host community</p><p className="mt-2 font-bold">{event.communityName}</p><p className="mt-1 text-sm text-velocity">View schedule →</p></Link>
         </aside>
       </div>
-      {upcoming && <EventBookingBar eventId={event.id} title={event.title} date={event.date} startTime={event.startTime} venueName={event.venueName} price={event.price} when={when} spotsLeft={typeof event.capacity === "number" ? Math.max(0, event.capacity - event.attendeesCount) : undefined} />}
+      {upcoming && <EventBookingBar eventId={event.id} title={event.title} date={event.date} startTime={event.startTime} venueName={event.venueName} price={event.price} when={when} spotsLeft={typeof event.capacity === "number" ? Math.max(0, event.capacity - event.attendeesCount) : undefined} payOnline={payOnline} />}
     </div>
   );
 }

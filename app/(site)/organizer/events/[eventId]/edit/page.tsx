@@ -6,6 +6,7 @@ import { getManagedEventRecord, organizerVenues } from "@/lib/services/organizer
 import { listAppwriteDocuments, Query } from "@/lib/appwrite/database";
 import { appwriteCollections } from "@/lib/appwrite/config";
 import { EventEditor, type EditorValues } from "@/components/organizer/EventEditor";
+import { isPayuConfigured } from "@/lib/payments/payu";
 
 export const metadata: Metadata = { title: "Edit session", robots: { index: false, follow: false } };
 
@@ -36,6 +37,6 @@ export default async function EditEventPage({ params }: Props) {
     level: text("level"), distance: text("distance"), pace: text("pace"), routeOverview: text("routeOverview"),
     whatToBring: Array.isArray(record.whatToBring) ? record.whatToBring.map(String) : [],
   };
-  return <EventEditor mode="edit" eventId={eventId} expectedUpdatedAt={stored.updatedAt} clubs={[]} venues={venueList} initial={initial}
+  return <EventEditor mode="edit" eventId={eventId} expectedUpdatedAt={stored.updatedAt} clubs={[]} venues={venueList} initial={initial} payOnline={isPayuConfigured() && record.demo !== true}
     clubName={String(record.communityName)} confirmedRsvps={rsvps.filter(rsvp => rsvp.status === "confirmed").length} />;
 }

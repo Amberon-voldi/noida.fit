@@ -97,13 +97,17 @@ export function assertRateLimit(request: Request, bucket: string, userId?: strin
   requests.set(key, [...recent, now]);
 }
 
+/** The deployed origin for absolute links back to this site; the request's own origin in local development. */
+export function siteOrigin(request: Request): string {
+  return new URL(process.env.NEXT_PUBLIC_SITE_URL || request.url).origin;
+}
+
+const contentType = (request: Request) => request.headers.get("content-type")?.split(";")[0].trim().toLowerCase();
+
 /** Bound the actual streamed body too; Content-Length alone is client controlled. */
-export async function readJson<T>(request: Request, schema: z.ZodType<T>, maxBytes = 8192): Promise<T> {
-  if (request.headers.get("content-type")?.split(";")[0].trim() !== "application/json") {
-    throw new HttpError(415, "JSON_REQUIRED", "Send JSON to this endpoint");
-  }
+async function readBody(request: Request, maxBytes: number): Promise<string> {
   const reader = request.body?.getReader();
-  if (!reader) throw new HttpError(400, "INVALID_JSON", "Request body must be valid JSON");
+  if (!reader) return "";
   const chunks: Uint8Array[] = [];
   let size = 0;
   try {
@@ -120,13 +124,29 @@ export async function readJson<T>(request: Request, schema: z.ZodType<T>, maxByt
   } finally {
     reader.releaseLock();
   }
+  return Buffer.concat(chunks).toString("utf8");
+}
+
+export async function readJson<T>(request: Request, schema: z.ZodType<T>, maxBytes = 8192): Promise<T> {
+  if (contentType(request) !== "application/json") {
+    throw new HttpError(415, "JSON_REQUIRED", "Send JSON to this endpoint");
+  }
   let body: unknown;
   try {
-    body = JSON.parse(Buffer.concat(chunks).toString("utf8"));
-  } catch {
+    body = JSON.parse(await readBody(request, maxBytes));
+  } catch (error) {
+    if (error instanceof HttpError) throw error;
     throw new HttpError(400, "INVALID_JSON", "Request body must be valid JSON");
   }
   return schema.parse(body);
+}
+
+/** A URL-encoded form post, such as a payment gateway's result. Repeated names keep the last value. */
+export async function readForm(request: Request, maxBytes = 32_768): Promise<Record<string, string>> {
+  if (contentType(request) !== "application/x-www-form-urlencoded") {
+    throw new HttpError(415, "FORM_REQUIRED", "Send a form to this endpoint");
+  }
+  return Object.fromEntries(new URLSearchParams(await readBody(request, maxBytes)));
 }
 
 export async function requireAuthUser() {

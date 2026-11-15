@@ -20,6 +20,8 @@ export interface EventActionsProps {
   price: string;
   /** Display date and time, e.g. "Sat, 15 Nov · 06:00 AM". */
   when: string;
+  /** PayU is set up and this is a real listing: tickets are paid online. */
+  payOnline?: boolean;
   compact?: boolean;
 }
 
@@ -38,7 +40,7 @@ function downloadCalendarEvent(props: EventActionsProps): void {
 }
 
 export function EventActions(props: EventActionsProps) {
-  const { pricing, booking, pending, feedback, confirmCancel, label, act, showFeedback, disabled, checkout } = useEventBooking(props);
+  const { booking, due, payDue, pending, feedback, confirmCancel, label, act, showFeedback, disabled, checkout } = useEventBooking(props);
   const rsvped = Boolean(booking);
 
   async function shareEvent(): Promise<void> {
@@ -89,10 +91,11 @@ export function EventActions(props: EventActionsProps) {
           </>
         )}
       </div>
-      {booking?.amount && !props.compact && <p className="text-xs leading-relaxed text-text-secondary">Spot #{booking.seatNumber} · <span className="font-semibold text-white">{formatInr(booking.amount)} {booking.paymentStatus === "paid" ? "paid" : "due"}</span>{booking.paymentStatus === "paid" ? "." : ". Online payment isn’t open yet, so pay the organizer at the event."}</p>}
+      {booking?.amount && !props.compact && <p className="text-xs leading-relaxed text-text-secondary">Spot #{booking.seatNumber} · <span className="font-semibold text-white">{formatInr(booking.amount)} {due ? "due" : "paid"}</span>{!due ? "." : payDue ? ". Pay online now, or pay the organizer at the event." : props.payOnline ? ". Pay the organizer at the event." : ". Online payment isn’t open yet, so pay the organizer at the event."}</p>}
+      {payDue && !props.compact && <button type="button" onClick={payDue} disabled={pending} className="button-primary w-full">{pending && <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />}Pay {formatInr(due)}</button>}
       {rsvped && !props.compact && <p className="text-xs leading-relaxed text-text-secondary">On the day, open your <Link href="/account" className="font-semibold text-velocity underline-offset-2 hover:underline">.fit ID</Link> and show the check-in QR on its back to the organizer.</p>}
       {feedback && <p className="text-[11px] text-velocity" role="status" aria-live="polite">{feedback}</p>}
-      <TicketCheckout open={checkout.open} title={props.title} when={props.when} venueName={props.venueName} priceLabel={pricing.label} pending={pending} error={checkout.error} onConfirm={checkout.confirm} onClose={checkout.close} />
+      <TicketCheckout open={checkout.open} title={props.title} when={props.when} venueName={props.venueName} priceLabel={checkout.priceLabel} payOnline={checkout.payOnline} pending={pending} error={checkout.error} onConfirm={checkout.confirm} onClose={checkout.close} />
     </div>
   );
 }

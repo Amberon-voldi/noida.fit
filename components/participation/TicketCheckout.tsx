@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useId, useRef } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { LoaderCircle, X } from "lucide-react";
+import { normalizeIndianMobile } from "@/lib/phone";
 
 interface Props {
   open: boolean;
@@ -9,16 +10,21 @@ interface Props {
   when: string;
   venueName: string;
   priceLabel: string;
+  /** Pay with PayU now, rather than hold the spot and pay the organizer at the event. */
+  payOnline: boolean;
   pending: boolean;
   error: string | null;
-  onConfirm: () => void;
+  onConfirm: (phone: string) => void;
   onClose: () => void;
 }
 
 /** The summary a member confirms before a ticket is issued for a paid event. */
-export function TicketCheckout({ open, title, when, venueName, priceLabel, pending, error, onConfirm, onClose }: Props) {
+export function TicketCheckout({ open, title, when, venueName, priceLabel, payOnline, pending, error, onConfirm, onClose }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const titleId = useId();
+  const phoneId = useId();
+  const [phone, setPhone] = useState("");
+  const [phoneError, setPhoneError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -33,9 +39,16 @@ export function TicketCheckout({ open, title, when, venueName, priceLabel, pendi
     };
   }, [open]);
 
+  function submit(event: React.FormEvent<HTMLFormElement>): void {
+    event.preventDefault();
+    if (payOnline && !normalizeIndianMobile(phone)) { setPhoneError("Enter a 10-digit Indian mobile number"); return; }
+    setPhoneError(null);
+    onConfirm(phone);
+  }
+
   return (
     <dialog ref={dialogRef} aria-labelledby={titleId} className="filter-dialog" onCancel={onClose} onClose={onClose} onClick={event => { if (event.target === event.currentTarget) onClose(); }}>
-      <div className="filter-dialog-panel">
+      <form className="filter-dialog-panel" onSubmit={submit} noValidate>
         <div className="mx-auto mt-3 h-1 w-9 rounded-full bg-border-strong sm:hidden" aria-hidden="true" />
         <header className="flex items-center justify-between gap-4 border-b border-border-subtle p-4 sm:p-6">
           <div className="min-w-0"><p className="eyebrow">Your ticket</p><h2 id={titleId} className="mt-1 text-xl font-bold">{title}</h2></div>
@@ -46,17 +59,24 @@ export function TicketCheckout({ open, title, when, venueName, priceLabel, pendi
           <dl className="rounded-lg border border-border-subtle bg-surface-elevated">
             <div className="flex items-center justify-between gap-3 px-4 py-3"><dt className="text-sm text-text-secondary">1 ticket</dt><dd className="font-mono text-lg font-bold text-white">{priceLabel}</dd></div>
           </dl>
-          <p className="text-xs leading-relaxed text-text-secondary">Online payment isn’t open yet. Confirming holds your spot now, and {priceLabel} is payable to the organizer at the event. One ticket per account.</p>
+          {payOnline ? <>
+            <div>
+              <label htmlFor={phoneId} className="text-sm font-semibold text-white">Mobile number</label>
+              <input id={phoneId} type="tel" inputMode="tel" autoComplete="tel" required maxLength={20} value={phone} onChange={event => { setPhone(event.target.value); setPhoneError(null); }} placeholder="98765 43210" aria-invalid={Boolean(phoneError)} aria-describedby={`${phoneId}-hint`} className="mt-1.5 min-h-11 w-full rounded-xl border border-border-subtle bg-surface px-3.5 py-2.5 text-[15px] text-white transition-colors hover:border-border-strong focus:border-velocity focus:outline-none" />
+              <p id={`${phoneId}-hint`} className={`mt-1.5 text-xs ${phoneError ? "text-rose-200" : "text-text-secondary"}`}>{phoneError ?? "PayU needs it to process the payment."}</p>
+            </div>
+            <p className="text-xs leading-relaxed text-text-secondary">You’ll pay {priceLabel} on PayU’s secure checkout. Your spot is held while you pay, and if you don’t finish you can pay later from this page. One ticket per account.</p>
+          </> : <p className="text-xs leading-relaxed text-text-secondary">Online payment isn’t open yet. Confirming holds your spot now, and {priceLabel} is payable to the organizer at the event. One ticket per account.</p>}
           {error && <p role="alert" className="rounded-lg border border-rose-400/60 bg-rose-400/10 p-3 text-sm text-rose-200">{error}</p>}
         </div>
         <div className="filter-dialog-actions flex gap-3 border-t border-border-subtle p-4 sm:p-6">
           <button type="button" onClick={onClose} className="button-secondary">Not now</button>
-          <button type="button" onClick={onConfirm} disabled={pending} className="button-primary flex-1">
+          <button type="submit" disabled={pending} className="button-primary flex-1">
             {pending && <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />}
-            Confirm ticket · {priceLabel}
+            {payOnline ? `Pay ${priceLabel}` : `Confirm ticket · ${priceLabel}`}
           </button>
         </div>
-      </div>
+      </form>
     </dialog>
   );
 }

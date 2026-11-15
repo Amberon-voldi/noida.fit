@@ -2,7 +2,7 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { loadScriptEnv } from "./lib/env";
 loadScriptEnv();
-const secrets = ["APPWRITE_KEY", "APPWRITE_CHECKIN_SECRET", "AUTH_SECRET"]
+const secrets = ["APPWRITE_KEY", "APPWRITE_CHECKIN_SECRET", "AUTH_SECRET", "PAYU_MERCHANT_SALT"]
   .map(name=>process.env[name]).filter((value):value is string=>Boolean(value&&value.length>8));
 let scanned=0;
 function inspect(directory:string) {
@@ -12,7 +12,7 @@ function inspect(directory:string) {
     const body=readFileSync(path);
     if(secrets.some(secret=>body.includes(Buffer.from(secret))))throw new Error(`Secret found in public artifact: ${path}`);
     // Fail even when runtime-only secret values are unavailable during CI builds.
-    if(["APPWRITE_KEY", "APPWRITE_CHECKIN_SECRET", "x-appwrite-key"].some(marker=>body.includes(Buffer.from(marker))))throw new Error(`Server credential reference found in public artifact: ${path}`);
+    if(["APPWRITE_KEY", "APPWRITE_CHECKIN_SECRET", "PAYU_MERCHANT_SALT", "x-appwrite-key"].some(marker=>body.includes(Buffer.from(marker))))throw new Error(`Server credential reference found in public artifact: ${path}`);
     scanned++;
   }
 }
