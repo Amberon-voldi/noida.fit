@@ -1,12 +1,5 @@
 import { readPublicMedia } from "@/lib/admin/media";
-
-interface EdgeCache { match(request: Request): Promise<Response | undefined>; put(request: Request, response: Response): Promise<void> }
-/** Cloudflare's edge cache in Workers; absent under `next start`. Never let it break serving. */
-function edgeCache(): EdgeCache | undefined {
-  try { return (globalThis as { caches?: { default?: EdgeCache } }).caches?.default; } catch { return undefined; }
-}
-
-const notFound = () => new Response("Not found", { status: 404, headers: { "Cache-Control": "public, max-age=60", "Content-Type": "text/plain; charset=utf-8" } });
+import { edgeCache, mediaNotFound, mediaUnavailable } from "@/lib/media-cache";
 
 /**
  * Public listing images uploaded from the admin panel. File IDs are never reused, but a file
@@ -20,10 +13,8 @@ export async function GET(request: Request, { params }: { params: Promise<{ file
   const cached = await cache?.match(key).catch(() => undefined);
   if (cached) return cached;
   let media;
-  try { media = await readPublicMedia(fileId); } catch {
-    return new Response("Image unavailable", { status: 503, headers: { "Cache-Control": "no-store", "Content-Type": "text/plain; charset=utf-8", "Retry-After": "30" } });
-  }
-  if (!media) return notFound();
+  try { media = await readPublicMedia(fileId); } catch { return mediaUnavailable(); }
+  if (!media) return mediaNotFound();
   const response = new Response(media.bytes, { headers: {
     "Content-Type": media.type,
     "Content-Length": String(media.bytes.byteLength),

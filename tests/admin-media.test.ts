@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { after, before, beforeEach, test } from "node:test";
 import { contentSchemas, contentTemplates } from "../lib/content-schema";
 import { isMediaPath, sniffImageType } from "../lib/media";
@@ -151,4 +152,52 @@ test("GET /media/<id> answers repeat requests from the edge cache without callin
     assert.equal(missing.status, 503);
     assert.equal(store.size, 1, "failures are never cached");
   } finally { delete (globalThis as { caches?: unknown }).caches; }
+});
+
+test("GET /media/<id>/share turns an upload into a 1200×630 JPEG link preview under 300 KB", async () => {
+  const { GET } = await import("../app/media/[fileId]/share/route");
+  const sharp = (await import("sharp")).default;
+  const share = (fileId: string) => GET(new Request(`https://noida.fit/media/${fileId}/share`), { params: Promise.resolve({ fileId }) });
+  // A real photo saved as a large PNG, like the banners organizers upload.
+  const photo = readFileSync(new URL("../public/images/landing/running.webp", import.meta.url));
+  const banner = new Uint8Array(await sharp(photo).resize(1672, 941).png().toBuffer());
+  files.set("banner1", { bucket: "main", bytes: banner, mimeType: "image/png", permissions: ['read("any")'], name: "x.png" });
+  const response = await share("banner1");
+  assert.equal(response.status, 200);
+  assert.equal(response.headers.get("content-type"), "image/jpeg");
+  assert.equal(response.headers.get("cross-origin-resource-policy"), "cross-origin");
+  assert.match(response.headers.get("content-security-policy") ?? "", /sandbox/);
+  const preview = new Uint8Array(await response.arrayBuffer());
+  const { format, width, height } = await sharp(preview).metadata();
+  assert.deepEqual({ format, width, height }, { format: "jpeg", width: 1200, height: 630 });
+  assert.ok(preview.length <= 300 * 1024 && preview.length < banner.length / 3, `${preview.length} of ${banner.length} bytes`);
+
+  // A tall poster is fitted whole, never cropped: the red band at its very top survives.
+  const poster = new Uint8Array(await sharp({ create: { width: 1080, height: 1350, channels: 3, background: "#ffffff" } })
+    .composite([{ input: { create: { width: 1080, height: 100, channels: 3, background: "#ff0000" } }, top: 0, left: 0 }]).png().toBuffer());
+  files.set("poster1", { bucket: "main", bytes: poster, mimeType: "image/png", permissions: ['read("any")'], name: "x.png" });
+  const { data } = await sharp(new Uint8Array(await (await share("poster1")).arrayBuffer())).raw().toBuffer({ resolveWithObject: true });
+  const pixel = (x: number, y: number) => [...data.subarray((y * 1200 + x) * 3, (y * 1200 + x) * 3 + 3)];
+  const [r, g] = pixel(600, 15);
+  assert.ok(r > 200 && g < 90, `top of the poster is still red: ${pixel(600, 15)}`);
+  assert.ok(pixel(600, 400).every(channel => channel > 230), "the poster's body is in frame");
+  assert.ok(pixel(60, 400)[0] < 200, "the sides are the darkened backdrop, not stretched poster");
+
+  // Same file rules as /media: private files 404, an unreadable image falls back to the original.
+  files.set("private2", { bucket: "main", bytes: banner, mimeType: "image/png", permissions: [], name: "x.png" });
+  assert.equal((await share("private2")).status, 404);
+  files.set("odd1", { bucket: "main", bytes: png, mimeType: "image/png", permissions: ['read("any")'], name: "x.png" });
+  const fallback = await share("odd1");
+  assert.equal(fallback.headers.get("content-type"), "image/png");
+  assert.deepEqual(new Uint8Array(await fallback.arrayBuffer()), png);
+});
+
+test("listing pages share uploaded images through their preview version, with its size declared", async () => {
+  const { listingMetadata } = await import("../components/discovery/metadata");
+  const uploaded = listingMetadata({ title: "BCC run", description: "A run", path: "/event/bcc", image: "/media/abc123" });
+  const expected = [{ url: "/media/abc123/share", width: 1200, height: 630, type: "image/jpeg", alt: "BCC run" }];
+  assert.deepEqual(uploaded.openGraph?.images, expected);
+  assert.deepEqual(uploaded.twitter?.images, expected);
+  const external = listingMetadata({ title: "Park", description: "A park", path: "/place/park", image: "https://images.unsplash.com/photo-1" });
+  assert.deepEqual(external.openGraph?.images, [{ url: "https://images.unsplash.com/photo-1", alt: "Park" }]);
 });
