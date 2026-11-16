@@ -34,7 +34,7 @@ The current approved catalog contains **26 activities, 12 communities, 18 places
 - `/account` — Fitness ID, upcoming RSVPs, saved plans, followed groups, history and settings
 - `/fitness-id` — the current user's private card
 - `/@username` — opt-in public profile; legacy `/fitness-id/[slug]` redirects here
-- `/organizer` — assigned club/venue operators select an event and scan participant QRs to record attendance
+- `/organizer` — organizers see upcoming sessions, people going, ticket revenue and show-up rate; each session's dashboard has an overview, a guest list with CSV export, the check-in desk and gift links; Duplicate copies a session into a new date
 - `/check-in` — members show/refresh their own short-lived participant QR, including with private profiles
 - `/admin` — protected administrator overview and navigation to content, member access, attendance and audit modules
 - `/admin/guide` — complete operator handbook: module workflows, page routes, API endpoints, permissions and troubleshooting
@@ -116,12 +116,22 @@ These tests create randomly named test accounts and two temporary events, exerci
 
 A paid event's ticket is confirmed only by a payment PayU confirms. With `PAYU_MERCHANT_KEY` and `PAYU_MERCHANT_SALT` set, tickets are sold through PayU's hosted checkout; without them, and on demo listings, paid events show *Tickets not on sale* and can't be booked.
 
-- **Flow:** *Get ticket* asks for a mobile number (PayU requires one), holds the seat for 30 minutes (RSVP status `pending`: not a ticket, not on the guest list, refused at check-in) and posts a server-signed form to PayU. PayU sends the member back to `/api/payments/payu/return`, which checks PayU's response hash and then asks PayU's Verify Payment API for the transaction. Only a transaction PayU reports as captured, for the hold's amount, confirms the ticket (status `confirmed`, payment `paid`). The posted fields are never trusted on their own.
+- **Flow:** *Get ticket* asks for a mobile number (PayU requires one; it is kept in the member's private Appwrite account prefs as `paymentPhone` to pre-fill their next checkout), holds the seat for 30 minutes (RSVP status `pending`: not a ticket, not on the guest list, refused at check-in) and posts a server-signed form to PayU. PayU sends the member back to `/api/payments/payu/return`, which checks PayU's response hash and then asks PayU's Verify Payment API for the transaction. Only a transaction PayU reports as captured, for the hold's amount, confirms the ticket (status `confirmed`, payment `paid`). The posted fields are never trusted on their own.
 - **Unfinished payments:** the hold lasts 30 minutes (`TICKET_HOLD_MINUTES` in `lib/pricing.ts`) and the event page offers *Complete payment*. A hold that runs out keeps its seat until someone else needs it: only when no seat is free is it released to the next buyer. Paying again renews your own hold if the seat is still yours. Tickets issued before online payment (confirmed, unpaid) keep working, and the desk shows what to collect.
 - **Webhook:** in the PayU dashboard, point the payment success and failure webhooks at `https://noida.fit/api/payments/payu/webhook`. It settles payments whose member closed the tab before coming back.
 - **Refunds are manual.** Money that no ticket can take (a second payment for a paid ticket, a different amount, or a seat released after the hold ran out and taken by someone else) is logged as `[PayU] Captured payment has no ticket to settle` with its txnid, and the member is told it was flagged. Refund it from the PayU dashboard. A payment that lands after its hold was released or cancelled is reissued as a paid ticket if a seat is free.
 - **Settings:** `PAYU_MERCHANT_KEY`, `PAYU_MERCHANT_SALT` (secret, server-only, never `NEXT_PUBLIC_`) and `PAYU_MODE=live` for production; anything else uses PayU's test environment. Amplify passes them to the server through `amplify.yml`; on ECS add them to the task's secrets; on Cloudflare set them as Worker secrets. The browser artifact scan fails a build that leaks the salt.
 - **Testing:** use the test key and salt from your PayU test dashboard with `PAYU_MODE` unset, and PayU's [test cards and UPI IDs](https://docs.payu.in/docs/test-cards-upi-id-and-wallets).
+
+## Gift links (free spots)
+
+Organizers invite people free, such as creators, partners or friends of the club, from a session's **Gift links** tab. Each link (`/gift/<id>`) can name who it's for, carry a note and admit 1–20 people.
+
+- **Claiming:** the guest signs in (verified email) and taps *Claim my free spot*. That makes a confirmed RSVP with `paymentStatus: "gift"` and no amount, on free and paid sessions alike: no PayU, nothing due at the desk. A gifted spot takes a regular seat, so capacity still applies. Someone who already has a spot keeps it, and the gift stays unused; someone part-way through paying has their hold turned into the gift.
+- **Link preview:** the page's Open Graph tags name the guest and the session, and `/gift/<id>/preview` draws a 1200×630 invite card over the session banner (a JPEG under 300 KB when sharp is installed, for WhatsApp). Gift pages are `noindex` and send no referrer, because the link is the invitation.
+- **Control:** switching a link off stops new claims; spots already claimed stay valid. The guest list marks gifted spots with who the link was for, and the dashboard counts them.
+- **Setup:** gift links live in a private table. Set `NEXT_PUBLIC_APPWRITE_GIFT_LINKS_COLLECTION_ID=gift_links` (already in `deploy/aws/public.env` and `wrangler.jsonc`) and run `npm run appwrite:gift-links` once with a schema-management key. Until then the tab says gift links aren't switched on, and gift pages return 404.
+- **Known limit:** a link's spot count is checked just before the seat is taken, not atomically with it, so two people claiming a link's last spot at the same instant can both get in. The session's capacity still holds.
 
 ## AWS deployment (ECS Fargate)
 

@@ -1,7 +1,8 @@
 /** "pending": a paid event's seat held while its payment completes; it never counts as going. */
 export type RSVPStatus = "confirmed" | "pending" | "cancelled" | "waitlist";
 export type ParticipationStatus = "verified" | "connected" | "self_reported" | "pending";
-export type PaymentStatus = "pending" | "paid";
+/** "gift": a free spot the organizer gave away with a gift link; it carries no amount. */
+export type PaymentStatus = "pending" | "paid" | "gift";
 
 export interface RSVP {
   id: string;

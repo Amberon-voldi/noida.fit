@@ -7,7 +7,7 @@ import type { Event } from "@/types/event";
 import type { Place } from "@/types/place";
 import type { Activity } from "@/types/activity";
 import { appwriteCollections } from "@/lib/appwrite/config";
-import { listAppwriteDocuments, listSharedAppwriteDocuments, Query } from "@/lib/appwrite/database";
+import { getAppwriteDocument, listAppwriteDocuments, listSharedAppwriteDocuments, Query } from "@/lib/appwrite/database";
 import type { AppwriteDocument } from "@/lib/appwrite/database";
 
 type ContentDocument = Record<string, unknown>;
@@ -178,6 +178,12 @@ export async function getEventBySlug(slug: string): Promise<Event | undefined> {
 
 export async function getEventById(id: string): Promise<Event | undefined> {
   return (await loadEvents()).find((event) => event.id === id);
+}
+
+/** One event in any status, read directly (no listing cache): for links that outlive publishing, like gift links. Attendee count not loaded. */
+export async function getEventAnyStatus(id: string): Promise<Event | undefined> {
+  const document = await getAppwriteDocument<ContentDocument>(appwriteCollections.events, id);
+  return document ? { ...decodeEvent(document), attendeesCount: 0 } : undefined;
 }
 
 export async function getEventsByCommunity(communitySlug: string): Promise<Event[]> {

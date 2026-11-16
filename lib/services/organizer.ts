@@ -7,6 +7,8 @@ import {
   type AppwriteDocument,
 } from "@/lib/appwrite/database";
 import { HttpError } from "@/lib/http";
+import { ticketHoldEndsAt } from "@/lib/pricing";
+import { giftLinkLabels } from "@/lib/services/gifts";
 import { eventWindow, isAdminUser } from "@/lib/services/participation";
 import type { AuthUser } from "@/lib/auth";
 import type { Event } from "@/types/event";
@@ -19,6 +21,8 @@ interface RsvpRow {
   seatNumber?: number;
   amount?: number;
   paymentStatus?: string;
+  paymentRef?: string;
+  createdAt?: string;
 }
 
 interface CheckInRow {
@@ -77,11 +81,13 @@ export async function getOrganizerEventSummaries(
   }
   if (!events.length) return [];
   const eventIds = events.map(event => event.id);
-  const [rsvps, checkins] = await Promise.all([
+  const [rsvps, checkins, giftLabels] = await Promise.all([
     // No select: Appwrite rejects a select naming the ticket attributes before `appwrite:setup` has added them.
     listForIds<RsvpRow>(collections.rsvps, "eventId", eventIds),
     listForIds<CheckInRow>(collections.checkins, "eventId", eventIds, ["eventId", "userId", "timestamp"]),
+    giftLinkLabels(eventIds),
   ]);
+  const now = Date.now();
   const confirmed = rsvps.filter(rsvp => rsvp.status === "confirmed");
   const profiles = await listForIds<ProfileRow>(collections.profiles, "$id", [...new Set(confirmed.map(rsvp => rsvp.userId))], ["displayName"]);
   const names = new Map(profiles.map(profile => [profile.$id, profile.displayName]));
@@ -90,11 +96,14 @@ export async function getOrganizerEventSummaries(
   return events.map(event => {
     const attendees: OrganizerAttendee[] = confirmed.filter(rsvp => rsvp.eventId === event.id).map(rsvp => {
       const checkin = checkinByKey.get(`${event.id}:${rsvp.userId}`);
+      const giftLinkId = rsvp.paymentStatus === "gift" && rsvp.paymentRef?.startsWith("gift:") ? rsvp.paymentRef.slice(5) : undefined;
+      const giftLabel = giftLinkId ? giftLabels.get(giftLinkId) : undefined;
       return {
         displayName: safeDisplayName(names.get(rsvp.userId)),
         rsvpStatus: "confirmed",
         ...(Number.isSafeInteger(rsvp.seatNumber) ? { seatNumber: rsvp.seatNumber } : {}),
         ...(rsvp.amount ? { ticket: { amount: rsvp.amount, paid: rsvp.paymentStatus === "paid" } } : {}),
+        ...(giftLinkId ? { gift: { linkId: giftLinkId, ...(giftLabel ? { label: giftLabel } : {}) } } : {}),
         checkInStatus: checkin ? "checked_in" : "not_checked_in",
         ...(checkin ? { checkedInAt: checkin.timestamp } : {}),
       };
@@ -106,6 +115,9 @@ export async function getOrganizerEventSummaries(
       checkedIn,
       capacityRemaining: typeof event.capacity === "number" ? Math.max(0, event.capacity - attendees.length) : null,
       checkInWindow: checkInState(event),
+      revenue: attendees.reduce((total, attendee) => total + (attendee.ticket?.paid ? attendee.ticket.amount : 0), 0),
+      payingNow: rsvps.filter(rsvp => rsvp.eventId === event.id && rsvp.status === "pending" && ticketHoldEndsAt(String(rsvp.createdAt)) > now).length,
+      giftsClaimed: attendees.filter(attendee => attendee.gift).length,
       attendees: attendees.sort((a, b) => Number(b.checkInStatus === "checked_in") - Number(a.checkInStatus === "checked_in") || a.displayName.localeCompare(b.displayName)),
     };
   });

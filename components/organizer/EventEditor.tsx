@@ -27,6 +27,8 @@ interface Props {
   clubName?: string;
   /** PayU is set up: people pay for tickets online when they book. */
   payOnline?: boolean;
+  /** Create mode, prefilled from this session (Duplicate). */
+  copiedFrom?: string;
 }
 
 /** "06:30 AM" <-> "06:30" for <input type="time">. */
@@ -46,7 +48,7 @@ const field = "mt-1.5 min-h-11 w-full min-w-0 rounded-lg border border-border-st
 const labelClass = "block text-sm font-semibold text-white";
 const hint = "mt-1 text-xs text-text-secondary";
 
-export function EventEditor({ mode, clubs, venues, initial, eventId, expectedUpdatedAt, confirmedRsvps = 0, clubName, payOnline = false }: Props) {
+export function EventEditor({ mode, clubs, venues, initial, eventId, expectedUpdatedAt, confirmedRsvps = 0, clubName, payOnline = false, copiedFrom }: Props) {
   const router = useRouter();
   const initialPricing = parseEventPrice(initial.price);
   // Free-form price text is no longer accepted, so it opens as "Paid" with the amount left to fill in.
@@ -91,7 +93,8 @@ export function EventEditor({ mode, clubs, venues, initial, eventId, expectedUpd
       level: values.level || undefined, distance: values.distance || undefined, pace: values.pace || undefined, routeOverview: values.routeOverview || undefined,
       whatToBring: values.whatToBring.split("\n").map(line => line.trim()).filter(Boolean),
       // On edit, only a changed banner is sent ("" removes it), so one the team set is left alone.
-      ...(values.coverImageUrl !== (initial.coverImageUrl ?? "") ? { coverImageUrl: values.coverImageUrl } : {}),
+      // A new session sends any banner, including one copied from the session it duplicates.
+      ...((mode === "create" ? values.coverImageUrl : values.coverImageUrl !== (initial.coverImageUrl ?? "")) ? { coverImageUrl: values.coverImageUrl } : {}),
     };
     try {
       const response = await fetch(mode === "create" ? "/api/organizer/events" : `/api/organizer/events/${encodeURIComponent(eventId ?? "")}`, {
@@ -110,9 +113,9 @@ export function EventEditor({ mode, clubs, venues, initial, eventId, expectedUpd
   }
 
   return <div className="mx-auto max-w-3xl px-4 py-6 sm:px-6 sm:py-10">
-    <Link href={eventId ? `/organizer/events/${encodeURIComponent(eventId)}` : "/organizer"} className="inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-text-secondary hover:text-white"><ArrowLeft size={16} aria-hidden="true" />{eventId ? "Back to check-in desk" : "All sessions"}</Link>
-    <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-white">{mode === "create" ? "New session" : "Edit session"}</h1>
-    <p className="mt-2 text-sm text-text-secondary">{mode === "create" ? "You’ll be the organizer for this session, so you can scan people in on the day." : `${clubName ?? "Club"} · ${confirmedRsvps} confirmed RSVP${confirmedRsvps === 1 ? "" : "s"}. People who RSVP’d keep their spot when you change details.`}</p>
+    <Link href={eventId ? `/organizer/events/${encodeURIComponent(eventId)}` : "/organizer"} className="inline-flex min-h-11 items-center gap-1.5 text-sm font-semibold text-text-secondary hover:text-white"><ArrowLeft size={16} aria-hidden="true" />{eventId ? "Back to session" : "All sessions"}</Link>
+    <h1 className="mt-2 text-3xl font-extrabold tracking-tight text-white">{mode === "create" ? (copiedFrom ? "Duplicate session" : "New session") : "Edit session"}</h1>
+    <p className="mt-2 text-sm text-text-secondary">{mode === "create" ? `${copiedFrom ? `Copied from “${copiedFrom}”. Pick the new date and check the details. ` : ""}You’ll be the organizer for this session, so you can scan people in on the day.` : `${clubName ?? "Club"} · ${confirmedRsvps} confirmed RSVP${confirmedRsvps === 1 ? "" : "s"}. People who RSVP’d keep their spot when you change details.`}</p>
 
     <form onSubmit={submit} className="mt-6 space-y-6">
       <fieldset className="space-y-4 rounded-xl border border-border-subtle bg-surface p-4 sm:p-6" disabled={pending}>

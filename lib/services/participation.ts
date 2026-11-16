@@ -64,7 +64,7 @@ function isCode(error: unknown, code: number): boolean {
 /** Explicit field selection keeps DB metadata and future private attributes out of API DTOs. */
 const rsvpDto = (r: AppwriteDocument<Row<RSVP>>): RSVP => ({
   id: r.$id, eventId: r.eventId, userId: r.userId, status: r.status, seatNumber: r.seatNumber, createdAt: r.createdAt,
-  ...(r.amount ? { amount: r.amount, paymentStatus: r.paymentStatus === "paid" ? "paid" as const : "pending" as const } : {}),
+  ...(r.amount ? { amount: r.amount, paymentStatus: r.paymentStatus === "paid" ? "paid" as const : "pending" as const } : r.paymentStatus === "gift" ? { paymentStatus: "gift" as const } : {}),
 });
 const savedDto = (r: AppwriteDocument<Row<SavedItem>>): SavedItem => ({ id: r.$id, itemId: r.itemId, itemType: r.itemType, userId: r.userId, createdAt: r.createdAt });
 const membershipDto = (r: AppwriteDocument<Row<Membership>>): Membership => ({ id: r.$id, communityId: r.communityId, status: r.status, userId: r.userId, createdAt: r.createdAt });
@@ -239,6 +239,34 @@ export async function holdTicket(userId: string, eventId: string, expectedAmount
     throw new HttpError(409, "PRICE_CHANGED", pricing.kind === "paid" ? `This ticket is ${pricing.label}. Check the price and confirm again.` : "This event’s price has changed. Reload the page and try again.");
   }
   return allocateSeat(event, eventId, userId, { status: "pending", amount: pricing.amount, paymentStatus: "pending" }, start);
+}
+
+/**
+ * A spot the organizer gave away with a gift link (lib/services/gifts.ts): confirmed at once and never
+ * charged, on free and paid events alike. It takes a seat like any RSVP, so capacity still applies.
+ * A member part-way through paying has their hold turned into the gift ticket; if that payment completes
+ * too, settling it finds no hold and flags it for refund. `claimed` is false when the member already
+ * had a spot of their own: the gift is left for someone else.
+ */
+export async function claimGiftTicket(userId: string, eventId: string, giftRef: string): Promise<{ rsvp: RSVP; claimed: boolean }> {
+  documentIdSchema.parse(userId);
+  const event = await getEvent(eventId);
+  const { start } = eventWindow(event);
+  if (Date.now() >= start) throw new HttpError(409, "EVENT_STARTED", "This event has already started");
+  const id = rsvpDocumentId(eventId, userId);
+  const existing = await getAppwriteDocument<TicketRow>(collections.rsvps, id);
+  if (existing?.status === "confirmed") return { rsvp: rsvpDto(existing), claimed: existing.paymentRef === giftRef };
+  const fields = { status: "confirmed" as const, paymentStatus: "gift" as const, paymentRef: giftRef };
+  if (existing?.status === "pending") {
+    try {
+      await updateAppwriteDocument(collections.rsvps, id, { ...fields, amount: null });
+      return { rsvp: rsvpDto({ ...existing, ...fields, amount: undefined }), claimed: true };
+    } catch (error) {
+      if (!isCode(error, 404)) throw error;
+      // Released to someone else a moment ago: take a new seat below.
+    }
+  }
+  return { rsvp: await allocateSeat(event, eventId, userId, fields, start), claimed: true };
 }
 
 /**

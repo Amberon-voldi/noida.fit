@@ -84,9 +84,10 @@ Appwrite owns `$createdAt` and `$updatedAt`; code strips caller-supplied `$` met
 | Events | unique slug, title, activityId, communitySlug, venueSlug, sector, date, startsAt, endsAt, capacity, featured, optional organizerUserId, status, demo, payload |
 | Places | unique slug, sector, featured, status, demo, payload |
 | Communities | unique slug, activityId, status, demo, payload |
-| RSVPs | eventId, userId, status (confirmed; pending = a paid ticket's 30-minute hold until PayU confirms payment), seatNumber, createdAt; tickets for paid events also set amount (paise), paymentStatus (pending/paid) and paymentRef; unique(eventId,userId), unique(eventId,seatNumber) |
+| RSVPs | eventId, userId, status (confirmed; pending = a paid ticket's 30-minute hold until PayU confirms payment), seatNumber, createdAt; tickets for paid events also set amount (paise), paymentStatus (pending/paid) and paymentRef; a spot claimed through a gift link has paymentStatus gift, paymentRef gift:<link id> and no amount; unique(eventId,userId), unique(eventId,seatNumber) |
 | Check-ins | eventId, userId, timestamp, verificationMethod; unique(eventId,userId) |
 | Memberships | userId, communityId, status, createdAt; unique(userId,communityId) |
+| Gift links (optional, `npm run appwrite:gift-links`) | random 25-character ID (the secret in /gift/<id>), eventId, createdBy, optional label (120) and note (500), spots (1–20), status (active/revoked), createdAt; key index on eventId. No client grants: server-only |
 | Saved items | userId, itemId, itemType, createdAt; unique(userId,itemType,itemId) |
 | Participation | userId, optional eventId, activityId, title, occurredAt, source, status; unique(userId,eventId) |
 
