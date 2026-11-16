@@ -50,70 +50,99 @@ function reset() {
 }
 const ticketRow = (eventId: string, userId = member) => rows.get(`rsvps/${service.rsvpDocumentId(eventId, userId)}`);
 
-test("a paid event issues a ticket only at the price the member confirmed; free RSVPs are unchanged", async t => {
+test("a paid event is never confirmed by an RSVP: its ticket starts as a hold at the price the member confirmed", async t => {
   t.mock.method(console, "info", () => {}); reset();
   const rsvp = await service.createRsvp(member, "free");
+  assert.equal(rsvp.status, "confirmed");
   assert.equal("amount" in rsvp, false); assert.equal("paymentStatus" in rsvp, false);
   assert.equal("amount" in writes[0].data!, false, "free RSVPs never send ticket attributes");
   writes = [];
-  await assert.rejects(service.createRsvp(member, "paid"), { code: "PRICE_CHANGED" });
-  await assert.rejects(service.createRsvp(member, "paid", 14900), { code: "PRICE_CHANGED" });
-  await assert.rejects(service.createRsvp("other-member", "free", 19900), { code: "PRICE_CHANGED" });
+  await assert.rejects(service.createRsvp(member, "paid"), { code: "PAYMENT_REQUIRED" });
+  await assert.rejects(service.holdTicket(member, "paid", 14900), { code: "PRICE_CHANGED" });
+  await assert.rejects(service.holdTicket("other-member", "free", 19900), { code: "PRICE_CHANGED" });
   assert.equal(writes.length, 0);
-  const ticket = await service.createRsvp(member, "paid", 19900);
-  assert.deepEqual({ amount: ticket.amount, paymentStatus: ticket.paymentStatus, seatNumber: ticket.seatNumber, status: ticket.status }, { amount: 19900, paymentStatus: "pending", seatNumber: 1, status: "confirmed" });
-  assert.deepEqual(await service.createRsvp(member, "paid", 19900), ticket, "a retry returns the same ticket");
+  const hold = await service.holdTicket(member, "paid", 19900);
+  assert.deepEqual({ status: hold.status, amount: hold.amount, paymentStatus: hold.paymentStatus, seatNumber: hold.seatNumber }, { status: "pending", amount: 19900, paymentStatus: "pending", seatNumber: 1 });
+  assert.deepEqual(await service.holdTicket(member, "paid", 19900), hold, "a retry returns the same hold");
   assert.equal(writes.length, 1);
-  // A later price change never rewrites a ticket already issued.
+  // A later price change never reprices a hold.
   rows.get("events/paid")!.payload = JSON.stringify({ price: "₹249" });
-  assert.equal((await service.getUserRsvp("paid", member))?.amount, 19900);
-  assert.equal((await service.createRsvp("other-member", "paid", 24900)).amount, 24900);
+  assert.equal((await service.holdTicket(member, "paid", 24900)).amount, 19900);
+  assert.equal((await service.holdTicket("other-member", "paid", 24900)).amount, 24900);
   assert.throws(() => service.rsvpInputSchema.parse({ eventId: "paid", amount: 199.5 }));
   assert.throws(() => service.rsvpInputSchema.parse({ eventId: "paid", amount: 19900, userId: "spoofed" }));
 });
 
 test("tickets fail closed, without a free seat, until the ticket attributes are provisioned", async t => {
   t.mock.method(console, "info", () => {}); reset(); ticketSchema = false;
-  await assert.rejects(service.createRsvp(member, "paid", 19900), { code: "TICKETS_NOT_CONFIGURED", status: 503 });
+  await assert.rejects(service.holdTicket(member, "paid", 19900), { code: "TICKETS_NOT_CONFIGURED", status: 503 });
   assert.equal(ticketRow("paid"), undefined);
   assert.equal((await service.createRsvp(member, "free")).status, "confirmed");
 });
 
-test("payment confirmation is amount-checked and idempotent, and a paid ticket cannot be cancelled away", async t => {
+test("only a confirmed payment confirms a ticket: amount-checked, idempotent, and never cancelled away", async t => {
   t.mock.method(console, "info", () => {}); reset();
-  await service.createRsvp(member, "paid", 19900);
+  await service.holdTicket(member, "paid", 19900);
   await service.createRsvp(member, "free");
-  await service.createRsvp("other-member", "paid", 19900);
+  await service.holdTicket("other-member", "paid", 19900);
   await assert.rejects(service.confirmTicketPayment("paid", member, 100, "pay_synthetic"), { code: "AMOUNT_MISMATCH" });
   await assert.rejects(service.confirmTicketPayment("free", member, 19900, "pay_synthetic"), { code: "TICKET_NOT_FOUND" });
-  assert.equal(ticketRow("paid")!.paymentStatus, "pending");
+  assert.deepEqual({ status: ticketRow("paid")!.status, paymentStatus: ticketRow("paid")!.paymentStatus }, { status: "pending", paymentStatus: "pending" });
   writes = [];
-  assert.equal((await service.confirmTicketPayment("paid", member, 19900, "pay_synthetic")).paymentStatus, "paid");
+  const ticket = await service.confirmTicketPayment("paid", member, 19900, "pay_synthetic");
+  assert.deepEqual({ status: ticket.status, paymentStatus: ticket.paymentStatus }, { status: "confirmed", paymentStatus: "paid" });
   assert.equal((await service.confirmTicketPayment("paid", member, 19900, "pay_synthetic")).paymentStatus, "paid", "the same payment settles twice harmlessly");
   await assert.rejects(service.confirmTicketPayment("paid", member, 19900, "pay_repeat"), { code: "DUPLICATE_PAYMENT" }, "a second payment is refunded, not absorbed");
   assert.equal(writes.length, 1);
-  assert.equal(ticketRow("paid")!.paymentRef, "pay_synthetic");
+  assert.deepEqual({ status: ticketRow("paid")!.status, paymentRef: ticketRow("paid")!.paymentRef }, { status: "confirmed", paymentRef: "pay_synthetic" });
   await assert.rejects(service.cancelRsvp(member, "paid"), { code: "TICKET_PAID" });
   assert.ok(ticketRow("paid"));
   await service.cancelRsvp("other-member", "paid");
-  assert.equal(ticketRow("paid", "other-member"), undefined, "an unpaid ticket can still be cancelled");
+  assert.equal(ticketRow("paid", "other-member"), undefined, "an unpaid hold can be let go");
 });
 
-test("the check-in desk and guest list see what is still due, never account IDs", async t => {
+test("a hold that runs out unpaid keeps its seat until someone needs it; a late payment is reissued or refused", async t => {
   t.mock.method(console, "info", () => {}); reset();
-  await service.createRsvp(member, "paid", 19900);
+  rows.get("events/paid")!.capacity = 1;
+  const lapse = (userId = member) => { ticketRow("paid", userId)!.createdAt = new Date(Date.now() - 31 * 60_000).toISOString(); };
+  await service.holdTicket(member, "paid", 19900);
+  await assert.rejects(service.holdTicket("other-member", "paid", 19900), { code: "EVENT_FULL" }, "a live hold keeps its seat");
+  lapse();
+  const renewed = await service.holdTicket(member, "paid", 19900);
+  assert.equal(renewed.seatNumber, 1);
+  assert.ok(Date.now() - Date.parse(renewed.createdAt) < 5_000, "retrying renews a hold that ran out");
+  lapse();
+  const taken = await service.holdTicket("other-member", "paid", 19900);
+  assert.deepEqual({ seatNumber: taken.seatNumber, status: taken.status }, { seatNumber: 1, status: "pending" }, "the seat goes to the next buyer");
+  assert.equal(ticketRow("paid"), undefined);
+  // The first member's payment lands after all: no seat is free, so it is refused (and refunded by the caller).
+  await assert.rejects(service.confirmTicketPayment("paid", member, 19900, "pay_late"), { code: "EVENT_FULL" });
+  rows.get("events/paid")!.capacity = 2;
+  const reissued = await service.confirmTicketPayment("paid", member, 19900, "pay_late");
+  assert.deepEqual({ seatNumber: reissued.seatNumber, status: reissued.status, paymentStatus: reissued.paymentStatus }, { seatNumber: 2, status: "confirmed", paymentStatus: "paid" });
+  // A confirmed ticket is never reclaimed, however old.
+  rows.get("events/paid")!.capacity = 2;
+  lapse();
+  await assert.rejects(service.holdTicket("third-member", "paid", 19900), { code: "EVENT_FULL" });
+});
+
+test("the guest list and check-in desk count only paid tickets, never account IDs", async t => {
+  t.mock.method(console, "info", () => {}); reset();
+  await service.holdTicket(member, "paid", 19900);
   const organizer = await import("../lib/services/organizer");
   const event = { id: "paid", slug: "paid", title: "Synthetic paid session", status: "published", organizerUserId: operator.id, capacity: 2, startsAt: rows.get("events/paid")!.startsAt, endsAt: rows.get("events/paid")!.endsAt } as unknown as import("../types/event").Event;
-  const summary = await organizer.getOrganizerEventSummary(operator, event);
-  assert.deepEqual(summary.attendees, [{ displayName: "Ticket holder", rsvpStatus: "confirmed", seatNumber: 1, ticket: { amount: 19900, paid: false }, checkInStatus: "not_checked_in" }]);
-  assert.ok(!JSON.stringify(summary).includes(member));
+  assert.deepEqual((await organizer.getOrganizerEventSummary(operator, event)).attendees, [], "a hold is not a guest");
   const { token } = await service.createParticipantCheckInToken(member);
-  const result = await service.checkInParticipant(operator, "paid", token);
-  assert.equal(result.amountDue, 19900);
-  reset();
-  await service.createRsvp(member, "paid", 19900);
+  await assert.rejects(service.checkInParticipant(operator, "paid", token), { code: "PAYMENT_PENDING" });
   await service.confirmTicketPayment("paid", member, 19900, "pay_synthetic");
+  const summary = await organizer.getOrganizerEventSummary(operator, event);
+  assert.deepEqual(summary.attendees, [{ displayName: "Ticket holder", rsvpStatus: "confirmed", seatNumber: 1, ticket: { amount: 19900, paid: true }, checkInStatus: "not_checked_in" }]);
+  assert.ok(!JSON.stringify(summary).includes(member));
   assert.equal("amountDue" in await service.checkInParticipant(operator, "paid", token), false);
+  // A ticket issued before online payment (confirmed, unpaid) still admits its holder; the desk is told what to collect.
+  reset();
+  rows.set(`rsvps/${service.rsvpDocumentId("paid", member)}`, { $id: service.rsvpDocumentId("paid", member), eventId: "paid", userId: member, status: "confirmed", seatNumber: 1, createdAt: new Date().toISOString(), amount: 19900, paymentStatus: "pending" });
+  assert.equal((await service.checkInParticipant(operator, "paid", token)).amountDue, 19900);
 });
 
 test("organizers price a session as FREE or a rupee amount, never free-form text", async () => {

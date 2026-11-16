@@ -4,14 +4,14 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { loginUrl, refreshParticipation, useParticipation } from "./useParticipation";
 import { indiaDateTime } from "@/lib/calendar";
-import { formatInr, parseEventPrice } from "@/lib/pricing";
+import { formatInr, parseEventPrice, ticketHoldEndsAt } from "@/lib/pricing";
 
 export interface EventBookingInput {
   eventId: string;
   date: string;
   startTime: string;
   price: string;
-  /** PayU is set up and this is a real listing: tickets are paid online. */
+  /** PayU is set up and this is a real listing. A paid event's tickets are only sold online. */
   payOnline?: boolean;
 }
 
@@ -41,7 +41,10 @@ export function useEventBooking({ eventId, date, startTime, price, payOnline = f
   const pricing = parseEventPrice(price);
   const paid = pricing.kind === "paid";
   const booking = state.rsvps.find(rsvp => rsvp.eventId === eventId && rsvp.status === "confirmed");
-  /** A held ticket's unpaid amount, in paise. */
+  /** A seat held while its payment completes: not a ticket until the payment is confirmed. */
+  const hold = state.rsvps.find(rsvp => rsvp.eventId === eventId && rsvp.status === "pending" && ticketHoldEndsAt(rsvp.createdAt) > state.observedAt);
+  const holdUntil = hold ? new Date(ticketHoldEndsAt(hold.createdAt)).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", timeZone: "Asia/Kolkata" }) : undefined;
+  /** Unpaid amount (paise) on a ticket issued before online payment, when the organizer collected at the event. */
   const due = booking?.amount && booking.paymentStatus !== "paid" ? booking.amount : 0;
   const started = state.loaded && indiaDateTime(date, startTime).getTime() <= state.observedAt;
   const [pending, setPending] = useState(false);
@@ -73,15 +76,16 @@ export function useEventBooking({ eventId, date, startTime, price, payOnline = f
     window.setTimeout(() => setFeedback(null), 2800);
   }
 
+  /** A free event's RSVP, or cancelling. A paid event's ticket goes through pay(). */
   async function request(method: "POST" | "DELETE"): Promise<void> {
-    const ticketed = booking ? Boolean(booking.amount) : paid;
+    const ticketed = Boolean(booking?.amount);
     setPending(true);
     try {
       const response = await fetch("/api/participation/rsvp", {
         method,
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ eventId, ...(method === "POST" && paid ? { amount: pricing.amount } : {}) }),
+        body: JSON.stringify({ eventId }),
       });
       if (response.status === 401) {
         router.push(loginUrl());
@@ -89,17 +93,15 @@ export function useEventBooking({ eventId, date, startTime, price, payOnline = f
       }
       const data = await response.json().catch(() => null) as { rsvped?: boolean; error?: string; code?: string } | null;
       if (!response.ok) {
-        // The page's price is stale; reload it so the next confirmation shows the current one.
-        if (data?.code === "PRICE_CHANGED") router.refresh();
+        // The event became paid since the page loaded; reload it to offer tickets instead.
+        if (data?.code === "PAYMENT_REQUIRED") router.refresh();
         throw new Error(data?.error || (ticketed ? "Could not update your ticket" : "Could not update RSVP"));
       }
       await refreshParticipation();
-      setCheckoutOpen(false);
-      showFeedback(!data?.rsvped ? (ticketed ? "Ticket cancelled" : "RSVP cancelled") : ticketed ? `Ticket booked. ${pricing.label} is due to the organizer.` : "You're going. See you there!");
+      showFeedback(!data?.rsvped ? (ticketed ? "Ticket cancelled" : "RSVP cancelled") : "You're going. See you there!");
       router.refresh();
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Could not update RSVP";
-      if (method === "POST" && paid) setCheckoutError(message); else showFeedback(message);
+      showFeedback(error instanceof Error ? error.message : "Could not update RSVP");
     } finally {
       setPending(false);
     }
@@ -114,7 +116,7 @@ export function useEventBooking({ eventId, date, startTime, price, payOnline = f
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ eventId, amount: due || pricing.amount, phone }),
+        body: JSON.stringify({ eventId, amount: hold?.amount ?? (due || pricing.amount), phone }),
       });
       if (response.status === 401) {
         setPending(false);
@@ -140,7 +142,7 @@ export function useEventBooking({ eventId, date, startTime, price, payOnline = f
     setCheckoutOpen(true);
   }
 
-  /** The one button: sign in, RSVP, open the ticket summary, or (on a second tap) cancel. */
+  /** The one button: sign in, RSVP, open the ticket summary (to pay), or (on a second tap) cancel. */
   function act(): void {
     if (!state.authenticated && !state.error) { router.push(loginUrl()); return; }
     if (booking) {
@@ -149,25 +151,27 @@ export function useEventBooking({ eventId, date, startTime, price, payOnline = f
       void request("DELETE");
       return;
     }
-    if (paid) { openCheckout(); return; }
+    if (paid) { if (payOnline) openCheckout(); return; }
     void request("POST");
   }
 
   const label = confirmCancel ? "Tap again to cancel"
     : booking ? (booking.amount ? "Ticket booked" : "You're going")
     : started ? (paid ? "Ticket sales closed" : "RSVP closed")
+    : paid && !payOnline ? "Tickets not on sale"
+    : hold ? "Complete payment"
     : paid ? "Get ticket"
     : state.loaded && !state.authenticated && !state.error ? "Sign in to RSVP" : "RSVP";
 
   return {
-    pricing, booking, due, pending, feedback, confirmCancel, label, act, showFeedback,
-    disabled: pending || !state.loaded || started,
+    pricing, booking, hold, holdUntil, due, pending, feedback, confirmCancel, label, act, showFeedback,
+    disabled: pending || !state.loaded || started || (paid && !booking && !payOnline),
     /** Pay a held ticket online; absent when there is nothing to pay or no online payment. */
     payDue: due && payOnline && !started ? openCheckout : undefined,
     checkout: {
-      open: checkoutOpen, error: checkoutError, payOnline, priceLabel: due ? formatInr(due) : pricing.label,
+      open: checkoutOpen, error: checkoutError, priceLabel: hold?.amount ? formatInr(hold.amount) : due ? formatInr(due) : pricing.label,
       close: () => setCheckoutOpen(false),
-      confirm: (phone: string) => void (payOnline ? pay(phone) : request("POST")),
+      confirm: (phone: string) => void pay(phone),
     },
   };
 }

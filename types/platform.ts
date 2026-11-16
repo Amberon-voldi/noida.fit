@@ -1,4 +1,5 @@
-export type RSVPStatus = "confirmed" | "cancelled" | "waitlist";
+/** "pending": a paid event's seat held while its payment completes; it never counts as going. */
+export type RSVPStatus = "confirmed" | "pending" | "cancelled" | "waitlist";
 export type ParticipationStatus = "verified" | "connected" | "self_reported" | "pending";
 export type PaymentStatus = "pending" | "paid";
 

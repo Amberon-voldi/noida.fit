@@ -49,8 +49,8 @@ export const endpointGuide = [
   ["GET / PATCH", "/api/profile", "Account owner", "Read/update allowlisted profile settings. Making the .fit ID public needs a verified email."],
   ["GET", "/api/profile/public?username=", "Public opt-in", "Read explicit public DTO, never email or private history."],
   ["GET", "/api/participation?view=controls", "Account owner", "RSVP/save/follow state only. Without view=controls also returns private participation history."],
-  ["POST / DELETE", "/api/participation/rsvp", "Account owner + same origin", "Reserve/release a seat before start; cannot cancel recorded attendance. POST needs a verified email; DELETE does not."],
-  ["POST", "/api/payments/payu/checkout", "Account owner + same origin", "Hold a paid ticket (payment pending) and return the signed PayU form at its issued price. Needs a verified email, a 10-digit mobile number and PAYU_MERCHANT_KEY/SALT; demo listings are refused."],
+  ["POST / DELETE", "/api/participation/rsvp", "Account owner + same origin", "Reserve/release a seat for a free event before start; cannot cancel recorded attendance. A paid event answers 409 PAYMENT_REQUIRED: its ticket is held and paid through /api/payments/payu. POST needs a verified email; DELETE does not."],
+  ["POST", "/api/payments/payu/checkout", "Account owner + same origin", "Hold the seat for 30 minutes (RSVP status pending: not a ticket, not on the guest list) and return the signed PayU form at the hold's price. Only a payment PayU confirms makes it a confirmed ticket. Needs a verified email, a 10-digit mobile number and PAYU_MERCHANT_KEY/SALT; demo listings are refused."],
   ["POST", "/api/payments/payu/return", "PayU-signed form (member's browser)", "PayU's surl/furl. Settles the ticket from PayU's Verify Payment API, never the posted fields, then redirects to the event with ?payment=paid|failed|pending|refund."],
   ["POST", "/api/payments/payu/webhook", "PayU-signed form (PayU servers)", "Settles payments whose member never came back from checkout. 400 when the hash does not verify; 503 asks PayU to retry."],
   ["POST / DELETE", "/api/participation/saved", "Account owner + same origin", "Save/remove an event, community or place. POST needs a verified email; DELETE does not."],
@@ -75,5 +75,6 @@ export const adminFailures = [
   ["503 REQUEST_FAILED", "Check backend reachability and scoped credentials in server logs. Do not paste raw SDK errors or keys into reports."],
   ["[PayU] Captured payment has no ticket to settle", "Money arrived that no ticket could take (wrong amount, a second payment, or the seat went to someone else). Find the txnid in the PayU dashboard and refund it there."],
   ["[PayU] Return/Webhook rejected: its hash did not verify", "Check PAYU_MERCHANT_KEY/SALT and PAYU_MODE match the PayU account. Repeated webhook rejections with good credentials mean PayU signs notifications differently: check its webhook docs."],
+  ["403 PAYMENT_PENDING at check-in", "The member started buying a ticket but PayU hasn't confirmed the payment, so they aren't on the guest list. Ask them to finish paying on the event page; their spot is held for 30 minutes."],
   ["CHECKIN_TOKEN_EXPIRED / CHECKIN_CLOSED", "Ask the participant to refresh their QR or review the selected event times. Do not invent attendance outside the window."],
 ] as const;

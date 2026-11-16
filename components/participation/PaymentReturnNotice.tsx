@@ -6,8 +6,8 @@ import { useEffect } from "react";
 /** Messages for the `?payment=` outcome the PayU return route adds (app/api/payments/payu/return). */
 const NOTICES = {
   paid: { text: "Payment received. Your ticket is confirmed; show your .fit ID at check-in.", tone: "border-velocity/60 bg-velocity/10 text-white" },
-  failed: { text: "The payment didn’t go through. Your spot is still held, so you can try again or pay the organizer at the event.", tone: "border-rose-400/60 bg-rose-400/10 text-rose-200" },
-  pending: { text: "We’re still confirming your payment with PayU. Your ticket shows as paid once it clears, so there’s no need to pay again.", tone: "border-border-strong bg-surface text-text-secondary" },
+  failed: { text: "The payment didn’t go through, so you don’t have a ticket yet. Your spot stays held for a little while: try again to confirm it.", tone: "border-rose-400/60 bg-rose-400/10 text-rose-200" },
+  pending: { text: "We’re still confirming your payment with PayU. Your ticket is confirmed once it clears, so there’s no need to pay again.", tone: "border-border-strong bg-surface text-text-secondary" },
   refund: { text: "Your payment came through, but this ticket couldn’t take it: it may already be paid for, or the event filled up. It has been flagged for a refund.", followUp: true, tone: "border-rose-400/60 bg-rose-400/10 text-rose-200" },
 } as const;
 

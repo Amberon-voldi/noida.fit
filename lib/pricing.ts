@@ -30,6 +30,14 @@ export function parseEventPrice(value: unknown): EventPricing {
   return { kind: "info", amount: 0, label: text || "Ask the host" };
 }
 
+/** How long a paid ticket's seat is held while its payment completes. Only a confirmed payment confirms it. */
+export const TICKET_HOLD_MINUTES = 30;
+
+/** When a ticket hold taken at `createdAt` runs out (ms). NaN for an unreadable time: treat as ended. */
+export function ticketHoldEndsAt(createdAt: string): number {
+  return Date.parse(createdAt) + TICKET_HOLD_MINUTES * 60_000;
+}
+
 /** The stored price string for a whole-rupee ticket. */
 export function paidPrice(rupees: number): string {
   return `₹${rupees}`;

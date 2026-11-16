@@ -6,8 +6,9 @@ export const runtime = "nodejs";
 export async function POST(request: Request) {
   try {
     const user = await requireVerifiedMutationUser(request, "rsvp");
-    const { eventId, amount } = await readJson(request, rsvpInputSchema);
-    const rsvp = await createRsvp(user.id, eventId, amount);
+    // Free events only; a paid event's ticket is held and confirmed through /api/payments/payu.
+    const { eventId } = await readJson(request, rsvpInputSchema);
+    const rsvp = await createRsvp(user.id, eventId);
     return jsonOk({ rsvped: true, eventId: rsvp.eventId, seatNumber: rsvp.seatNumber, ...(rsvp.amount ? { amount: rsvp.amount, paymentStatus: rsvp.paymentStatus } : {}) });
   } catch (error) {
     return jsonError(error, "RSVP could not be created");

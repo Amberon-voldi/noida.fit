@@ -9,7 +9,7 @@ import {
   type AppwriteDocument,
 } from "@/lib/appwrite/database";
 import { HttpError } from "@/lib/http";
-import { MAX_TICKET_RUPEES, parseEventPrice } from "@/lib/pricing";
+import { MAX_TICKET_RUPEES, parseEventPrice, ticketHoldEndsAt } from "@/lib/pricing";
 import type { AuthUser } from "@/lib/auth";
 import { getAdminServices } from "@/lib/appwrite/server";
 import type { RSVP, SavedItem, Membership, Participation, CheckIn } from "@/types/platform";
@@ -42,7 +42,7 @@ type EventRecord = {
 
 export const documentIdSchema = z.string().trim().min(1).max(36).regex(/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/);
 export const eventInputSchema = z.object({ eventId: documentIdSchema }).strict();
-/** `amount` (paise) is the ticket price the member confirmed; omitted for free events. */
+/** `amount` is still accepted from pages loaded before online payment, and ignored: paid tickets are held and paid through /api/payments/payu. */
 export const rsvpInputSchema = z.object({ eventId: documentIdSchema, amount: z.number().int().positive().max(MAX_TICKET_RUPEES * 100).optional() }).strict();
 export const savedInputSchema = z.object({ itemType: z.enum(["event", "place", "community"]), itemId: documentIdSchema }).strict();
 export const followInputSchema = z.object({ communityId: documentIdSchema }).strict();
@@ -193,53 +193,114 @@ export async function getUserRsvp(eventId: string, userId: string): Promise<RSVP
   return row ? rsvpDto(row) : null;
 }
 
-/**
- * The atomic create + unique(eventId,seatNumber) index serializes allocation,
- * NOT the preceding read. Every proposed seat is in [1,capacity]. A second
- * unique(eventId,userId) index and deterministic user ID prohibit duplicate
- * reservations. Never upsert an RSVP: that could overwrite a seat owner.
- */
-export async function createRsvp(userId: string, eventId: string, expectedAmount?: number): Promise<RSVP> {
+/** A free event's RSVP, confirmed at once. A paid event's ticket is never confirmed here: it starts
+ * as a hold (holdTicket) and only a confirmed payment (confirmTicketPayment) confirms it. */
+export async function createRsvp(userId: string, eventId: string): Promise<RSVP> {
   documentIdSchema.parse(userId);
   const event = await getEvent(eventId);
   const { start } = eventWindow(event);
   if (Date.now() >= start) throw new HttpError(409, "EVENT_STARTED", "RSVP is closed for this event");
   const existing = await getUserRsvp(eventId, userId);
   if (existing?.status === "confirmed") return existing;
-  // A paid event issues a ticket at the price the member confirmed, never one that changed since.
   const pricing = eventPricing(event);
-  if ((expectedAmount ?? 0) !== pricing.amount) {
-    throw new HttpError(409, "PRICE_CHANGED", pricing.kind === "paid" ? `This ticket is ${pricing.label}. Check the price and confirm again.` : "This event’s price has changed. Reload the page and try again.");
-  }
-  const ticket = pricing.kind === "paid" ? { amount: pricing.amount, paymentStatus: "pending" as const } : {};
-  return allocateSeat(event, eventId, userId, ticket, start);
+  if (pricing.kind === "paid") throw new HttpError(409, "PAYMENT_REQUIRED", `Tickets for this event are ${pricing.label}, confirmed once paid online.`);
+  return allocateSeat(event, eventId, userId, { status: "confirmed" }, start);
 }
 
-/** Takes the lowest free seat for a new RSVP or ticket; seat holders are never displaced. */
-async function allocateSeat(event: EventRecord, eventId: string, userId: string, ticket: Partial<TicketRow>, closesAt = Infinity): Promise<RSVP> {
+const holdEnded = (row: { createdAt?: string }, now = Date.now()) => !(ticketHoldEndsAt(String(row.createdAt)) > now);
+
+/**
+ * A paid event's ticket starts as a hold: its seat is reserved (status "pending") for
+ * TICKET_HOLD_MINUTES while the member pays, and only confirmTicketPayment confirms it. Returns the
+ * member's existing ticket or hold instead of taking a second seat; retrying renews a hold that ran
+ * out while its seat is still unclaimed. A hold keeps the price it was taken at.
+ */
+export async function holdTicket(userId: string, eventId: string, expectedAmount: number): Promise<RSVP> {
+  documentIdSchema.parse(userId);
+  const event = await getEvent(eventId);
+  const { start } = eventWindow(event);
+  if (Date.now() >= start) throw new HttpError(409, "EVENT_STARTED", "Ticket sales have closed for this event");
+  const id = rsvpDocumentId(eventId, userId);
+  const existing = await getAppwriteDocument<TicketRow>(collections.rsvps, id);
+  if (existing?.status === "confirmed") return rsvpDto(existing);
+  if (existing?.status === "pending") {
+    if (!holdEnded(existing)) return rsvpDto(existing);
+    const createdAt = new Date().toISOString();
+    try {
+      await updateAppwriteDocument(collections.rsvps, id, { createdAt });
+      return rsvpDto({ ...existing, createdAt });
+    } catch (error) {
+      if (!isCode(error, 404)) throw error;
+      // Released to someone else a moment ago: take a new seat below.
+    }
+  }
+  const pricing = eventPricing(event);
+  if (pricing.kind !== "paid" || expectedAmount !== pricing.amount) {
+    throw new HttpError(409, "PRICE_CHANGED", pricing.kind === "paid" ? `This ticket is ${pricing.label}. Check the price and confirm again.` : "This event’s price has changed. Reload the page and try again.");
+  }
+  return allocateSeat(event, eventId, userId, { status: "pending", amount: pricing.amount, paymentStatus: "pending" }, start);
+}
+
+/**
+ * Takes the lowest free seat for an RSVP, ticket or hold; seat holders are never displaced. Only when
+ * no seat is free is one reclaimed from someone else's hold that ran out unpaid.
+ *
+ * The atomic create + unique(eventId,seatNumber) index serializes allocation, NOT the preceding read.
+ * Every proposed seat is in [1,capacity]. A second unique(eventId,userId) index and deterministic user
+ * ID prohibit duplicate reservations. Never upsert an RSVP: that could overwrite a seat owner.
+ */
+async function allocateSeat(event: EventRecord, eventId: string, userId: string, fields: Partial<TicketRow> & Pick<TicketRow, "status">, closesAt = Infinity): Promise<RSVP> {
   const capacity = event.capacity;
   if (!Number.isSafeInteger(capacity) || !capacity || capacity < 1 || capacity > 100_000) {
     throw new HttpError(409, "CAPACITY_UNAVAILABLE", "The organizer needs to confirm event capacity");
   }
-  const current = await listAppwriteDocuments<Row<RSVP>>(collections.rsvps, [Query.equal("eventId", eventId)]);
-  const occupied = new Set(current.map((row) => row.seatNumber));
+  const current = await listAppwriteDocuments<TicketRow>(collections.rsvps, [Query.equal("eventId", eventId)]);
+  const holders = new Map(current.map((row) => [row.seatNumber, row]));
+  const now = Date.now();
+  const free: number[] = [];
+  const lapsed: AppwriteDocument<TicketRow>[] = [];
   for (let seatNumber = 1; seatNumber <= capacity; seatNumber += 1) {
-    if (occupied.has(seatNumber)) continue;
+    const holder = holders.get(seatNumber);
+    if (!holder) free.push(seatNumber);
+    else if (holder.status === "pending" && holder.userId !== userId && holdEnded(holder, now)) lapsed.push(holder);
+  }
+  const claim = async (seatNumber: number): Promise<RSVP | null> => {
     if (Date.now() >= closesAt) throw new HttpError(409, "EVENT_STARTED", "RSVP is closed for this event");
     try {
       return rsvpDto(await createAppwriteDocument<TicketRow>(collections.rsvps, {
-        eventId, userId, status: "confirmed", seatNumber, createdAt: new Date().toISOString(), ...ticket,
+        eventId, userId, seatNumber, createdAt: new Date().toISOString(), ...fields,
       }, rsvpDocumentId(eventId, userId), userDocumentPermissions(userId)));
     } catch (error) {
       // `npm run appwrite:setup` adds the ticket attributes; until then Appwrite rejects them.
-      if (ticket.amount && isCode(error, 400)) throw new HttpError(503, "TICKETS_NOT_CONFIGURED", "Tickets for paid events are not switched on yet. Please try again later.");
+      if (fields.amount && isCode(error, 400)) throw new HttpError(503, "TICKETS_NOT_CONFIGURED", "Tickets for paid events are not switched on yet. Please try again later.");
       if (!isCode(error, 409)) throw error;
-      const afterRace = await getUserRsvp(eventId, userId);
-      if (afterRace?.status === "confirmed") return afterRace;
-      // Another attendee owns this seat. Unique index enforcement keeps it safe.
+      // The member got a seat in a concurrent request, or another attendee owns this one (the unique index keeps it safe).
+      return getUserRsvp(eventId, userId);
     }
+  };
+  for (const seatNumber of free) {
+    const rsvp = await claim(seatNumber);
+    if (rsvp) return rsvp;
+  }
+  for (const hold of lapsed) {
+    if (!(await releaseLapsedHold(hold.$id))) continue;
+    const rsvp = await claim(hold.seatNumber);
+    if (rsvp) return rsvp;
   }
   throw new HttpError(409, "EVENT_FULL", "This event is currently full");
+}
+
+/** Frees the seat of a hold that ran out unpaid. Re-read first: a payment may have just confirmed it.
+ * Appwrite has no conditional delete, so a payment confirmed in the instant between the re-read and the
+ * delete loses its row; the next settle of that payment (PayU's webhook usually follows the redirect)
+ * reissues the ticket or flags the payment for refund. That needs a payment finishing more than
+ * TICKET_HOLD_MINUTES late at the moment someone else takes the last seat. */
+async function releaseLapsedHold(id: string): Promise<boolean> {
+  const row = await getAppwriteDocument<TicketRow>(collections.rsvps, id);
+  if (!row) return true;
+  if (row.status !== "pending" || !holdEnded(row)) return false;
+  await deleteIfPresent(collections.rsvps, id);
+  return true;
 }
 
 export async function cancelRsvp(userId: string, eventId: string): Promise<void> {
@@ -259,27 +320,29 @@ export async function cancelRsvp(userId: string, eventId: string): Promise<void>
 }
 
 /**
- * Marks a ticket paid. Call only with a payment the gateway itself confirmed server to server
- * (lib/services/ticket-payments.ts). Idempotent for the same paymentRef; the amount must match
- * the issued ticket. A 404/409 here means the money arrived but no ticket can take it: refund it.
+ * The only way a paid event's ticket is confirmed: marks the hold (or an older pay-at-venue ticket)
+ * paid and confirmed. Call only with a payment the gateway itself confirmed server to server
+ * (lib/services/ticket-payments.ts). Idempotent for the same paymentRef; the amount must match the
+ * held ticket. A 404/409 here means the money arrived but no ticket can take it: refund it.
  */
 export async function confirmTicketPayment(eventId: string, userId: string, amount: number, paymentRef: string): Promise<RSVP> {
   const id = rsvpDocumentId(documentIdSchema.parse(eventId), documentIdSchema.parse(userId));
   const ref = paymentRef.slice(0, 128);
   let ticket = await getAppwriteDocument<TicketRow>(collections.rsvps, id);
   if (!ticket) {
-    // The holder cancelled while paying. The money arrived, so issue the ticket again if a seat is free.
-    await allocateSeat(await getEvent(eventId), eventId, userId, { amount, paymentStatus: "paid", paymentRef: ref });
+    // The hold ran out and its seat was released, or the member cancelled while paying. The money
+    // arrived, so issue the ticket if a seat is free.
+    await allocateSeat(await getEvent(eventId), eventId, userId, { status: "confirmed", amount, paymentStatus: "paid", paymentRef: ref });
     ticket = await getAppwriteDocument<TicketRow>(collections.rsvps, id);
   }
-  if (!ticket?.amount || ticket.status !== "confirmed") throw new HttpError(404, "TICKET_NOT_FOUND", "No ticket is awaiting payment");
+  if (!ticket?.amount || (ticket.status !== "confirmed" && ticket.status !== "pending")) throw new HttpError(404, "TICKET_NOT_FOUND", "No ticket is awaiting payment");
   if (ticket.amount !== amount) throw new HttpError(409, "AMOUNT_MISMATCH", "The payment does not match the ticket price");
   if (ticket.paymentStatus === "paid") {
     if (ticket.paymentRef === ref) return rsvpDto(ticket);
     throw new HttpError(409, "DUPLICATE_PAYMENT", "This ticket was already paid for");
   }
-  await updateAppwriteDocument(collections.rsvps, id, { paymentStatus: "paid", paymentRef: ref });
-  return rsvpDto({ ...ticket, paymentStatus: "paid" });
+  await updateAppwriteDocument(collections.rsvps, id, { status: "confirmed", paymentStatus: "paid", paymentRef: ref });
+  return rsvpDto({ ...ticket, status: "confirmed", paymentStatus: "paid" });
 }
 
 function secret(): string {
@@ -418,12 +481,13 @@ export async function checkInParticipant(organizer: Pick<AuthUser, "id" | "label
   if (now < window.opensAt || now >= window.closesAt) throw new HttpError(409, "CHECKIN_CLOSED", "Check-in is outside the event window");
   const rsvp = await getUserRsvp(event.$id, userId);
   // The participant showed this card to the desk, so naming them here reveals nothing new.
+  if (rsvp?.status === "pending") throw new HttpError(403, "PAYMENT_PENDING", `${displayName} hasn’t finished paying for a ticket, so they aren’t confirmed yet`);
   if (rsvp?.status !== "confirmed") throw new HttpError(403, "RSVP_REQUIRED", `${displayName} is not on the RSVP list for this event`);
   const checkin = checkinDto(await createOnce<Row<CheckIn>>(collections.checkins, id, {
     eventId: event.$id, userId, timestamp: new Date().toISOString(), verificationMethod: "organizer_qr",
   }, userId));
   await ensureVerifiedParticipation(userId, event, checkin);
-  // An unpaid ticket still admits its holder; the desk is told what to collect.
+  // Only tickets issued before online payment can be confirmed unpaid; the desk is told what to collect.
   const amountDue = rsvp.amount && rsvp.paymentStatus !== "paid" ? rsvp.amount : undefined;
   return { eventId: event.$id, displayName, checkedInAt: checkin.timestamp, alreadyCheckedIn: false, ...(amountDue ? { amountDue } : {}) };
 }

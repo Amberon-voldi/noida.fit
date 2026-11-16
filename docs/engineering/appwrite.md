@@ -84,7 +84,7 @@ Appwrite owns `$createdAt` and `$updatedAt`; code strips caller-supplied `$` met
 | Events | unique slug, title, activityId, communitySlug, venueSlug, sector, date, startsAt, endsAt, capacity, featured, optional organizerUserId, status, demo, payload |
 | Places | unique slug, sector, featured, status, demo, payload |
 | Communities | unique slug, activityId, status, demo, payload |
-| RSVPs | eventId, userId, status, seatNumber, createdAt; tickets for paid events also set amount (paise), paymentStatus (pending/paid) and paymentRef; unique(eventId,userId), unique(eventId,seatNumber) |
+| RSVPs | eventId, userId, status (confirmed; pending = a paid ticket's 30-minute hold until PayU confirms payment), seatNumber, createdAt; tickets for paid events also set amount (paise), paymentStatus (pending/paid) and paymentRef; unique(eventId,userId), unique(eventId,seatNumber) |
 | Check-ins | eventId, userId, timestamp, verificationMethod; unique(eventId,userId) |
 | Memberships | userId, communityId, status, createdAt; unique(userId,communityId) |
 | Saved items | userId, itemId, itemType, createdAt; unique(userId,itemType,itemId) |
@@ -148,4 +148,4 @@ Before launch:
 - Rotate previously exposed diagnostic credentials. Never log CLI sessions or API keys.
 - Configure and test email delivery, recovery and verification as an onboarding follow-up.
 - Stock imagery is illustrative and attributed. Provider integrations are not faked: Strava requires official OAuth configuration, Apple Health requires a native bridge, and Cult.fit/FITPASS require official access.
-- No storage bucket, cloud function or separate backend is required for the shipped slice. PayU is optional: without it, paid tickets are collected at the event.
+- No storage bucket, cloud function or separate backend is required for the shipped slice. PayU is optional: without it, paid events can't be booked.

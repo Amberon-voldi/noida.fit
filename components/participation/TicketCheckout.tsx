@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { LoaderCircle, X } from "lucide-react";
 import { normalizeIndianMobile } from "@/lib/phone";
+import { TICKET_HOLD_MINUTES } from "@/lib/pricing";
 
 interface Props {
   open: boolean;
@@ -10,16 +11,14 @@ interface Props {
   when: string;
   venueName: string;
   priceLabel: string;
-  /** Pay with PayU now, rather than hold the spot and pay the organizer at the event. */
-  payOnline: boolean;
   pending: boolean;
   error: string | null;
   onConfirm: (phone: string) => void;
   onClose: () => void;
 }
 
-/** The summary a member confirms before a ticket is issued for a paid event. */
-export function TicketCheckout({ open, title, when, venueName, priceLabel, payOnline, pending, error, onConfirm, onClose }: Props) {
+/** The summary a member confirms before paying for a ticket; the ticket is confirmed once PayU confirms the payment. */
+export function TicketCheckout({ open, title, when, venueName, priceLabel, pending, error, onConfirm, onClose }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   const phoneId = useId();
@@ -41,7 +40,7 @@ export function TicketCheckout({ open, title, when, venueName, priceLabel, payOn
 
   function submit(event: React.FormEvent<HTMLFormElement>): void {
     event.preventDefault();
-    if (payOnline && !normalizeIndianMobile(phone)) { setPhoneError("Enter a 10-digit Indian mobile number"); return; }
+    if (!normalizeIndianMobile(phone)) { setPhoneError("Enter a 10-digit Indian mobile number"); return; }
     setPhoneError(null);
     onConfirm(phone);
   }
@@ -59,21 +58,19 @@ export function TicketCheckout({ open, title, when, venueName, priceLabel, payOn
           <dl className="rounded-lg border border-border-subtle bg-surface-elevated">
             <div className="flex items-center justify-between gap-3 px-4 py-3"><dt className="text-sm text-text-secondary">1 ticket</dt><dd className="font-mono text-lg font-bold text-white">{priceLabel}</dd></div>
           </dl>
-          {payOnline ? <>
-            <div>
+          <div>
               <label htmlFor={phoneId} className="text-sm font-semibold text-white">Mobile number</label>
               <input id={phoneId} type="tel" inputMode="tel" autoComplete="tel" required maxLength={20} value={phone} onChange={event => { setPhone(event.target.value); setPhoneError(null); }} placeholder="98765 43210" aria-invalid={Boolean(phoneError)} aria-describedby={`${phoneId}-hint`} className="mt-1.5 min-h-11 w-full rounded-xl border border-border-subtle bg-surface px-3.5 py-2.5 text-[15px] text-white transition-colors hover:border-border-strong focus:border-velocity focus:outline-none" />
               <p id={`${phoneId}-hint`} className={`mt-1.5 text-xs ${phoneError ? "text-rose-200" : "text-text-secondary"}`}>{phoneError ?? "PayU needs it to process the payment."}</p>
             </div>
-            <p className="text-xs leading-relaxed text-text-secondary">You’ll pay {priceLabel} on PayU’s secure checkout. Your spot is held while you pay, and if you don’t finish you can pay later from this page. One ticket per account.</p>
-          </> : <p className="text-xs leading-relaxed text-text-secondary">Online payment isn’t open yet. Confirming holds your spot now, and {priceLabel} is payable to the organizer at the event. One ticket per account.</p>}
+          <p className="text-xs leading-relaxed text-text-secondary">You’ll pay {priceLabel} on PayU’s secure checkout. We hold your spot for {TICKET_HOLD_MINUTES} minutes while you pay, and your ticket is confirmed once PayU confirms the payment. One ticket per account.</p>
           {error && <p role="alert" className="rounded-lg border border-rose-400/60 bg-rose-400/10 p-3 text-sm text-rose-200">{error}</p>}
         </div>
         <div className="filter-dialog-actions flex gap-3 border-t border-border-subtle p-4 sm:p-6">
           <button type="button" onClick={onClose} className="button-secondary">Not now</button>
           <button type="submit" disabled={pending} className="button-primary flex-1">
             {pending && <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />}
-            {payOnline ? `Pay ${priceLabel}` : `Confirm ticket · ${priceLabel}`}
+            Pay {priceLabel}
           </button>
         </div>
       </form>

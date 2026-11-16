@@ -101,7 +101,7 @@ test("the payment form carries PayU's documented request hash and never the salt
 test("a payment holds the seat at its issued price, and refuses before holding anything it can't charge", async t => {
   t.mock.method(console, "info", () => {}); reset();
   await start();
-  assert.deepEqual({ amount: ticketRow("paid")!.amount, paymentStatus: ticketRow("paid")!.paymentStatus }, { amount: 19900, paymentStatus: "pending" });
+  assert.deepEqual({ status: ticketRow("paid")!.status, amount: ticketRow("paid")!.amount, paymentStatus: ticketRow("paid")!.paymentStatus }, { status: "pending", amount: 19900, paymentStatus: "pending" }, "held, not yet a ticket");
   // A later price change never reprices a held ticket.
   rows.get("events/paid")!.payload = JSON.stringify({ price: "₹249" });
   writes = [];
@@ -145,13 +145,13 @@ test("only a payment PayU reports as captured marks the ticket paid, exactly onc
   assert.equal((await payments.settlePayuTransaction(fields.txnid)).outcome, "pending");
   transactions.set(fields.txnid, captured(fields, { unmappedstatus: "auth" }));
   assert.equal((await payments.settlePayuTransaction(fields.txnid)).outcome, "pending", "authorised but not captured");
-  assert.equal(ticketRow("paid")!.paymentStatus, "pending");
+  assert.deepEqual({ status: ticketRow("paid")!.status, paymentStatus: ticketRow("paid")!.paymentStatus }, { status: "pending", paymentStatus: "pending" }, "no confirmation without a captured payment");
   writes = [];
   transactions.set(fields.txnid, captured(fields));
   assert.deepEqual(await payments.settlePayuTransaction(fields.txnid), { outcome: "paid", eventId: "paid" });
   assert.deepEqual(await payments.settlePayuTransaction(fields.txnid), { outcome: "paid", eventId: "paid" }, "the redirect and the webhook both settle");
   assert.equal(writes.length, 1);
-  assert.deepEqual({ paymentStatus: ticketRow("paid")!.paymentStatus, paymentRef: ticketRow("paid")!.paymentRef }, { paymentStatus: "paid", paymentRef: `payu:${fields.txnid}:403993715531` });
+  assert.deepEqual({ status: ticketRow("paid")!.status, paymentStatus: ticketRow("paid")!.paymentStatus, paymentRef: ticketRow("paid")!.paymentRef }, { status: "confirmed", paymentStatus: "paid", paymentRef: `payu:${fields.txnid}:403993715531` });
   const rsvp = await participation.getUserRsvp("paid", member.id);
   assert.equal(rsvp?.paymentStatus, "paid");
   assert.equal("paymentRef" in rsvp!, false, "the payment reference stays server-side");
@@ -184,7 +184,7 @@ test("captured money no ticket can take is flagged for refund, and a cancelled h
   reset(1);
   const lost = (await start()).fields;
   await participation.cancelRsvp(member.id, "paid");
-  await participation.createRsvp(other.id, "paid", 19900);
+  await participation.holdTicket(other.id, "paid", 19900);
   transactions.set(lost.txnid, captured(lost));
   assert.equal((await payments.settlePayuTransaction(lost.txnid)).outcome, "refund", "the seat went to someone else");
   assert.equal(ticketRow("paid"), undefined);
@@ -215,7 +215,7 @@ test("the return route settles a signed result and sends the member back to the 
   const response = await post(resultFor(fields));
   assert.equal(response.status, 303);
   assert.equal(response.headers.get("location"), "https://noida.fit/event/alpha-doubles?payment=paid");
-  assert.equal(ticketRow("paid")!.paymentStatus, "paid");
+  assert.deepEqual({ status: ticketRow("paid")!.status, paymentStatus: ticketRow("paid")!.paymentStatus }, { status: "confirmed", paymentStatus: "paid" });
   const next = (await start({}, other)).fields;
   await withPayuDown(async () => {
     assert.equal((await post(resultFor(next))).headers.get("location"), "https://noida.fit/event/alpha-doubles?payment=pending", "the member still lands on the event");

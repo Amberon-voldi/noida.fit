@@ -6,7 +6,7 @@ import { HttpError } from "@/lib/http";
 import { normalizeIndianMobile } from "@/lib/phone";
 import { MAX_TICKET_RUPEES } from "@/lib/pricing";
 import { assertPayuConfigured, newTxnId, payuCheckoutForm, verifyPayuTransaction, type PayuCheckoutForm } from "@/lib/payments/payu";
-import { confirmTicketPayment, createRsvp, documentIdSchema, getTicketEvent } from "@/lib/services/participation";
+import { confirmTicketPayment, documentIdSchema, getTicketEvent, holdTicket } from "@/lib/services/participation";
 
 /** `amount` (paise) is the price the member confirmed: the page price for a new ticket, the issued price for a held one. */
 export const ticketPaymentInputSchema = z.object({
@@ -18,9 +18,10 @@ export const ticketPaymentInputSchema = z.object({
 export const PAYU_RETURN_PATH = "/api/payments/payu/return";
 
 /**
- * Holds the member's seat (payment pending) and returns the signed form that takes them to PayU.
- * A held ticket is charged at the price it was issued at. If they never finish, the hold stays
- * pending, payable again from the event page or to the organizer at the event.
+ * Holds the member's seat for TICKET_HOLD_MINUTES (status "pending", not yet a ticket) and returns the
+ * signed form that takes them to PayU. The ticket is confirmed only when PayU confirms the payment
+ * (settlePayuTransaction). A hold is charged at the price it was taken at; one left unpaid runs out
+ * and its seat can go to someone else.
  */
 export async function startTicketPayment(user: Pick<AuthUser, "id" | "name" | "email">, input: z.infer<typeof ticketPaymentInputSchema>, origin: string): Promise<PayuCheckoutForm> {
   assertPayuConfigured();
@@ -28,7 +29,7 @@ export async function startTicketPayment(user: Pick<AuthUser, "id" | "name" | "e
   if (!phone) throw new HttpError(400, "PHONE_INVALID", "Enter a 10-digit Indian mobile number");
   const event = await getTicketEvent(input.eventId);
   if (event.demo) throw new HttpError(409, "DEMO_EVENT", "This is a demo listing, so it can’t take a payment");
-  const ticket = await createRsvp(user.id, input.eventId, input.amount);
+  const ticket = await holdTicket(user.id, input.eventId, input.amount);
   if (!ticket.amount) throw new HttpError(409, "NO_TICKET_DUE", "You already have a free RSVP for this event");
   if (ticket.paymentStatus === "paid") throw new HttpError(409, "TICKET_PAID", "Your ticket is already paid for");
   return payuCheckoutForm({
