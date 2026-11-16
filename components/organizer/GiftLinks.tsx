@@ -109,7 +109,7 @@ export function GiftLinks({ eventId, eventTitle, published, initialLinks, guestP
           <legend className="text-sm font-semibold text-white">How they claim it</legend>
           <div className="mt-1.5 grid gap-2">
             {([
-              [true, "No account needed", "They give just their mobile number and get a guest pass with a QR for the door."],
+              [true, "No account needed", "They give just their mobile number and get a guest pass with a QR for the door. The gift link then opens their pass on any phone."],
               [false, "With a NOIDA.FIT account", "They sign in or sign up, and the session counts on their .fit ID."],
             ] as const).map(([value, title, text]) => <label key={title} className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 ${allowGuests === value ? "border-velocity bg-velocity/10" : "border-border-strong"}`}>
               <input type="radio" name="gift-access" checked={allowGuests === value} onChange={() => setChoice(value)} className="mt-1 size-4 shrink-0 accent-velocity" />

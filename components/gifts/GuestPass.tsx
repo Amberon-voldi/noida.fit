@@ -52,6 +52,6 @@ export function GuestPass({ passId, ticket, state, checkedInAt, directions }: Pr
       {calendarFailed && <p className="text-xs text-rose-200" role="alert">Calendar details unavailable. Add the date and time by hand.</p>}
       <Link href={`/event/${ticket.eventSlug}`} className="inline-flex min-h-11 items-center justify-center gap-1 text-sm font-semibold text-velocity hover:text-velocity-glow">About this session <ArrowUpRight className="h-4 w-4" aria-hidden="true" /></Link>
     </div>
-    {state === "valid" && <p className="mt-4 rounded-xl border border-border-subtle bg-surface p-4 text-xs leading-relaxed text-text-secondary">This page is your ticket, no account needed. Bookmark it or take a screenshot of the QR. Anyone with the link can use it, so keep it to yourself.</p>}
+    {state === "valid" && <p className="mt-4 rounded-xl border border-border-subtle bg-surface p-4 text-xs leading-relaxed text-text-secondary">This is your ticket, no account needed, and your gift link opens it on any phone. Anyone with that link can use it, so keep it to yourself.</p>}
   </div>;
 }

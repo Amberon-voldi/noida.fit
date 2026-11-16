@@ -230,7 +230,7 @@ export function TicketConfirmation({ ticket, open = true, onClose, clearParam, g
           <button type="button" onClick={addToCalendar} className="button-secondary"><CalendarPlus className="h-4 w-4" aria-hidden="true" />Add to calendar</button>
           <button type="button" onClick={share} className="button-secondary"><Share2 className="h-4 w-4" aria-hidden="true" />Tell friends</button>
         </div>
-        <p className="text-center text-xs text-text-secondary" role="status">{shared ?? (guest ? "Your guest pass QR is on this page. Bookmark it or take a screenshot for the door." : "On the day, open your .fit ID and flip it to the check-in QR.")}</p>
+        <p className="text-center text-xs text-text-secondary" role="status">{shared ?? (guest ? "Your gift link opens this pass on any phone. Show its QR at the door." : "On the day, open your .fit ID and flip it to the check-in QR.")}</p>
         <button type="button" onClick={close} className="mx-auto block min-h-11 px-4 text-sm font-semibold text-text-secondary hover:text-white">Done</button>
       </div>
     </div>

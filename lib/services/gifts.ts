@@ -23,7 +23,7 @@ export const MAX_GIFT_LINKS = 50;
 /** `allowGuests`: the organizer lets people claim without an account. Absent on links made before the choice existed.
  * `phone`: the named guest's mobile number, which the organizer gave so they can claim with one tap. */
 interface GiftRow { eventId: string; createdBy: string; label?: string; note?: string; spots: number; allowGuests?: boolean; phone?: string; status: string; createdAt: string; }
-interface TicketRow { eventId: string; userId: string; status: string; paymentStatus?: string; paymentRef?: string; createdAt?: string; }
+interface TicketRow { eventId: string; userId: string; status: string; seatNumber?: number; paymentStatus?: string; paymentRef?: string; createdAt?: string; }
 /** A guest who claimed without an account. The row ID is their guest pass ID. */
 interface GuestRow { eventId: string; linkId: string; name: string; phone: string; createdAt: string; }
 
@@ -205,6 +205,35 @@ export interface GiftView {
   link: Pick<GiftLink, "id" | "label" | "note" | "spots" | "claimed" | "allowGuests"> & { preset?: { name: string; phoneEnding: string } };
   event: Event;
   state: GiftState;
+  /** Guest passes claimed through this link and still on the guest list. The link is the invitation, so it
+   * opens them on any device: guests without an account have nothing else to sign in with. */
+  passes: GuestPassSummary[];
+}
+
+/** A guest pass as the gift page lists it. Never the guest's number. */
+export interface GuestPassSummary { id: string; name: string; seatNumber?: number; state: GuestPassState; checkedInAt?: string }
+
+/** A pass's state from its session, whether its spot is still confirmed, and whether the desk has checked it in. */
+function guestPassState(event: Event, confirmed: boolean, checkedIn: boolean): GuestPassState {
+  // Check-in closes an hour after the end (lib/services/participation.ts eventWindow).
+  const closes = Date.parse(event.endsAt ?? "") + 60 * 60_000;
+  return checkedIn ? "checked-in" : !confirmed ? "void" : event.status === "cancelled" ? "cancelled" : closes <= Date.now() ? "ended" : "valid";
+}
+
+async function linkPasses(row: AppwriteDocument<GiftRow>, event: Event, tickets: TicketRow[]): Promise<GuestPassSummary[]> {
+  const ref = giftRef(row.$id);
+  const seats = new Map(tickets.filter(ticket => ticket.status === "confirmed" && ticket.paymentRef === ref).map(ticket => [ticket.userId, ticket.seatNumber]));
+  const [guests, checkins] = await Promise.all([
+    rowsForEvents<GuestRow>(withGuestTable, [row.eventId]),
+    listAppwriteDocuments<{ userId: string; timestamp: string }>(collections.checkins, [Query.equal("eventId", row.eventId)]),
+  ]);
+  const checkedIn = new Map(checkins.map(checkin => [checkin.userId, checkin.timestamp]));
+  return guests.filter(guest => guest.linkId === row.$id).flatMap(guest => {
+    const holder = guestHolderId(guest.eventId, guest.phone);
+    if (!seats.has(holder)) return [];
+    const seatNumber = seats.get(holder), checkedInAt = checkedIn.get(holder);
+    return [{ id: guest.$id, name: guest.name, ...(Number.isSafeInteger(seatNumber) ? { seatNumber } : {}), state: guestPassState(event, true, Boolean(checkedInAt)), ...(checkedInAt ? { checkedInAt } : {}) }];
+  }).sort((a, b) => (a.seatNumber ?? 0) - (b.seatNumber ?? 0));
 }
 
 /** The public gift page's data. Null for an unknown link or an event that isn't public. */
@@ -236,12 +265,13 @@ export async function getGiftView(linkId: string, viewerId?: string): Promise<Gi
   // Without the guest table, a link that needs no account falls back to signing in.
   const guests = row.allowGuests === true && isGuestPassesConfigured();
   const preset = guests ? presetGuest(row, tickets) : undefined;
+  const passes = guests && claimed > 0 ? await linkPasses(row, event, tickets) : [];
   return {
     link: {
       id: row.$id, ...(row.label ? { label: row.label } : {}), ...(row.note ? { note: row.note } : {}), spots: row.spots, claimed, allowGuests: guests,
       ...(preset ? { preset: { name: preset.name, phoneEnding: preset.phone.slice(-4) } } : {}),
     },
-    event, state,
+    event, state, passes,
   };
 }
 
@@ -290,7 +320,7 @@ export async function claimGiftAsGuest(linkId: string, input: unknown): Promise<
   if (!phone) throw new HttpError(400, "PHONE_INVALID", "Enter a 10-digit Indian mobile number.");
   const ref = giftRef(linkId);
   const holder = guestHolderId(row.eventId, phone);
-  const alreadyGoing = () => new HttpError(409, "GUEST_ALREADY_GOING", "This mobile number already has a spot at this session. Open the guest pass you got when you claimed it, or ask the organizer.");
+  const alreadyGoing = () => new HttpError(409, "GUEST_ALREADY_GOING", "This mobile number already has a spot at this session. If you claimed it with this link, your pass is on this page; otherwise ask the organizer.");
   if (tickets.some(ticket => ticket.userId === holder && ticket.status === "confirmed")) throw alreadyGoing();
   const claimed = tickets.filter(ticket => ticket.status === "confirmed" && ticket.paymentRef === ref).length;
   if (claimed >= row.spots) throw new HttpError(409, "GIFT_USED", row.spots === 1 ? "This gift has already been claimed." : "Every spot on this gift has been claimed.");
@@ -339,13 +369,7 @@ export async function getGuestPass(passId: string): Promise<GuestPassView | null
     getAppwriteDocument<{ timestamp: string }>(collections.checkins, checkInDocumentId(row.eventId, holder)),
   ]);
   if (!event || (event.status ?? "published") === "draft") return null;
-  // Check-in closes an hour after the end (lib/services/participation.ts eventWindow).
-  const closes = Date.parse(event.endsAt ?? "") + 60 * 60_000;
-  const state: GuestPassState = checkin ? "checked-in"
-    : rsvp?.status !== "confirmed" ? "void"
-    : event.status === "cancelled" ? "cancelled"
-    : closes <= Date.now() ? "ended"
-    : "valid";
+  const state = guestPassState(event, rsvp?.status === "confirmed", Boolean(checkin));
   return {
     pass: { id: row.$id, name: row.name, ...(rsvp?.status === "confirmed" ? { seatNumber: rsvp.seatNumber } : {}), ...(checkin ? { checkedInAt: checkin.timestamp } : {}) },
     event, state,
