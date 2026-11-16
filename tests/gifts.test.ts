@@ -267,3 +267,16 @@ test("without the gift guest table, no-account links fall back to signing in", a
     process.env[variable] = saved;
   }
 });
+
+test("a link made with a number that already has a spot opens that guest's pass", async () => {
+  reset({ capacity: 10 });
+  const first = await create({ allowGuests: true, label: "Riya" });
+  const pass = await gifts.claimGiftAsGuest(first.id, { phone: "9876543210" });
+  const again = await create({ allowGuests: true, label: "Riya", phone: "9876543210" });
+  const view = await gifts.getGiftView(again.id);
+  assert.equal(view?.link.preset, undefined, "no one-tap claim: they already have a spot");
+  assert.deepEqual(view?.passes.map(item => [item.id, item.name, item.state]), [[pass.passId, "Riya", "valid"]], "the new link opens their existing pass");
+  await rejects(gifts.claimGiftAsGuest(again.id, { phone: "98765 43210" }), "GUEST_ALREADY_GOING");
+  const other = await create({ allowGuests: true, label: "Kabir", phone: "9000000001" });
+  assert.deepEqual((await gifts.getGiftView(other.id))?.passes, [], "nothing to open until that guest claims");
+});

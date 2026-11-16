@@ -220,15 +220,22 @@ function guestPassState(event: Event, confirmed: boolean, checkedIn: boolean): G
   return checkedIn ? "checked-in" : !confirmed ? "void" : event.status === "cancelled" ? "cancelled" : closes <= Date.now() ? "ended" : "valid";
 }
 
+/**
+ * The passes a gift link opens: spots claimed through it, and the spot of the guest whose number the organizer
+ * gave, wherever they claimed it. A link made for someone who already has a spot opens their pass, so a new link
+ * with their number also re-sends a lost one.
+ */
 async function linkPasses(row: AppwriteDocument<GiftRow>, event: Event, tickets: TicketRow[]): Promise<GuestPassSummary[]> {
   const ref = giftRef(row.$id);
-  const seats = new Map(tickets.filter(ticket => ticket.status === "confirmed" && ticket.paymentRef === ref).map(ticket => [ticket.userId, ticket.seatNumber]));
+  const presetHolder = row.phone ? guestHolderId(row.eventId, row.phone) : undefined;
+  const seats = new Map(tickets.filter(ticket => ticket.status === "confirmed" && (ticket.paymentRef === ref || ticket.userId === presetHolder)).map(ticket => [ticket.userId, ticket.seatNumber]));
+  if (!seats.size) return [];
   const [guests, checkins] = await Promise.all([
     rowsForEvents<GuestRow>(withGuestTable, [row.eventId]),
     listAppwriteDocuments<{ userId: string; timestamp: string }>(collections.checkins, [Query.equal("eventId", row.eventId)]),
   ]);
   const checkedIn = new Map(checkins.map(checkin => [checkin.userId, checkin.timestamp]));
-  return guests.filter(guest => guest.linkId === row.$id).flatMap(guest => {
+  return guests.filter(guest => guest.linkId === row.$id || (row.phone !== undefined && guest.phone === row.phone)).flatMap(guest => {
     const holder = guestHolderId(guest.eventId, guest.phone);
     if (!seats.has(holder)) return [];
     const seatNumber = seats.get(holder), checkedInAt = checkedIn.get(holder);
@@ -265,7 +272,7 @@ export async function getGiftView(linkId: string, viewerId?: string): Promise<Gi
   // Without the guest table, a link that needs no account falls back to signing in.
   const guests = row.allowGuests === true && isGuestPassesConfigured();
   const preset = guests ? presetGuest(row, tickets) : undefined;
-  const passes = guests && claimed > 0 ? await linkPasses(row, event, tickets) : [];
+  const passes = guests && (claimed > 0 || row.phone) ? await linkPasses(row, event, tickets) : [];
   return {
     link: {
       id: row.$id, ...(row.label ? { label: row.label } : {}), ...(row.note ? { note: row.note } : {}), spots: row.spots, claimed, allowGuests: guests,
