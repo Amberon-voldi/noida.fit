@@ -39,13 +39,17 @@ interface Props {
   giftId: string;
   initialState: GiftState;
   signedIn: boolean;
-  /** The organizer lets people claim with a name and mobile number instead of an account. */
+  /** The organizer lets people claim with a mobile number instead of an account. */
   allowGuests: boolean;
+  /** The guest the organizer named and gave a number for: they claim with one tap. */
+  preset?: { name: string; phoneEnding: string };
+  /** How many people the link admits: others may come along with the named guest. */
+  spots: number;
   ticket: Omit<BookedTicket, "countdown" | "seatNumber">;
 }
 
-/** Claim a gift link's free spot: one tap once signed in, or a name and mobile number where the organizer allows guests. */
-export function GiftClaim({ giftId, initialState, signedIn, allowGuests, ticket }: Props) {
+/** Claim a gift link's free spot: one tap once signed in, or a mobile number (one tap if the organizer gave it) where the organizer allows guests. */
+export function GiftClaim({ giftId, initialState, signedIn, allowGuests, preset, spots, ticket }: Props) {
   const router = useRouter();
   const formId = useId();
   const [state, setState] = useState(initialState);
@@ -53,8 +57,8 @@ export function GiftClaim({ giftId, initialState, signedIn, allowGuests, ticket 
   const [celebrate, setCelebrate] = useState<BookedTicket | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
+  const [ownNumber, setOwnNumber] = useState(false);
   const [phoneError, setPhoneError] = useState<string | null>(null);
   const pass = useSyncExternalStore(subscribeStorage, () => savedPass(giftId), () => null);
   const back = encodeURIComponent(`/gift/${giftId}`);
@@ -92,10 +96,12 @@ export function GiftClaim({ giftId, initialState, signedIn, allowGuests, ticket 
     router.refresh();
   }
 
-  async function claimAsGuest(form: React.FormEvent): Promise<void> {
-    form.preventDefault();
-    if (!normalizeIndianMobile(phone)) { setPhoneError("Enter a 10-digit Indian mobile number"); return; }
-    const data = await post<{ passId?: string }>("guest", { name: name.trim(), phone });
+  /** The pass is named from the link, so a guest only ever gives a number, and none when the organizer did. */
+  async function claimAsGuest(form?: React.FormEvent): Promise<void> {
+    form?.preventDefault();
+    const typed = !preset || ownNumber;
+    if (typed && !normalizeIndianMobile(phone)) { setPhoneError("Enter a 10-digit Indian mobile number"); return; }
+    const data = await post<{ passId?: string }>("guest", typed ? { phone } : {});
     if (!data?.passId) return;
     try { window.localStorage.setItem(passKey(giftId), data.passId); } catch { /* The pass page is still the ticket. */ }
     router.push(`/pass/${data.passId}?claimed=1`);
@@ -116,25 +122,29 @@ export function GiftClaim({ giftId, initialState, signedIn, allowGuests, ticket 
     <Link href={`/pass/${pass}`} className="button-primary mt-4 inline-flex"><Ticket className="h-4 w-4" aria-hidden="true" />Open my guest pass</Link>
   </div>;
   if (state !== "open") return <p role="status" className="mt-6 rounded-xl border border-border-strong bg-surface-elevated p-4 text-sm text-text-secondary">{closedCopy[state]}</p>;
+  const signInInstead = <p className="mt-3 text-sm text-text-secondary">On NOIDA.FIT? <Link href={`/login?callbackUrl=${back}`} className="font-semibold text-velocity hover:text-velocity-glow">Sign in</Link> to claim it on your .fit ID instead.</p>;
+  const failed = error && <p role="alert" className="mt-3 rounded-lg border border-rose-400/60 bg-rose-400/10 p-3 text-sm text-rose-200">{error}</p>;
+  const claimButton = (type: "button" | "submit", disabled: boolean) => <button type={type} onClick={type === "button" ? () => void claimAsGuest() : undefined} disabled={disabled} className="button-primary w-full sm:w-auto">
+    {pending ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Gift className="h-4 w-4" aria-hidden="true" />}
+    Claim my free spot
+  </button>;
+  // The organizer gave the guest's number: nothing to fill in.
+  if (!signedIn && allowGuests && preset && !ownNumber) return <div className="mt-6">
+    <p className="mb-3 text-sm text-text-secondary">Held for <span className="font-semibold text-white">{preset.name}</span> · mobile ending {preset.phoneEnding}</p>
+    {claimButton("button", pending)}
+    <p className="mt-3 text-xs text-text-secondary">One tap: no account, form or payment. You’ll get a guest pass with a QR for the door.</p>
+    <p className="mt-3 text-sm text-text-secondary">{spots > 1 ? "Coming along, or on a different number?" : "Not your number?"} <button type="button" onClick={() => setOwnNumber(true)} className="min-h-11 font-semibold text-velocity hover:text-velocity-glow">Use your mobile number</button></p>
+    {signInInstead}
+    {failed}
+  </div>;
   if (!signedIn && allowGuests) return <form onSubmit={claimAsGuest} noValidate className="mt-6">
-    <fieldset disabled={pending} className="grid gap-3 sm:grid-cols-2">
-      <div>
-        <label htmlFor={`${formId}-name`} className="text-sm font-semibold text-white">Your name</label>
-        <input id={`${formId}-name`} value={name} onChange={change => setName(change.target.value)} required maxLength={80} autoComplete="name" placeholder="Riya Sharma" className={field} />
-      </div>
-      <div>
-        <label htmlFor={`${formId}-phone`} className="text-sm font-semibold text-white">Mobile number</label>
-        <input id={`${formId}-phone`} type="tel" inputMode="tel" autoComplete="tel" required maxLength={20} value={phone} onChange={change => { setPhone(change.target.value); setPhoneError(null); }} placeholder="98765 43210" aria-invalid={Boolean(phoneError)} aria-describedby={`${formId}-phone-hint`} className={field} />
-        <p id={`${formId}-phone-hint`} className={`mt-1.5 text-xs ${phoneError ? "text-rose-200" : "text-text-secondary"}`}>{phoneError ?? `Only ${ticket.communityName ?? "the organizer"} sees it, to reach you about the session.`}</p>
-      </div>
-    </fieldset>
-    <button type="submit" disabled={pending || !name.trim() || !phone.trim()} className="button-primary mt-4 w-full sm:w-auto">
-      {pending ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Gift className="h-4 w-4" aria-hidden="true" />}
-      Claim my free spot
-    </button>
+    <label htmlFor={`${formId}-phone`} className="text-sm font-semibold text-white">Your mobile number</label>
+    <input id={`${formId}-phone`} type="tel" inputMode="tel" autoComplete="tel" required maxLength={20} value={phone} onChange={change => { setPhone(change.target.value); setPhoneError(null); }} readOnly={pending} placeholder="98765 43210" aria-invalid={Boolean(phoneError)} aria-describedby={`${formId}-phone-hint`} className={`${field} sm:max-w-xs`} />
+    <p id={`${formId}-phone-hint`} className={`mt-1.5 text-xs ${phoneError ? "text-rose-200" : "text-text-secondary"}`}>{phoneError ?? `Only ${ticket.communityName ?? "the organizer"} sees it, to reach you about the session.`}</p>
+    <div className="mt-4">{claimButton("submit", pending || !phone.trim())}</div>
     <p className="mt-3 text-xs text-text-secondary">No account or payment needed. You’ll get a guest pass with a QR for the door.</p>
-    <p className="mt-3 text-sm text-text-secondary">On NOIDA.FIT? <Link href={`/login?callbackUrl=${back}`} className="font-semibold text-velocity hover:text-velocity-glow">Sign in</Link> to claim it on your .fit ID instead.</p>
-    {error && <p role="alert" className="mt-3 rounded-lg border border-rose-400/60 bg-rose-400/10 p-3 text-sm text-rose-200">{error}</p>}
+    {signInInstead}
+    {failed}
   </form>;
   if (!signedIn) return <div className="mt-6">
     <Link href={`/login?callbackUrl=${back}`} className="button-primary inline-flex w-full justify-center sm:w-auto"><Gift className="h-4 w-4" aria-hidden="true" />Sign in to claim your spot</Link>

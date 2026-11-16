@@ -20,8 +20,9 @@ type Actor = Pick<AuthUser, "id" | "labels">;
 export const MAX_GIFT_SPOTS = 20;
 export const MAX_GIFT_LINKS = 50;
 
-/** `allowGuests`: the organizer lets people claim without an account. Absent on links made before the choice existed. */
-interface GiftRow { eventId: string; createdBy: string; label?: string; note?: string; spots: number; allowGuests?: boolean; status: string; createdAt: string; }
+/** `allowGuests`: the organizer lets people claim without an account. Absent on links made before the choice existed.
+ * `phone`: the named guest's mobile number, which the organizer gave so they can claim with one tap. */
+interface GiftRow { eventId: string; createdBy: string; label?: string; note?: string; spots: number; allowGuests?: boolean; phone?: string; status: string; createdAt: string; }
 interface TicketRow { eventId: string; userId: string; status: string; paymentStatus?: string; paymentRef?: string; createdAt?: string; }
 /** A guest who claimed without an account. The row ID is their guest pass ID. */
 interface GuestRow { eventId: string; linkId: string; name: string; phone: string; createdAt: string; }
@@ -35,11 +36,14 @@ export const giftInputSchema = z.object({
   note: z.string().trim().max(500).optional(),
   spots: z.number().int().min(1).max(MAX_GIFT_SPOTS),
   allowGuests: z.boolean().optional(),
+  /** The guest's mobile number, on links that need no account. Needs a label: it names their pass. */
+  phone: z.string().trim().max(20).optional(),
 }).strict();
-/** What a guest gives instead of an account. The organizer sees both on the guest list. */
+/** What a guest gives instead of an account: a mobile number, unless the organizer gave theirs. Their pass is
+ * named from the link (see claimGiftAsGuest); `name` comes only from pages loaded before that, and is ignored. */
 export const guestClaimSchema = z.object({
-  name: z.string().trim().min(1).max(80).transform(name => name.replace(/\s+/g, " ")),
-  phone: z.string().trim().max(20),
+  phone: z.string().trim().max(20).optional(),
+  name: z.string().max(200).optional(),
 }).strict();
 /** The check-in desk scanning a guest pass, or checking a guest in from the guest list. */
 export const guestCheckInInputSchema = z.object({ eventId: documentIdSchema, guestPass: z.string().trim().max(64) }).strict();
@@ -104,8 +108,27 @@ function claimsByLink(tickets: TicketRow[]): Map<string, number> {
 
 const linkDto = (row: AppwriteDocument<GiftRow>, claimed: number): GiftLink => ({
   id: row.$id, eventId: row.eventId, ...(row.label ? { label: row.label } : {}), ...(row.note ? { note: row.note } : {}),
-  spots: row.spots, claimed, allowGuests: row.allowGuests === true, status: row.status === "revoked" ? "revoked" : "active", createdAt: row.createdAt,
+  spots: row.spots, claimed, allowGuests: row.allowGuests === true, ...(row.phone ? { phone: row.phone } : {}),
+  status: row.status === "revoked" ? "revoked" : "active", createdAt: row.createdAt,
 });
+
+/** The guest the organizer named and gave a number for, while their spot is unclaimed: they claim with one tap. */
+function presetGuest(row: GiftRow, tickets: TicketRow[]): { name: string; phone: string } | undefined {
+  if (!row.allowGuests || !row.phone || !row.label) return undefined;
+  const holder = guestHolderId(row.eventId, row.phone);
+  return tickets.some(ticket => ticket.userId === holder && ticket.status === "confirmed") ? undefined : { name: row.label, phone: row.phone };
+}
+
+/**
+ * The name on a guest's pass, since guests aren't asked for one. Whoever the link is for gets its label: on a
+ * one-person link that's anyone, otherwise the number the organizer gave or, without one, the link's first
+ * claim. Anyone else on the link is their guest. Cut to the guest table's 80 characters.
+ */
+function guestPassName(row: GiftRow, phone: string, claimedBefore: number): string {
+  if (!row.label) return "Guest";
+  const named = row.spots === 1 || (row.phone ? phone === row.phone : claimedBefore === 0);
+  return (named ? row.label : `Guest of ${row.label}`).slice(0, 80);
+}
 
 const eventTickets = (eventId: string) => listAppwriteDocuments<TicketRow>(collections.rsvps, [Query.equal("eventId", eventId)]);
 
@@ -136,14 +159,19 @@ export async function giftGuests(eventIds: string[]): Promise<Map<string, { pass
 }
 
 export async function createGiftLink(user: Actor, eventId: string, input: unknown): Promise<GiftLink> {
-  const { label, note, spots, allowGuests = false } = giftInputSchema.parse(input);
+  const { label, note, spots, allowGuests = false, phone: typed } = giftInputSchema.parse(input);
+  // A number is only for links that need no account: members claim on their own account.
+  const phone = allowGuests && typed ? normalizeIndianMobile(typed) : undefined;
+  if (phone === null) throw new HttpError(400, "PHONE_INVALID", "Enter the guest’s 10-digit Indian mobile number, or leave it empty.");
+  if (phone && !label) throw new HttpError(400, "LABEL_REQUIRED", "Add who the link is for: their name goes on the guest pass.");
+  if (allowGuests && !isGuestPassesConfigured()) throw new HttpError(503, "GUEST_PASSES_NOT_CONFIGURED", "Guest passes aren’t switched on yet. Make the link for NOIDA.FIT members instead.");
   const { record } = await getManagedEventRecord(user, eventId);
   if (record.status === "cancelled") throw new HttpError(409, "EVENT_CANCELLED", "This session is cancelled, so it can’t take guests");
   return withGiftTable(async table => {
     const active = (await listAppwriteDocuments<GiftRow>(table, [Query.equal("eventId", eventId)])).filter(row => row.status !== "revoked");
     if (active.length >= MAX_GIFT_LINKS) throw new HttpError(409, "GIFT_LIMIT", `A session can have up to ${MAX_GIFT_LINKS} active gift links. Switch off ones you no longer need.`);
     const row = await createAppwriteDocument<GiftRow>(table, {
-      eventId, createdBy: user.id, ...(label ? { label } : {}), ...(note ? { note } : {}), spots, allowGuests, status: "active", createdAt: new Date().toISOString(),
+      eventId, createdBy: user.id, ...(label ? { label } : {}), ...(note ? { note } : {}), spots, allowGuests, ...(phone ? { phone } : {}), status: "active", createdAt: new Date().toISOString(),
     }, `g${randomBytes(18).toString("base64url")}`);
     return linkDto(row, 0);
   });
@@ -172,7 +200,9 @@ export type GiftState =
   | "revoked"; // the organizer switched the link off
 
 export interface GiftView {
-  link: Pick<GiftLink, "id" | "label" | "note" | "spots" | "claimed" | "allowGuests">;
+  /** `preset`: on links that need no account, the guest who can claim with one tap. Only the last four digits
+   * of their number leave the server: gift links get forwarded. */
+  link: Pick<GiftLink, "id" | "label" | "note" | "spots" | "claimed" | "allowGuests"> & { preset?: { name: string; phoneEnding: string } };
   event: Event;
   state: GiftState;
 }
@@ -203,7 +233,16 @@ export async function getGiftView(linkId: string, viewerId?: string): Promise<Gi
     : claimed >= row.spots ? "used"
     : typeof event.capacity === "number" && taken >= event.capacity ? "full"
     : "open";
-  return { link: { id: row.$id, ...(row.label ? { label: row.label } : {}), ...(row.note ? { note: row.note } : {}), spots: row.spots, claimed, allowGuests: row.allowGuests === true }, event, state };
+  // Without the guest table, a link that needs no account falls back to signing in.
+  const guests = row.allowGuests === true && isGuestPassesConfigured();
+  const preset = guests ? presetGuest(row, tickets) : undefined;
+  return {
+    link: {
+      id: row.$id, ...(row.label ? { label: row.label } : {}), ...(row.note ? { note: row.note } : {}), spots: row.spots, claimed, allowGuests: guests,
+      ...(preset ? { preset: { name: preset.name, phoneEnding: preset.phone.slice(-4) } } : {}),
+    },
+    event, state,
+  };
 }
 
 /**
@@ -231,30 +270,33 @@ export async function claimGift(user: Pick<AuthUser, "id">, linkId: string): Pro
 }
 
 /**
- * Claims a gift link's free spot without an account, on links the organizer opened to guests. The guest
- * gives a name and an Indian mobile number and gets a guest pass (/pass/<id>) whose QR the check-in desk
- * scans. One spot per mobile number per session; a repeat claim is refused rather than handing that
- * number's pass to whoever typed it. Like claimGift, the link's spot count isn't checked atomically.
+ * Claims a gift link's free spot without an account, on links the organizer opened to guests, and returns a
+ * guest pass (/pass/<id>) whose QR the check-in desk scans. The guest gives only an Indian mobile number, and
+ * with none typed the claim is the one-tap claim of the guest the organizer gave a number for. The pass is
+ * named from the link (guestPassName). One spot per mobile number per session; a repeat claim is refused
+ * rather than handing that number's pass to whoever typed it. Like claimGift, the link's spot count isn't
+ * checked atomically.
  */
 export async function claimGiftAsGuest(linkId: string, input: unknown): Promise<{ passId: string; seatNumber: number }> {
-  const { name, phone: typed } = guestClaimSchema.parse(input);
-  const phone = normalizeIndianMobile(typed);
-  if (!phone) throw new HttpError(400, "PHONE_INVALID", "Enter a 10-digit Indian mobile number.");
+  const typed = guestClaimSchema.parse(input);
   if (!giftIdSchema.safeParse(linkId).success) throw GIFT_NOT_FOUND();
   const row = await withGiftTable(table => getAppwriteDocument<GiftRow>(table, linkId));
   if (!row) throw GIFT_NOT_FOUND();
-  if (!row.allowGuests) throw new HttpError(403, "GIFT_ACCOUNT_REQUIRED", "This gift is for NOIDA.FIT members. Sign in or create a free account to claim it.");
+  // Guest passes switched off on this site: the same answer as a link that needs an account.
+  if (!row.allowGuests || !isGuestPassesConfigured()) throw new HttpError(403, "GIFT_ACCOUNT_REQUIRED", "This gift is for NOIDA.FIT members. Sign in or create a free account to claim it.");
   if (row.status === "revoked") throw new HttpError(410, "GIFT_REVOKED", "The organizer has switched off this gift link.");
+  const tickets = await eventTickets(row.eventId);
+  const phone = typed.phone ? normalizeIndianMobile(typed.phone) : presetGuest(row, tickets)?.phone;
+  if (!phone) throw new HttpError(400, "PHONE_INVALID", "Enter a 10-digit Indian mobile number.");
   const ref = giftRef(linkId);
   const holder = guestHolderId(row.eventId, phone);
-  const tickets = await eventTickets(row.eventId);
   const alreadyGoing = () => new HttpError(409, "GUEST_ALREADY_GOING", "This mobile number already has a spot at this session. Open the guest pass you got when you claimed it, or ask the organizer.");
   if (tickets.some(ticket => ticket.userId === holder && ticket.status === "confirmed")) throw alreadyGoing();
   const claimed = tickets.filter(ticket => ticket.status === "confirmed" && ticket.paymentRef === ref).length;
   if (claimed >= row.spots) throw new HttpError(409, "GIFT_USED", row.spots === 1 ? "This gift has already been claimed." : "Every spot on this gift has been claimed.");
   const passId = `p${randomBytes(18).toString("base64url")}`;
   // The pass first: a seat with no pass would be a guest nobody can name or check in.
-  await withGuestTable(table => createAppwriteDocument<GuestRow>(table, { eventId: row.eventId, linkId, name, phone, createdAt: new Date().toISOString() }, passId));
+  await withGuestTable(table => createAppwriteDocument<GuestRow>(table, { eventId: row.eventId, linkId, name: guestPassName(row, phone, claimed), phone, createdAt: new Date().toISOString() }, passId));
   try {
     const { rsvp, claimed: fresh } = await claimGiftTicket(holder, row.eventId, ref);
     if (!fresh) throw alreadyGoing();

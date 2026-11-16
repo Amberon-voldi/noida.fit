@@ -4,7 +4,7 @@ import { auth } from "@/lib/auth";
 import { getOrganizerEvents } from "@/lib/data";
 import { HttpError } from "@/lib/http";
 import { getOrganizerEventSummary } from "@/lib/services/organizer";
-import { isGiftLinksConfigured, listGiftLinks } from "@/lib/services/gifts";
+import { isGiftLinksConfigured, isGuestPassesConfigured, listGiftLinks } from "@/lib/services/gifts";
 import { isAdminUser } from "@/lib/services/participation";
 import { EventDashboard } from "@/components/organizer/EventDashboard";
 import { DASHBOARD_TABS, type DashboardTab } from "@/components/organizer/labels";
@@ -30,5 +30,5 @@ export default async function EventDashboardPage({ params, searchParams }: Props
   ]);
   // On the day, the desk is what an organizer opens the session for.
   const initialTab: DashboardTab = DASHBOARD_TABS.find(item => item === tab) ?? (summary.checkInWindow === "open" ? "checkin" : "overview");
-  return <EventDashboard summary={summary} giftLinks={giftLinks} initialTab={initialTab} />;
+  return <EventDashboard summary={summary} giftLinks={giftLinks} guestPasses={isGuestPassesConfigured()} initialTab={initialTab} />;
 }

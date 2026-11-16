@@ -45,6 +45,8 @@ export interface GiftLink {
   claimed: number;
   /** People can claim with a name and mobile number instead of an account, and get a guest pass. */
   allowGuests: boolean;
+  /** The named guest's mobile number, added by the organizer so they claim with one tap. Organizer only. */
+  phone?: string;
   status: "active" | "revoked";
   createdAt: string;
 }

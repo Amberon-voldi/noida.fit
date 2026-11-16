@@ -149,20 +149,23 @@ test("a link that needs an account refuses guests; an open link gives a guest pa
   const membersOnly = await create();
   assert.equal(membersOnly.allowGuests, false);
   assert.equal((await gifts.getGiftView(membersOnly.id))?.link.allowGuests, false);
-  await rejects(gifts.claimGiftAsGuest(membersOnly.id, { name: "Asha", phone: "98765 43210" }), "GIFT_ACCOUNT_REQUIRED");
-  const open = await create({ spots: 2, allowGuests: true });
+  await rejects(gifts.claimGiftAsGuest(membersOnly.id, { phone: "98765 43210" }), "GIFT_ACCOUNT_REQUIRED");
+  const open = await create({ spots: 2, allowGuests: true, label: "Asha Rao" });
   assert.equal((await gifts.getGiftView(open.id))?.link.allowGuests, true);
-  await rejects(gifts.claimGiftAsGuest(open.id, { name: "Asha", phone: "12345" }), "PHONE_INVALID");
-  const claim = await gifts.claimGiftAsGuest(open.id, { name: "  Asha   Rao ", phone: "+91 98765-43210" });
+  await rejects(gifts.claimGiftAsGuest(open.id, { phone: "12345" }), "PHONE_INVALID");
+  // Without a number from the organizer, the guest gives one.
+  await rejects(gifts.claimGiftAsGuest(open.id, {}), "PHONE_INVALID");
+  const claim = await gifts.claimGiftAsGuest(open.id, { phone: "+91 98765-43210", name: "ignored from an old page" });
   assert.match(claim.passId, /^p[A-Za-z0-9_-]{24}$/);
   assert.equal(claim.seatNumber, 1);
   const seat = ticket(gifts.guestHolderId("paid", "9876543210"))!;
   assert.deepEqual({ status: seat.status, paymentStatus: seat.paymentStatus, paymentRef: seat.paymentRef, permissions: seat.$permissions }, { status: "confirmed", paymentStatus: "gift", paymentRef: `gift:${open.id}`, permissions: [] }, "no account can read a guest's seat");
   const row = rows.get(`gift_guests/${claim.passId}`)!;
   assert.deepEqual({ eventId: row.eventId, linkId: row.linkId, name: row.name, phone: row.phone, permissions: row.$permissions }, { eventId: "paid", linkId: open.id, name: "Asha Rao", phone: "9876543210", permissions: [] });
-  await rejects(gifts.claimGiftAsGuest(open.id, { name: "Someone else", phone: "09876543210" }), "GUEST_ALREADY_GOING");
-  await gifts.claimGiftAsGuest(open.id, { name: "Friend", phone: "9123456789" });
-  await rejects(gifts.claimGiftAsGuest(open.id, { name: "Third", phone: "9000000000" }), "GIFT_USED");
+  await rejects(gifts.claimGiftAsGuest(open.id, { phone: "09876543210" }), "GUEST_ALREADY_GOING");
+  const friend = await gifts.claimGiftAsGuest(open.id, { phone: "9123456789" });
+  assert.equal(rows.get(`gift_guests/${friend.passId}`)?.name, "Guest of Asha Rao", "the link's first claim is who it's for; later ones are their guests");
+  await rejects(gifts.claimGiftAsGuest(open.id, { phone: "9000000000" }), "GIFT_USED");
   assert.equal((await gifts.listGiftLinks(organizerUser, "paid")).find(link => link.id === open.id)?.claimed, 2);
   const pass = await gifts.getGuestPass(claim.passId);
   assert.deepEqual({ state: pass?.state, name: pass?.pass.name, seat: pass?.pass.seatNumber, event: pass?.event.slug }, { state: "valid", name: "Asha Rao", seat: 1, event: "sunrise-5k" });
@@ -174,7 +177,7 @@ test("a guest claim that finds no free seat leaves no pass behind", async () => 
   reset({ capacity: 1 });
   const link = await create({ spots: 2, allowGuests: true });
   await gifts.claimGift(guest, link.id);
-  await rejects(gifts.claimGiftAsGuest(link.id, { name: "Late", phone: "9876543210" }), "EVENT_FULL");
+  await rejects(gifts.claimGiftAsGuest(link.id, { phone: "9876543210" }), "EVENT_FULL");
   assert.deepEqual([...rows.keys()].filter(key => key.startsWith("gift_guests/")), []);
 });
 
@@ -184,7 +187,7 @@ test("the desk checks a guest in from their pass, and the guest list names them 
   const start = Date.now() + 10 * 60_000;
   Object.assign(rows.get("events/paid")!, { startsAt: new Date(start).toISOString(), endsAt: new Date(start + 60 * 60_000).toISOString() });
   const link = await create({ allowGuests: true, label: "Asha" });
-  const { passId } = await gifts.claimGiftAsGuest(link.id, { name: "Asha", phone: "9876543210" });
+  const { passId } = await gifts.claimGiftAsGuest(link.id, { phone: "9876543210" });
   const event = (await (await import("../lib/data")).getEventAnyStatus("paid"))!;
   assert.deepEqual((await organizer.getOrganizerEventSummary(organizerUser, event)).attendees, [
     { displayName: "Asha", rsvpStatus: "confirmed", seatNumber: 1, gift: { linkId: link.id, label: "Asha" }, guest: { pass: passId, phone: "9876543210" }, checkInStatus: "not_checked_in" },
@@ -212,4 +215,47 @@ test("the desk tells a guest pass QR from a .fit ID check-in QR", async () => {
   assert.throws(() => qr.checkInCodeFromQr("NF-GUEST:../../events/paid"), /didn’t read cleanly/);
   const token = `${"a".repeat(20)}.${"b".repeat(43)}`;
   assert.deepEqual(qr.checkInCodeFromQr(qr.participantQrValue(token)), { token });
+});
+
+test("a number from the organizer makes the guest's claim one tap, and only its last digits reach the page", async () => {
+  reset({ capacity: 10 });
+  await rejects(create({ allowGuests: true, label: "Riya", phone: "12345" }), "PHONE_INVALID");
+  await rejects(create({ allowGuests: true, phone: "9876543210" }), "LABEL_REQUIRED");
+  assert.equal((await create({ label: "Riya", phone: "9876543210" })).phone, undefined, "members claim on their account: no number kept");
+  const link = await create({ spots: 3, allowGuests: true, label: "Riya (@riya.runs)", phone: "+91 98765 43210" });
+  assert.equal(link.phone, "9876543210", "the organizer sees the number they gave");
+  const view = await gifts.getGiftView(link.id);
+  assert.deepEqual(view?.link.preset, { name: "Riya (@riya.runs)", phoneEnding: "3210" });
+  assert.ok(!JSON.stringify(view).includes("9876543210"), "the full number never reaches the gift page");
+  const friend = await gifts.claimGiftAsGuest(link.id, { phone: "9123456789" });
+  assert.equal(rows.get(`gift_guests/${friend.passId}`)?.name, "Guest of Riya (@riya.runs)", "a friend claiming first is still their guest");
+  const riya = await gifts.claimGiftAsGuest(link.id, {});
+  assert.deepEqual({ name: rows.get(`gift_guests/${riya.passId}`)?.name, phone: rows.get(`gift_guests/${riya.passId}`)?.phone }, { name: "Riya (@riya.runs)", phone: "9876543210" });
+  assert.equal((await gifts.getGiftView(link.id))?.link.preset, undefined, "once claimed, there's no one-tap claim");
+  await rejects(gifts.claimGiftAsGuest(link.id, {}), "PHONE_INVALID");
+  const solo = await create({ allowGuests: true, label: "Kabir" });
+  const kabir = await gifts.claimGiftAsGuest(solo.id, { phone: "9000000001" });
+  assert.equal(rows.get(`gift_guests/${kabir.passId}`)?.name, "Kabir", "a one-person link names whoever claims it");
+  const anonymous = await create({ allowGuests: true });
+  const nobody = await gifts.claimGiftAsGuest(anonymous.id, { phone: "9000000002" });
+  assert.equal(rows.get(`gift_guests/${nobody.passId}`)?.name, "Guest");
+});
+
+test("without the gift guest table, no-account links fall back to signing in", async () => {
+  reset();
+  const link = await create({ allowGuests: true, label: "Riya", phone: "9876543210" });
+  const variable = "NEXT_PUBLIC_APPWRITE_GIFT_GUESTS_COLLECTION_ID";
+  const saved = process.env[variable];
+  delete process.env[variable];
+  try {
+    const view = await gifts.getGiftView(link.id);
+    assert.deepEqual({ allowGuests: view?.link.allowGuests, preset: view?.link.preset, state: view?.state }, { allowGuests: false, preset: undefined, state: "open" }, "the page asks people to sign in");
+    await rejects(gifts.claimGiftAsGuest(link.id, {}), "GIFT_ACCOUNT_REQUIRED");
+    await rejects(create({ allowGuests: true }), "GUEST_PASSES_NOT_CONFIGURED");
+    assert.equal((await create()).allowGuests, false, "links for members still work");
+    assert.equal(await gifts.getGuestPass(`p${"A".repeat(24)}`), null);
+    assert.deepEqual([...rows.keys()].filter(key => key.startsWith("gift_guests/") || key.startsWith("rsvps/")), [], "no seat or pass was taken");
+  } finally {
+    process.env[variable] = saved;
+  }
 });

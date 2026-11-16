@@ -19,6 +19,8 @@ const TABLES: Table[] = [
       { key: "spots", type: "integer", min: 1, max: 20 },
       // Optional: links made before the organizer could choose need an account.
       { key: "allowGuests", type: "boolean" },
+      // The named guest's mobile number, for a one-tap claim without an account.
+      { key: "phone", type: "string", size: 10, required: false },
       { key: "status", type: "string", size: 20, required: true },
       { key: "createdAt", type: "datetime" },
     ],

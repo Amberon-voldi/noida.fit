@@ -62,7 +62,7 @@ export default async function GiftPage({ params }: Props) {
           {[["When", `${formatDate(event.date)} · ${event.startTime}`], ["Where", `${event.venueName}, ${event.sector}`], ["Your ticket", pricing.kind === "paid" ? `Free (was ${pricing.label})` : "Free"]].map(([label, value]) =>
             <div key={label} className="min-w-0 rounded-lg border border-border-subtle bg-surface-elevated p-4"><dt className="font-mono text-[10px] uppercase tracking-widest text-text-secondary">{label}</dt><dd className="mt-2 break-words text-sm font-semibold text-white">{value}</dd></div>)}
         </dl>
-        <GiftClaim giftId={link.id} initialState={state} signedIn={signedIn} allowGuests={link.allowGuests} ticket={{
+        <GiftClaim giftId={link.id} initialState={state} signedIn={signedIn} allowGuests={link.allowGuests} preset={link.preset} spots={link.spots} ticket={{
           eventId: event.id, eventSlug: event.slug, title: event.title, date: event.date, dateLabel: formatDate(event.date), startTime: event.startTime, endTime: event.endTime,
           venueName: event.venueName, sector: event.sector, communityName: event.communityName, category: event.category, image: event.coverImageUrl ?? event.imageUrl,
           kind: "gift", ...(pricing.kind === "paid" ? { priceLabel: pricing.label } : {}), holder,

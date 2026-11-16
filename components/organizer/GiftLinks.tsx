@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Check, Copy, ExternalLink, Gift, LoaderCircle, Minus, Plus, Share2 } from "lucide-react";
 import type { GiftLink, OrganizerAttendee } from "@/types/organizer";
 import { SITE_CONFIG } from "@/lib/config";
+import { normalizeIndianMobile } from "@/lib/phone";
 
 const MAX_SPOTS = 20;
 const field = "mt-1.5 min-h-11 w-full min-w-0 rounded-lg border border-border-strong bg-surface-elevated px-3 text-base text-white";
@@ -17,19 +18,23 @@ interface Props {
   published: boolean;
   /** Null when gift links aren't switched on for the site. */
   initialLinks: GiftLink[] | null;
+  /** Links can let people claim without an account. Off until the gift guest table is set up. */
+  guestPasses: boolean;
   attendees: OrganizerAttendee[];
   /** The ticket price a gift waives, for paid sessions. */
   paidLabel?: string;
 }
 
 /** Free spots the organizer hands out: each link admits a set number of people, no payment. */
-export function GiftLinks({ eventId, eventTitle, published, initialLinks, attendees, paidLabel }: Props) {
+export function GiftLinks({ eventId, eventTitle, published, initialLinks, guestPasses, attendees, paidLabel }: Props) {
   const router = useRouter();
   const [links, setLinks] = useState(initialLinks ?? []);
   const [label, setLabel] = useState("");
   const [note, setNote] = useState("");
   const [spots, setSpots] = useState(1);
-  const [allowGuests, setAllowGuests] = useState(true);
+  const [choice, setChoice] = useState(true);
+  const allowGuests = guestPasses && choice;
+  const [phone, setPhone] = useState("");
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
@@ -50,10 +55,13 @@ export function GiftLinks({ eventId, eventTitle, published, initialLinks, attend
 
   async function create(form: React.FormEvent): Promise<void> {
     form.preventDefault();
+    const number = allowGuests ? phone.trim() : "";
+    if (number && !normalizeIndianMobile(number)) { setError("Enter their 10-digit Indian mobile number, or leave it empty."); return; }
+    if (number && !label.trim()) { setError("Add who it’s for: their name goes on the guest pass."); return; }
     setPending("create"); setError(null);
     try {
-      const link = await send(`/api/organizer/events/${encodeURIComponent(eventId)}/gifts`, { method: "POST", body: JSON.stringify({ link: { label: label.trim() || undefined, note: note.trim() || undefined, spots, allowGuests } }) });
-      if (link) { setLinks(current => [link, ...current]); setFresh(link.id); setLabel(""); setNote(""); setSpots(1); }
+      const link = await send(`/api/organizer/events/${encodeURIComponent(eventId)}/gifts`, { method: "POST", body: JSON.stringify({ link: { label: label.trim() || undefined, note: note.trim() || undefined, spots, allowGuests, phone: number || undefined } }) });
+      if (link) { setLinks(current => [link, ...current]); setFresh(link.id); setLabel(""); setNote(""); setSpots(1); setPhone(""); }
       // The dashboard's counts come from the server.
       router.refresh();
     } catch (reason) {
@@ -90,13 +98,29 @@ export function GiftLinks({ eventId, eventTitle, published, initialLinks, attend
     <form onSubmit={create} className="h-fit space-y-4 rounded-2xl border border-border-strong bg-surface p-4 sm:p-6">
       <div>
         <h2 className="flex items-center gap-2 text-xl font-bold text-white"><Gift size={20} className="text-velocity" aria-hidden="true" />New gift link</h2>
-        <p className="mt-1 text-sm leading-relaxed text-text-secondary">Invite a creator, partner or friend of the club free{paidLabel ? `: they skip the ${paidLabel} ticket` : ""}. Whoever opens the link claims a confirmed spot, with or without an account: you choose. Gifted spots count towards capacity.</p>
+        <p className="mt-1 text-sm leading-relaxed text-text-secondary">Invite a creator, partner or friend of the club free{paidLabel ? `: they skip the ${paidLabel} ticket` : ""}. {guestPasses ? "Whoever opens the link claims a confirmed spot, with or without an account: you choose. Guests are never asked their name: it comes from here." : "Whoever opens the link signs in and claims a confirmed spot."} Gifted spots count towards capacity.</p>
       </div>
       <fieldset disabled={pending === "create"} className="space-y-4">
         <label className="block text-sm font-semibold text-white">Who is it for? <span className="font-normal text-text-secondary">(optional)</span>
           <input value={label} onChange={change => setLabel(change.target.value)} maxLength={120} placeholder="Riya (@riya.runs)" className={field} />
-          <span className="mt-1 block text-xs text-text-secondary">Shown on the invite and its link preview.</span>
+          <span className="mt-1 block text-xs text-text-secondary">Shown on the invite and its link preview, and the name on their guest pass.</span>
         </label>
+        {guestPasses ? <fieldset>
+          <legend className="text-sm font-semibold text-white">How they claim it</legend>
+          <div className="mt-1.5 grid gap-2">
+            {([
+              [true, "No account needed", "They give just their mobile number and get a guest pass with a QR for the door."],
+              [false, "With a NOIDA.FIT account", "They sign in or sign up, and the session counts on their .fit ID."],
+            ] as const).map(([value, title, text]) => <label key={title} className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 ${allowGuests === value ? "border-velocity bg-velocity/10" : "border-border-strong"}`}>
+              <input type="radio" name="gift-access" checked={allowGuests === value} onChange={() => setChoice(value)} className="mt-1 size-4 shrink-0 accent-velocity" />
+              <span className="min-w-0"><span className="block text-sm font-semibold text-white">{title}</span><span className="mt-0.5 block text-xs text-text-secondary">{text}</span></span>
+            </label>)}
+          </div>
+        </fieldset> : <p className="rounded-lg border border-border-subtle p-3 text-xs text-text-secondary">Guests sign in or sign up to claim. Claiming without an account isn’t switched on for the site yet.</p>}
+        {allowGuests && <label className="block text-sm font-semibold text-white">Their mobile number <span className="font-normal text-text-secondary">(optional)</span>
+          <input type="tel" inputMode="tel" autoComplete="off" value={phone} onChange={change => setPhone(change.target.value)} maxLength={20} placeholder="98765 43210" className={field} />
+          <span className="mt-1 block text-xs text-text-secondary">Add it and they claim with one tap: nothing to fill in. Only you see it; the invite shows its last four digits.</span>
+        </label>}
         <label className="block text-sm font-semibold text-white">Note <span className="font-normal text-text-secondary">(optional)</span>
           <textarea value={note} onChange={change => setNote(change.target.value)} maxLength={500} rows={3} placeholder="Would love to have you run with us. Bring a friend for the cool-down coffee!" className={`${field} py-2.5`} />
         </label>
@@ -109,18 +133,6 @@ export function GiftLinks({ eventId, eventTitle, published, initialLinks, attend
             <span className="text-xs text-text-secondary">{spots === 1 ? "Just for them" : `They can share it with ${spots - 1} more`}</span>
           </div>
         </div>
-        <fieldset>
-          <legend className="text-sm font-semibold text-white">How they claim it</legend>
-          <div className="mt-1.5 grid gap-2">
-            {([
-              [true, "No account needed", "They give a name and mobile number and get a guest pass with a QR for the door."],
-              [false, "With a NOIDA.FIT account", "They sign in or sign up, and the session counts on their .fit ID."],
-            ] as const).map(([value, title, text]) => <label key={title} className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 ${allowGuests === value ? "border-velocity bg-velocity/10" : "border-border-strong"}`}>
-              <input type="radio" name="gift-access" checked={allowGuests === value} onChange={() => setAllowGuests(value)} className="mt-1 size-4 shrink-0 accent-velocity" />
-              <span className="min-w-0"><span className="block text-sm font-semibold text-white">{title}</span><span className="mt-0.5 block text-xs text-text-secondary">{text}</span></span>
-            </label>)}
-          </div>
-        </fieldset>
       </fieldset>
       <button type="submit" disabled={pending === "create"} className="button-primary w-full">{pending === "create" ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Gift className="h-4 w-4" aria-hidden="true" />}Create gift link</button>
       {!published && <p className="text-xs text-text-secondary">This session isn’t published yet. Gift links start working once it is.</p>}
@@ -138,7 +150,7 @@ export function GiftLinks({ eventId, eventTitle, published, initialLinks, attend
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="truncate font-semibold text-white">{link.label || "Anyone with the link"}</p>
-                <p className="mt-0.5 text-xs text-text-secondary">{link.claimed} of {link.spots} claimed · {link.allowGuests ? "no account needed" : "account needed"} · made {dateFormatter.format(new Date(link.createdAt))}</p>
+                <p className="mt-0.5 text-xs text-text-secondary">{link.claimed} of {link.spots} claimed · {link.allowGuests ? "no account needed" : "account needed"}{link.phone ? ` · for ${link.phone.replace(/^(\d{5})(\d{5})$/, "$1 $2")}` : ""} · made {dateFormatter.format(new Date(link.createdAt))}</p>
               </div>
               <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${status === "Active" ? "bg-velocity/15 text-velocity" : "border border-border-subtle text-text-secondary"}`}>{status}</span>
             </div>

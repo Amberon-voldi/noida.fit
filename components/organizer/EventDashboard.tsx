@@ -32,7 +32,8 @@ function Stat({ label, value, detail, accent = false, percent }: { label: string
 }
 
 /** One session, everything an organizer runs it with: numbers, guests, the check-in desk and gift links. */
-export function EventDashboard({ summary, giftLinks, initialTab }: { summary: OrganizerEventSummary; giftLinks: GiftLink[] | null; initialTab: DashboardTab }) {
+/** `guestPasses`: gift links can let people claim without an account (the gift guest table is set up). */
+export function EventDashboard({ summary, giftLinks, guestPasses, initialTab }: { summary: OrganizerEventSummary; giftLinks: GiftLink[] | null; guestPasses: boolean; initialTab: DashboardTab }) {
   const { event, attendees } = summary;
   const router = useRouter();
   const [tab, setTab] = useState(initialTab);
@@ -218,7 +219,7 @@ export function EventDashboard({ summary, giftLinks, initialTab }: { summary: Or
     </section>}
 
     {tab === "gifts" && <section id="panel-gifts" role="tabpanel" aria-labelledby="tab-gifts" className="mt-6">
-      <GiftLinks eventId={event.id} eventTitle={event.title} published={published} initialLinks={giftLinks} attendees={attendees} paidLabel={pricing.kind === "paid" ? pricing.label : undefined} />
+      <GiftLinks eventId={event.id} eventTitle={event.title} published={published} initialLinks={giftLinks} guestPasses={guestPasses} attendees={attendees} paidLabel={pricing.kind === "paid" ? pricing.label : undefined} />
     </section>}
   </div>;
 }
