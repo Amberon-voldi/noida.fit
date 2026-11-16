@@ -1,14 +1,15 @@
 import "server-only";
 
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { z } from "zod";
 import { appwriteCollections as collections } from "@/lib/appwrite/config";
-import { createAppwriteDocument, getAppwriteDocument, listAppwriteDocuments, updateAppwriteDocument, Query, type AppwriteDocument } from "@/lib/appwrite/database";
+import { createAppwriteDocument, deleteAppwriteDocument, getAppwriteDocument, listAppwriteDocuments, updateAppwriteDocument, Query, type AppwriteDocument } from "@/lib/appwrite/database";
 import { getEventAnyStatus } from "@/lib/data";
 import { HttpError } from "@/lib/http";
+import { normalizeIndianMobile } from "@/lib/phone";
 import { ticketHoldEndsAt } from "@/lib/pricing";
 import { getManagedEventRecord } from "@/lib/services/organizer-events";
-import { claimGiftTicket, getTicketEvent } from "@/lib/services/participation";
+import { checkInDocumentId, checkInGuestHolder, claimGiftTicket, documentIdSchema, getTicketEvent, getUserRsvp, GUEST_HOLDER_PREFIX } from "@/lib/services/participation";
 import type { AuthUser } from "@/lib/auth";
 import type { Event } from "@/types/event";
 import type { GiftLink } from "@/types/organizer";
@@ -19,31 +20,44 @@ type Actor = Pick<AuthUser, "id" | "labels">;
 export const MAX_GIFT_SPOTS = 20;
 export const MAX_GIFT_LINKS = 50;
 
-interface GiftRow { eventId: string; createdBy: string; label?: string; note?: string; spots: number; status: string; createdAt: string; }
+/** `allowGuests`: the organizer lets people claim without an account. Absent on links made before the choice existed. */
+interface GiftRow { eventId: string; createdBy: string; label?: string; note?: string; spots: number; allowGuests?: boolean; status: string; createdAt: string; }
 interface TicketRow { eventId: string; userId: string; status: string; paymentStatus?: string; paymentRef?: string; createdAt?: string; }
+/** A guest who claimed without an account. The row ID is their guest pass ID. */
+interface GuestRow { eventId: string; linkId: string; name: string; phone: string; createdAt: string; }
 
 /** Link IDs are the secret in the URL: 144 random bits, and the table is readable only by the server. */
 export const giftIdSchema = z.string().regex(/^g[A-Za-z0-9_-]{24}$/);
+/** Guest pass IDs are the secret in /pass/<id> and its QR, made the same way. */
+export const guestPassIdSchema = z.string().regex(/^p[A-Za-z0-9_-]{24}$/);
 export const giftInputSchema = z.object({
   label: z.string().trim().max(120).optional(),
   note: z.string().trim().max(500).optional(),
   spots: z.number().int().min(1).max(MAX_GIFT_SPOTS),
+  allowGuests: z.boolean().optional(),
 }).strict();
+/** What a guest gives instead of an account. The organizer sees both on the guest list. */
+export const guestClaimSchema = z.object({
+  name: z.string().trim().min(1).max(80).transform(name => name.replace(/\s+/g, " ")),
+  phone: z.string().trim().max(20),
+}).strict();
+/** The check-in desk scanning a guest pass, or checking a guest in from the guest list. */
+export const guestCheckInInputSchema = z.object({ eventId: documentIdSchema, guestPass: z.string().trim().max(64) }).strict();
 
 const NOT_CONFIGURED = () => new HttpError(503, "GIFTS_NOT_CONFIGURED", "Gift links aren’t switched on yet.");
+const GIFT_NOT_FOUND = () => new HttpError(404, "GIFT_NOT_FOUND", "This gift link doesn’t exist. Check the link with whoever sent it.");
 
-/** The private gift link table (`npm run appwrite:gift-links`). Optional, like the admin audit table. */
+/** The private gift link and gift guest tables (`npm run appwrite:gift-links`). Optional, like the admin audit table. */
 export function isGiftLinksConfigured(): boolean {
   return Boolean(process.env.NEXT_PUBLIC_APPWRITE_GIFT_LINKS_COLLECTION_ID?.trim());
 }
-function giftTable(): string {
-  const id = process.env.NEXT_PUBLIC_APPWRITE_GIFT_LINKS_COLLECTION_ID?.trim();
-  if (!id) throw NOT_CONFIGURED();
-  return id;
+export function isGuestPassesConfigured(): boolean {
+  return Boolean(process.env.NEXT_PUBLIC_APPWRITE_GIFT_GUESTS_COLLECTION_ID?.trim());
 }
 /** Appwrite reports a table the setup hasn't created yet as collection_not_found. */
-async function withGiftTable<T>(run: (table: string) => Promise<T>): Promise<T> {
-  const table = giftTable();
+async function withTable<T>(variable: string, run: (table: string) => Promise<T>): Promise<T> {
+  const table = process.env[variable]?.trim();
+  if (!table) throw NOT_CONFIGURED();
   try {
     return await run(table);
   } catch (error) {
@@ -51,6 +65,29 @@ async function withGiftTable<T>(run: (table: string) => Promise<T>): Promise<T> 
     throw error;
   }
 }
+const withGiftTable = <T>(run: (table: string) => Promise<T>) => withTable("NEXT_PUBLIC_APPWRITE_GIFT_LINKS_COLLECTION_ID", run);
+const withGuestTable = <T>(run: (table: string) => Promise<T>) => withTable("NEXT_PUBLIC_APPWRITE_GIFT_GUESTS_COLLECTION_ID", run);
+
+/** A table's rows for these events, in batches of Appwrite's 100-value `equal` limit. Empty when the table isn't set up. */
+async function rowsForEvents<T extends object>(withRows: typeof withGiftTable, eventIds: string[]): Promise<AppwriteDocument<T>[]> {
+  const rows: AppwriteDocument<T>[] = [];
+  try {
+    for (let index = 0; index < eventIds.length; index += 100) {
+      rows.push(...await withRows(table => listAppwriteDocuments<T>(table, [Query.equal("eventId", eventIds.slice(index, index + 100))])));
+    }
+  } catch (error) {
+    // The guest list still loads, without gift details.
+    if (error instanceof HttpError && error.code === "GIFTS_NOT_CONFIGURED") return [];
+    throw error;
+  }
+  return rows;
+}
+
+/**
+ * The ID a guest's seat and check-in are held under: one spot per mobile number per session, enforced by
+ * the RSVP table's unique (eventId, userId) index. Guest rows carry no permissions, so it never leaves the server.
+ */
+export const guestHolderId = (eventId: string, phone: string) => `${GUEST_HOLDER_PREFIX}${createHash("sha256").update(`${eventId}:${phone}`).digest("hex").slice(0, 30)}`;
 
 /** A gift ticket's RSVP carries this as its paymentRef. */
 export const giftRef = (linkId: string) => `gift:${linkId}`;
@@ -67,7 +104,7 @@ function claimsByLink(tickets: TicketRow[]): Map<string, number> {
 
 const linkDto = (row: AppwriteDocument<GiftRow>, claimed: number): GiftLink => ({
   id: row.$id, eventId: row.eventId, ...(row.label ? { label: row.label } : {}), ...(row.note ? { note: row.note } : {}),
-  spots: row.spots, claimed, status: row.status === "revoked" ? "revoked" : "active", createdAt: row.createdAt,
+  spots: row.spots, claimed, allowGuests: row.allowGuests === true, status: row.status === "revoked" ? "revoked" : "active", createdAt: row.createdAt,
 });
 
 const eventTickets = (eventId: string) => listAppwriteDocuments<TicketRow>(collections.rsvps, [Query.equal("eventId", eventId)]);
@@ -87,28 +124,26 @@ export async function listGiftLinks(user: Actor, eventId: string): Promise<GiftL
 /** Who each gift link was for, by link ID, for the guest list. Empty when gift links are off. */
 export async function giftLinkLabels(eventIds: string[]): Promise<Map<string, string | undefined>> {
   if (!isGiftLinksConfigured() || !eventIds.length) return new Map();
-  try {
-    const rows: AppwriteDocument<GiftRow>[] = [];
-    for (let index = 0; index < eventIds.length; index += 100) {
-      rows.push(...await withGiftTable(table => listAppwriteDocuments<GiftRow>(table, [Query.equal("eventId", eventIds.slice(index, index + 100))])));
-    }
-    return new Map(rows.map(row => [row.$id, row.label || undefined]));
-  } catch (error) {
-    // The guest list still loads without names for gift links.
-    if (error instanceof HttpError && error.code === "GIFTS_NOT_CONFIGURED") return new Map();
-    throw error;
-  }
+  const rows = await rowsForEvents<GiftRow>(withGiftTable, eventIds);
+  return new Map(rows.map(row => [row.$id, row.label || undefined]));
+}
+
+/** Guests who claimed without an account, by the ID their seat is held under: their pass and what they gave. */
+export async function giftGuests(eventIds: string[]): Promise<Map<string, { pass: string; name: string; phone: string }>> {
+  if (!isGuestPassesConfigured() || !eventIds.length) return new Map();
+  const rows = await rowsForEvents<GuestRow>(withGuestTable, eventIds);
+  return new Map(rows.map(row => [guestHolderId(row.eventId, row.phone), { pass: row.$id, name: row.name, phone: row.phone }]));
 }
 
 export async function createGiftLink(user: Actor, eventId: string, input: unknown): Promise<GiftLink> {
-  const { label, note, spots } = giftInputSchema.parse(input);
+  const { label, note, spots, allowGuests = false } = giftInputSchema.parse(input);
   const { record } = await getManagedEventRecord(user, eventId);
   if (record.status === "cancelled") throw new HttpError(409, "EVENT_CANCELLED", "This session is cancelled, so it can’t take guests");
   return withGiftTable(async table => {
     const active = (await listAppwriteDocuments<GiftRow>(table, [Query.equal("eventId", eventId)])).filter(row => row.status !== "revoked");
     if (active.length >= MAX_GIFT_LINKS) throw new HttpError(409, "GIFT_LIMIT", `A session can have up to ${MAX_GIFT_LINKS} active gift links. Switch off ones you no longer need.`);
     const row = await createAppwriteDocument<GiftRow>(table, {
-      eventId, createdBy: user.id, ...(label ? { label } : {}), ...(note ? { note } : {}), spots, status: "active", createdAt: new Date().toISOString(),
+      eventId, createdBy: user.id, ...(label ? { label } : {}), ...(note ? { note } : {}), spots, allowGuests, status: "active", createdAt: new Date().toISOString(),
     }, `g${randomBytes(18).toString("base64url")}`);
     return linkDto(row, 0);
   });
@@ -137,7 +172,7 @@ export type GiftState =
   | "revoked"; // the organizer switched the link off
 
 export interface GiftView {
-  link: Pick<GiftLink, "id" | "label" | "note" | "spots" | "claimed">;
+  link: Pick<GiftLink, "id" | "label" | "note" | "spots" | "claimed" | "allowGuests">;
   event: Event;
   state: GiftState;
 }
@@ -168,7 +203,7 @@ export async function getGiftView(linkId: string, viewerId?: string): Promise<Gi
     : claimed >= row.spots ? "used"
     : typeof event.capacity === "number" && taken >= event.capacity ? "full"
     : "open";
-  return { link: { id: row.$id, ...(row.label ? { label: row.label } : {}), ...(row.note ? { note: row.note } : {}), spots: row.spots, claimed }, event, state };
+  return { link: { id: row.$id, ...(row.label ? { label: row.label } : {}), ...(row.note ? { note: row.note } : {}), spots: row.spots, claimed, allowGuests: row.allowGuests === true }, event, state };
 }
 
 /**
@@ -178,9 +213,9 @@ export async function getGiftView(linkId: string, viewerId?: string): Promise<Gi
  * the event's capacity still holds.
  */
 export async function claimGift(user: Pick<AuthUser, "id">, linkId: string): Promise<{ eventSlug: string; seatNumber: number }> {
-  if (!giftIdSchema.safeParse(linkId).success) throw new HttpError(404, "GIFT_NOT_FOUND", "This gift link doesn’t exist. Check the link with whoever sent it.");
+  if (!giftIdSchema.safeParse(linkId).success) throw GIFT_NOT_FOUND();
   const row = await withGiftTable(table => getAppwriteDocument<GiftRow>(table, linkId));
-  if (!row) throw new HttpError(404, "GIFT_NOT_FOUND", "This gift link doesn’t exist. Check the link with whoever sent it.");
+  if (!row) throw GIFT_NOT_FOUND();
   const ref = giftRef(linkId);
   const tickets = await eventTickets(row.eventId);
   const mine = tickets.find(ticket => ticket.userId === user.id && ticket.status === "confirmed");
@@ -193,4 +228,93 @@ export async function claimGift(user: Pick<AuthUser, "id">, linkId: string): Pro
   const { rsvp, claimed } = await claimGiftTicket(user.id, row.eventId, ref);
   if (!claimed) throw new HttpError(409, "ALREADY_GOING", "You already have a spot at this event, so the gift is still free for someone else.");
   return { eventSlug: (await getTicketEvent(row.eventId)).slug, seatNumber: rsvp.seatNumber };
+}
+
+/**
+ * Claims a gift link's free spot without an account, on links the organizer opened to guests. The guest
+ * gives a name and an Indian mobile number and gets a guest pass (/pass/<id>) whose QR the check-in desk
+ * scans. One spot per mobile number per session; a repeat claim is refused rather than handing that
+ * number's pass to whoever typed it. Like claimGift, the link's spot count isn't checked atomically.
+ */
+export async function claimGiftAsGuest(linkId: string, input: unknown): Promise<{ passId: string; seatNumber: number }> {
+  const { name, phone: typed } = guestClaimSchema.parse(input);
+  const phone = normalizeIndianMobile(typed);
+  if (!phone) throw new HttpError(400, "PHONE_INVALID", "Enter a 10-digit Indian mobile number.");
+  if (!giftIdSchema.safeParse(linkId).success) throw GIFT_NOT_FOUND();
+  const row = await withGiftTable(table => getAppwriteDocument<GiftRow>(table, linkId));
+  if (!row) throw GIFT_NOT_FOUND();
+  if (!row.allowGuests) throw new HttpError(403, "GIFT_ACCOUNT_REQUIRED", "This gift is for NOIDA.FIT members. Sign in or create a free account to claim it.");
+  if (row.status === "revoked") throw new HttpError(410, "GIFT_REVOKED", "The organizer has switched off this gift link.");
+  const ref = giftRef(linkId);
+  const holder = guestHolderId(row.eventId, phone);
+  const tickets = await eventTickets(row.eventId);
+  const alreadyGoing = () => new HttpError(409, "GUEST_ALREADY_GOING", "This mobile number already has a spot at this session. Open the guest pass you got when you claimed it, or ask the organizer.");
+  if (tickets.some(ticket => ticket.userId === holder && ticket.status === "confirmed")) throw alreadyGoing();
+  const claimed = tickets.filter(ticket => ticket.status === "confirmed" && ticket.paymentRef === ref).length;
+  if (claimed >= row.spots) throw new HttpError(409, "GIFT_USED", row.spots === 1 ? "This gift has already been claimed." : "Every spot on this gift has been claimed.");
+  const passId = `p${randomBytes(18).toString("base64url")}`;
+  // The pass first: a seat with no pass would be a guest nobody can name or check in.
+  await withGuestTable(table => createAppwriteDocument<GuestRow>(table, { eventId: row.eventId, linkId, name, phone, createdAt: new Date().toISOString() }, passId));
+  try {
+    const { rsvp, claimed: fresh } = await claimGiftTicket(holder, row.eventId, ref);
+    if (!fresh) throw alreadyGoing();
+    return { passId, seatNumber: rsvp.seatNumber };
+  } catch (error) {
+    await withGuestTable(table => deleteAppwriteDocument(table, passId)).catch(() => {});
+    throw error;
+  }
+}
+
+/** What a guest pass shows: */
+export type GuestPassState =
+  | "valid"       // show the QR at the door
+  | "checked-in"  // the desk has checked them in
+  | "ended"       // the check-in window has closed
+  | "cancelled"   // the organizer cancelled the session
+  | "void";       // the spot is no longer on the guest list
+
+export interface GuestPassView {
+  pass: { id: string; name: string; seatNumber?: number; checkedInAt?: string };
+  event: Event;
+  state: GuestPassState;
+}
+
+/** The guest pass page's data. Null for an unknown pass or a session that isn't public. */
+export async function getGuestPass(passId: string): Promise<GuestPassView | null> {
+  if (!guestPassIdSchema.safeParse(passId).success || !isGuestPassesConfigured()) return null;
+  let row: AppwriteDocument<GuestRow> | null;
+  try {
+    row = await withGuestTable(table => getAppwriteDocument<GuestRow>(table, passId));
+  } catch (error) {
+    if (error instanceof HttpError && error.code === "GIFTS_NOT_CONFIGURED") return null;
+    throw error;
+  }
+  if (!row) return null;
+  const holder = guestHolderId(row.eventId, row.phone);
+  const [event, rsvp, checkin] = await Promise.all([
+    getEventAnyStatus(row.eventId),
+    getUserRsvp(row.eventId, holder),
+    getAppwriteDocument<{ timestamp: string }>(collections.checkins, checkInDocumentId(row.eventId, holder)),
+  ]);
+  if (!event || (event.status ?? "published") === "draft") return null;
+  // Check-in closes an hour after the end (lib/services/participation.ts eventWindow).
+  const closes = Date.parse(event.endsAt ?? "") + 60 * 60_000;
+  const state: GuestPassState = checkin ? "checked-in"
+    : rsvp?.status !== "confirmed" ? "void"
+    : event.status === "cancelled" ? "cancelled"
+    : closes <= Date.now() ? "ended"
+    : "valid";
+  return {
+    pass: { id: row.$id, name: row.name, ...(rsvp?.status === "confirmed" ? { seatNumber: rsvp.seatNumber } : {}), ...(checkin ? { checkedInAt: checkin.timestamp } : {}) },
+    event, state,
+  };
+}
+
+/** The check-in desk scanning a guest pass QR, or checking a guest in from the guest list. Operator or admin only. */
+export async function checkInGuest(operator: Actor, eventId: string, passId: string) {
+  const row = guestPassIdSchema.safeParse(passId).success && isGuestPassesConfigured()
+    ? await withGuestTable(table => getAppwriteDocument<GuestRow>(table, passId))
+    : null;
+  const result = await checkInGuestHolder(operator, eventId, row?.eventId === eventId ? guestHolderId(row.eventId, row.phone) : null);
+  return { ...result, displayName: row?.name || "Guest", guest: true };
 }

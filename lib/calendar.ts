@@ -79,3 +79,15 @@ export function createIcs(input: CalendarEventInput, now = new Date()): string {
     "",
   ].map(foldIcsLine).join("\r\n");
 }
+
+/** A friendly countdown to an IST start, counted in India calendar days: "See you tomorrow at 06:00 AM". */
+export function seeYouLabel(date: string, startTime: string, now = Date.now()): string {
+  let start: Date;
+  try { start = indiaDateTime(date, startTime); } catch { return "See you there"; }
+  const day = (ms: number) => Math.floor((ms + 330 * 60_000) / 86_400_000);
+  const days = day(start.getTime()) - day(now);
+  if (days <= 0) return `See you today at ${startTime}`;
+  if (days === 1) return `See you tomorrow at ${startTime}`;
+  if (days < 7) return `See you on ${new Intl.DateTimeFormat("en-IN", { weekday: "long", timeZone: "Asia/Kolkata" }).format(start)} at ${startTime}`;
+  return `See you in ${days} days`;
+}

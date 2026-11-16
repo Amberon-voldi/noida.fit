@@ -57,6 +57,13 @@ export const participationDocumentId = (eventId: string, userId: string) => idFo
 export const savedItemDocumentId = (itemType: SavedItemType, itemId: string, userId: string) => idFor("saved", itemType, itemId, userId);
 export const membershipDocumentId = (communityId: string, userId: string) => idFor("membership", communityId, userId);
 
+/** A guest who claimed a gift spot without an account holds their seat under a server-made ID with this
+ * prefix (lib/services/gifts.ts). It is never an Appwrite account. */
+export const GUEST_HOLDER_PREFIX = "guest.";
+export const isGuestHolder = (userId: string) => userId.startsWith(GUEST_HOLDER_PREFIX);
+/** Members can read their own rows; a guest has no account, so their rows are server-only. */
+const ownerPermissions = (userId: string) => isGuestHolder(userId) ? [] : userDocumentPermissions(userId);
+
 function isCode(error: unknown, code: number): boolean {
   return typeof error === "object" && error !== null && "code" in error && error.code === code;
 }
@@ -140,7 +147,7 @@ export async function getAccountParticipation(userId: string): Promise<AccountPa
 
 async function createOnce<T extends object>(collection: string, id: string, data: T, userId: string): Promise<AppwriteDocument<T>> {
   try {
-    return await createAppwriteDocument(collection, data, id, userDocumentPermissions(userId));
+    return await createAppwriteDocument(collection, data, id, ownerPermissions(userId));
   } catch (error) {
     if (!isCode(error, 409)) throw error;
     const existing = await getAppwriteDocument<T>(collection, id);
@@ -297,7 +304,7 @@ async function allocateSeat(event: EventRecord, eventId: string, userId: string,
     try {
       return rsvpDto(await createAppwriteDocument<TicketRow>(collections.rsvps, {
         eventId, userId, seatNumber, createdAt: new Date().toISOString(), ...fields,
-      }, rsvpDocumentId(eventId, userId), userDocumentPermissions(userId)));
+      }, rsvpDocumentId(eventId, userId), ownerPermissions(userId)));
     } catch (error) {
       // `npm run appwrite:setup` adds the ticket attributes; until then Appwrite rejects them.
       if (fields.amount && isCode(error, 400)) throw new HttpError(503, "TICKETS_NOT_CONFIGURED", "Tickets for paid events are not switched on yet. Please try again later.");
@@ -467,6 +474,7 @@ async function ensureVerifiedParticipation(userId: string, event: AppwriteDocume
 export async function repairRecordedCheckIn(actor: Pick<AuthUser, "id" | "labels">, eventId: string, userId: string): Promise<void> {
   if (!isAdminUser(actor)) throw new HttpError(403, "ADMIN_REQUIRED", "Administrator access is required");
   documentIdSchema.parse(userId);
+  if (isGuestHolder(userId)) throw new HttpError(409, "GUEST_NO_PASSPORT", "Guests without an account have no passport to repair");
   const event = await getEvent(eventId, false);
   validateCheckInEvent(event);
   const recorded = await getAppwriteDocument<Row<CheckIn>>(collections.checkins, checkInDocumentId(eventId, userId));
@@ -474,13 +482,18 @@ export async function repairRecordedCheckIn(actor: Pick<AuthUser, "id" | "labels
   await ensureVerifiedParticipation(userId, event, checkinDto(recorded));
 }
 
-/** Operator-scanned attendance. Possessing a participant QR never authorizes its holder to write attendance. */
-export async function checkInParticipant(organizer: Pick<AuthUser, "id" | "labels">, eventId: string, token: string) {
-  documentIdSchema.parse(organizer.id);
+async function getOperatedEvent(operator: Pick<AuthUser, "id" | "labels">, eventId: string) {
+  documentIdSchema.parse(operator.id);
   const event = await getEvent(eventId, false);
-  if (!isAdminUser(organizer) && event.organizerUserId !== organizer.id) {
+  if (!isAdminUser(operator) && event.organizerUserId !== operator.id) {
     throw new HttpError(403, "ORGANIZER_REQUIRED", "Only this event’s assigned operator or an administrator can check in participants");
   }
+  return event;
+}
+
+/** Operator-scanned attendance. Possessing a participant QR never authorizes its holder to write attendance. */
+export async function checkInParticipant(organizer: Pick<AuthUser, "id" | "labels">, eventId: string, token: string) {
+  const event = await getOperatedEvent(organizer, eventId);
   const window = validateCheckInEvent(event);
   const payload = decodeSignedToken(token);
   const identities = await listAppwriteDocuments<FitnessIdRecord>(collections.fitnessIds, [Query.equal("publicId", payload.fitnessId), Query.limit(1)]);
@@ -518,4 +531,27 @@ export async function checkInParticipant(organizer: Pick<AuthUser, "id" | "label
   // Only tickets issued before online payment can be confirmed unpaid; the desk is told what to collect.
   const amountDue = rsvp.amount && rsvp.paymentStatus !== "paid" ? rsvp.amount : undefined;
   return { eventId: event.$id, displayName, checkedInAt: checkin.timestamp, alreadyCheckedIn: false, ...(amountDue ? { amountDue } : {}) };
+}
+
+/**
+ * Checks in a guest who claimed a gift spot without an account, from their guest pass (lib/services/gifts.ts).
+ * The same rules as a member: this event's operator or an admin, inside the check-in window, with a confirmed
+ * spot. A guest has no .fit ID, so no passport record follows. `holderId` is null for a pass that isn't for
+ * this event.
+ */
+export async function checkInGuestHolder(operator: Pick<AuthUser, "id" | "labels">, eventId: string, holderId: string | null) {
+  const event = await getOperatedEvent(operator, eventId);
+  const window = validateCheckInEvent(event);
+  if (!holderId || !isGuestHolder(holderId)) throw new HttpError(403, "RSVP_REQUIRED", "This guest pass isn’t for this session");
+  const id = checkInDocumentId(event.$id, holderId);
+  const existing = await getAppwriteDocument<Row<CheckIn>>(collections.checkins, id);
+  if (existing) return { eventId: event.$id, checkedInAt: existing.timestamp, alreadyCheckedIn: true };
+  if (event.status !== "published") throw new HttpError(409, "EVENT_UNAVAILABLE", "This event is not available for new check-ins");
+  const now = Date.now();
+  if (now < window.opensAt || now >= window.closesAt) throw new HttpError(409, "CHECKIN_CLOSED", "Check-in is outside the event window");
+  if ((await getUserRsvp(event.$id, holderId))?.status !== "confirmed") throw new HttpError(403, "RSVP_REQUIRED", "This guest’s spot is no longer on the list for this session");
+  const checkin = await createOnce<Row<CheckIn>>(collections.checkins, id, {
+    eventId: event.$id, userId: holderId, timestamp: new Date().toISOString(), verificationMethod: "guest_pass",
+  }, holderId);
+  return { eventId: event.$id, checkedInAt: checkin.timestamp, alreadyCheckedIn: false };
 }

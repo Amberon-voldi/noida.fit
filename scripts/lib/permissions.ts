@@ -10,5 +10,7 @@ export function documentPermissions(kind: keyof ScriptCollections, row: Record<s
   if (typeof row.userId !== "string" || !/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,35}$/.test(row.userId)) {
     throw new Error(`Cannot assign owner-only permissions: ${kind} has a missing or invalid userId`);
   }
+  // A gift guest without an account (lib/services/participation.ts GUEST_HOLDER_PREFIX) owns no account: server-only.
+  if ((kind === "rsvps" || kind === "checkins") && row.userId.startsWith("guest.")) return [];
   return [Permission.read(Role.user(row.userId))];
 }

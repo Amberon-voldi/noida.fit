@@ -3,7 +3,7 @@ import "server-only";
 import { z } from "zod";
 import { appwriteCollections as collections } from "@/lib/appwrite/config";
 import { getAppwriteDocument, listAppwriteDocuments, Query } from "@/lib/appwrite/database";
-import { documentIdSchema, repairRecordedCheckIn } from "@/lib/services/participation";
+import { documentIdSchema, isGuestHolder, repairRecordedCheckIn } from "@/lib/services/participation";
 import { HttpError } from "@/lib/http";
 import { assertAdmin, type AdminActor } from "./auth";
 import { runAdminMutation } from "./audit";
@@ -14,6 +14,8 @@ export interface AdminAttendanceEntry {
   confirmed: boolean;
   checkedInAt?: string;
   verified: boolean;
+  /** A gift claimed without an account: no profile and no passport to repair. */
+  guest?: true;
 }
 
 export const attendanceRepairSchema = z.object({ eventId: documentIdSchema, userId: documentIdSchema, reason: z.string().trim().min(5).max(300) }).strict();
@@ -33,10 +35,11 @@ export async function getAdminAttendance(actor: AdminActor, eventId: string, off
   const verified = new Set(participations.filter(row => row.status === "verified" && row.occurredAt === checked.get(row.userId)).map(row => row.userId));
   const ids = [...new Set([...confirmed, ...checked.keys()])];
   const entries: AdminAttendanceEntry[] = await Promise.all(ids.slice(offset, offset + 50).map(async userId => {
+    if (isGuestHolder(userId)) return { userId, displayName: "Gift guest (no account)", confirmed: confirmed.has(userId), checkedInAt: checked.get(userId), verified: false, guest: true };
     const profile = await getAppwriteDocument<{ displayName?: string }>(collections.profiles, userId);
     return { userId, displayName: profile?.displayName?.slice(0, 128) || "NOIDA.FIT member", confirmed: confirmed.has(userId), checkedInAt: checked.get(userId), verified: verified.has(userId) };
   }));
-  return { event: { id: eventId, title: event.title, status: event.status }, total: ids.length, confirmed: confirmed.size, checkins: checked.size, needsRepair: [...checked.keys()].filter(id => !verified.has(id)).length, entries };
+  return { event: { id: eventId, title: event.title, status: event.status }, total: ids.length, confirmed: confirmed.size, checkins: checked.size, needsRepair: [...checked.keys()].filter(id => !verified.has(id) && !isGuestHolder(id)).length, entries };
 }
 
 export async function repairAdminAttendance(actor: AdminActor, input: z.infer<typeof attendanceRepairSchema>) {

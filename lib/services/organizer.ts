@@ -8,8 +8,8 @@ import {
 } from "@/lib/appwrite/database";
 import { HttpError } from "@/lib/http";
 import { ticketHoldEndsAt } from "@/lib/pricing";
-import { giftLinkLabels } from "@/lib/services/gifts";
-import { eventWindow, isAdminUser } from "@/lib/services/participation";
+import { giftGuests, giftLinkLabels } from "@/lib/services/gifts";
+import { eventWindow, isAdminUser, isGuestHolder } from "@/lib/services/participation";
 import type { AuthUser } from "@/lib/auth";
 import type { Event } from "@/types/event";
 import type { OrganizerAttendee, OrganizerEventSummary, CheckInWindowState } from "@/types/organizer";
@@ -65,7 +65,9 @@ async function listForIds<T extends object>(collection: string, field: string, i
 
 /**
  * Organizer-scoped attendance data. User IDs, email addresses and profile
- * visibility settings never leave this server-side DTO.
+ * visibility settings never leave this server-side DTO. A guest who claimed a
+ * gift without an account gave the organizer their name and mobile number,
+ * so those, and their pass for checking in by hand, are included.
  *
  * A Worker invocation may make only a limited number of subrequests, so the
  * whole workspace loads with a fixed handful of batched queries, never one
@@ -81,15 +83,17 @@ export async function getOrganizerEventSummaries(
   }
   if (!events.length) return [];
   const eventIds = events.map(event => event.id);
-  const [rsvps, checkins, giftLabels] = await Promise.all([
+  const [rsvps, checkins, giftLabels, guests] = await Promise.all([
     // No select: Appwrite rejects a select naming the ticket attributes before `appwrite:setup` has added them.
     listForIds<RsvpRow>(collections.rsvps, "eventId", eventIds),
     listForIds<CheckInRow>(collections.checkins, "eventId", eventIds, ["eventId", "userId", "timestamp"]),
     giftLinkLabels(eventIds),
+    giftGuests(eventIds),
   ]);
   const now = Date.now();
   const confirmed = rsvps.filter(rsvp => rsvp.status === "confirmed");
-  const profiles = await listForIds<ProfileRow>(collections.profiles, "$id", [...new Set(confirmed.map(rsvp => rsvp.userId))], ["displayName"]);
+  // Guests without an account have no profile: their pass names them.
+  const profiles = await listForIds<ProfileRow>(collections.profiles, "$id", [...new Set(confirmed.filter(rsvp => !isGuestHolder(rsvp.userId)).map(rsvp => rsvp.userId))], ["displayName"]);
   const names = new Map(profiles.map(profile => [profile.$id, profile.displayName]));
   const checkinByKey = new Map(checkins.map(checkin => [`${checkin.eventId}:${checkin.userId}`, checkin]));
 
@@ -98,12 +102,14 @@ export async function getOrganizerEventSummaries(
       const checkin = checkinByKey.get(`${event.id}:${rsvp.userId}`);
       const giftLinkId = rsvp.paymentStatus === "gift" && rsvp.paymentRef?.startsWith("gift:") ? rsvp.paymentRef.slice(5) : undefined;
       const giftLabel = giftLinkId ? giftLabels.get(giftLinkId) : undefined;
+      const guest = isGuestHolder(rsvp.userId) ? guests.get(rsvp.userId) : undefined;
       return {
-        displayName: safeDisplayName(names.get(rsvp.userId)),
+        displayName: guest ? safeDisplayName(guest.name) : isGuestHolder(rsvp.userId) ? "Guest" : safeDisplayName(names.get(rsvp.userId)),
         rsvpStatus: "confirmed",
         ...(Number.isSafeInteger(rsvp.seatNumber) ? { seatNumber: rsvp.seatNumber } : {}),
         ...(rsvp.amount ? { ticket: { amount: rsvp.amount, paid: rsvp.paymentStatus === "paid" } } : {}),
         ...(giftLinkId ? { gift: { linkId: giftLinkId, ...(giftLabel ? { label: giftLabel } : {}) } } : {}),
+        ...(guest ? { guest: { pass: guest.pass, phone: guest.phone } } : {}),
         checkInStatus: checkin ? "checked_in" : "not_checked_in",
         ...(checkin ? { checkedInAt: checkin.timestamp } : {}),
       };

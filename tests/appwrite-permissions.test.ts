@@ -24,3 +24,8 @@ test("private records are readable only by their owner, including opted-in profi
     }
   }
 });
+
+test("a gift guest's seat and check-in, held without an account, stay server-only", () => {
+  for (const kind of ["rsvps", "checkins"] as const) assert.deepEqual(documentPermissions(kind, { userId: "guest.0123456789abcdef0123456789abcd" }), []);
+  assert.deepEqual(documentPermissions("rsvps", { userId: "member-1" }), ['read("user:member-1")']);
+});

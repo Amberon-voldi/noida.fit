@@ -29,6 +29,7 @@ export function GiftLinks({ eventId, eventTitle, published, initialLinks, attend
   const [label, setLabel] = useState("");
   const [note, setNote] = useState("");
   const [spots, setSpots] = useState(1);
+  const [allowGuests, setAllowGuests] = useState(true);
   const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
@@ -51,7 +52,7 @@ export function GiftLinks({ eventId, eventTitle, published, initialLinks, attend
     form.preventDefault();
     setPending("create"); setError(null);
     try {
-      const link = await send(`/api/organizer/events/${encodeURIComponent(eventId)}/gifts`, { method: "POST", body: JSON.stringify({ link: { label: label.trim() || undefined, note: note.trim() || undefined, spots } }) });
+      const link = await send(`/api/organizer/events/${encodeURIComponent(eventId)}/gifts`, { method: "POST", body: JSON.stringify({ link: { label: label.trim() || undefined, note: note.trim() || undefined, spots, allowGuests } }) });
       if (link) { setLinks(current => [link, ...current]); setFresh(link.id); setLabel(""); setNote(""); setSpots(1); }
       // The dashboard's counts come from the server.
       router.refresh();
@@ -89,7 +90,7 @@ export function GiftLinks({ eventId, eventTitle, published, initialLinks, attend
     <form onSubmit={create} className="h-fit space-y-4 rounded-2xl border border-border-strong bg-surface p-4 sm:p-6">
       <div>
         <h2 className="flex items-center gap-2 text-xl font-bold text-white"><Gift size={20} className="text-velocity" aria-hidden="true" />New gift link</h2>
-        <p className="mt-1 text-sm leading-relaxed text-text-secondary">Invite a creator, partner or friend of the club free{paidLabel ? `: they skip the ${paidLabel} ticket` : ""}. Whoever opens the link signs in and claims a confirmed spot. Gifted spots count towards capacity.</p>
+        <p className="mt-1 text-sm leading-relaxed text-text-secondary">Invite a creator, partner or friend of the club free{paidLabel ? `: they skip the ${paidLabel} ticket` : ""}. Whoever opens the link claims a confirmed spot, with or without an account: you choose. Gifted spots count towards capacity.</p>
       </div>
       <fieldset disabled={pending === "create"} className="space-y-4">
         <label className="block text-sm font-semibold text-white">Who is it for? <span className="font-normal text-text-secondary">(optional)</span>
@@ -108,6 +109,18 @@ export function GiftLinks({ eventId, eventTitle, published, initialLinks, attend
             <span className="text-xs text-text-secondary">{spots === 1 ? "Just for them" : `They can share it with ${spots - 1} more`}</span>
           </div>
         </div>
+        <fieldset>
+          <legend className="text-sm font-semibold text-white">How they claim it</legend>
+          <div className="mt-1.5 grid gap-2">
+            {([
+              [true, "No account needed", "They give a name and mobile number and get a guest pass with a QR for the door."],
+              [false, "With a NOIDA.FIT account", "They sign in or sign up, and the session counts on their .fit ID."],
+            ] as const).map(([value, title, text]) => <label key={title} className={`flex cursor-pointer items-start gap-3 rounded-lg border p-3 ${allowGuests === value ? "border-velocity bg-velocity/10" : "border-border-strong"}`}>
+              <input type="radio" name="gift-access" checked={allowGuests === value} onChange={() => setAllowGuests(value)} className="mt-1 size-4 shrink-0 accent-velocity" />
+              <span className="min-w-0"><span className="block text-sm font-semibold text-white">{title}</span><span className="mt-0.5 block text-xs text-text-secondary">{text}</span></span>
+            </label>)}
+          </div>
+        </fieldset>
       </fieldset>
       <button type="submit" disabled={pending === "create"} className="button-primary w-full">{pending === "create" ? <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" /> : <Gift className="h-4 w-4" aria-hidden="true" />}Create gift link</button>
       {!published && <p className="text-xs text-text-secondary">This session isn’t published yet. Gift links start working once it is.</p>}
@@ -118,14 +131,14 @@ export function GiftLinks({ eventId, eventTitle, published, initialLinks, attend
       <h2 id="gift-list-heading" className="text-xl font-bold text-white">Your gift links</h2>
       {links.length ? <ul className="mt-3 space-y-3">
         {links.map(link => {
-          const guests = attendees.filter(attendee => attendee.gift?.linkId === link.id).map(attendee => attendee.displayName);
+          const guests = attendees.filter(attendee => attendee.gift?.linkId === link.id).map(attendee => attendee.guest ? `${attendee.displayName} (guest pass)` : attendee.displayName);
           const usedUp = link.claimed >= link.spots;
           const status = link.status === "revoked" ? "Switched off" : usedUp ? "All claimed" : "Active";
           return <li key={link.id} className={`rounded-xl border bg-surface p-4 ${fresh === link.id ? "border-velocity/70" : "border-border-subtle"} ${link.status === "revoked" ? "opacity-70" : ""}`}>
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="truncate font-semibold text-white">{link.label || "Anyone with the link"}</p>
-                <p className="mt-0.5 text-xs text-text-secondary">{link.claimed} of {link.spots} claimed · made {dateFormatter.format(new Date(link.createdAt))}</p>
+                <p className="mt-0.5 text-xs text-text-secondary">{link.claimed} of {link.spots} claimed · {link.allowGuests ? "no account needed" : "account needed"} · made {dateFormatter.format(new Date(link.createdAt))}</p>
               </div>
               <span className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${status === "Active" ? "bg-velocity/15 text-velocity" : "border border-border-subtle text-text-secondary"}`}>{status}</span>
             </div>

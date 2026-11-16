@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { EventActions } from "@/components/participation/EventActions";
 import { EventBookingBar } from "@/components/participation/EventBookingBar";
 import { PaymentReturnNotice } from "@/components/participation/PaymentReturnNotice";
+import { TicketConfirmation, type BookedTicket } from "@/components/participation/TicketConfirmation";
 import { SaveButton } from "@/components/participation/SaveButton";
 import { ShareButton } from "@/components/ui/ShareButton";
 import { StructuredData } from "@/components/discovery/DetailPrimitives";
@@ -13,7 +14,9 @@ import { eventIsUpcoming, eventTimestamp } from "@/components/discovery/filter";
 import { listingMetadata } from "@/components/discovery/metadata";
 import { getActivities, getEventBySlug } from "@/lib/data";
 import { CATEGORY_LABELS, formatDate, SITE_CONFIG } from "@/lib/config";
-import { parseEventPrice } from "@/lib/pricing";
+import { formatInr, parseEventPrice } from "@/lib/pricing";
+import { seeYouLabel } from "@/lib/calendar";
+import { getUserRsvp } from "@/lib/services/participation";
 import { isPayuConfigured } from "@/lib/payments/payu";
 import { savedPaymentPhone } from "@/lib/appwrite/auth";
 import { getCurrentAppwriteUser } from "@/lib/appwrite/server";
@@ -38,8 +41,19 @@ export default async function EventPage({ params, searchParams }: Props) {
   const pricing = parseEventPrice(event.price);
   // Demo listings never take real money.
   const payOnline = pricing.kind === "paid" && !event.demo && isPayuConfigured();
-  // The number the member last paid with pre-fills checkout. The navbar already read the account this request.
-  const savedPhone = payOnline ? savedPaymentPhone((await getCurrentAppwriteUser())?.prefs) : undefined;
+  const outcome = typeof payment === "string" ? payment : undefined;
+  // The navbar already read the account this request.
+  const viewer = payOnline || outcome === "paid" ? await getCurrentAppwriteUser() : null;
+  // The number the member last paid with pre-fills checkout.
+  const savedPhone = payOnline ? savedPaymentPhone(viewer?.prefs) : undefined;
+  // Back from PayU with a confirmed ticket: celebrate it with the real details.
+  const booked = outcome === "paid" && viewer ? await getUserRsvp(event.id, viewer.$id).catch(() => null) : null;
+  const ticket: BookedTicket | null = booked?.status === "confirmed" ? {
+    eventId: event.id, eventSlug: event.slug, title: event.title, date: event.date, dateLabel: formatDate(event.date), startTime: event.startTime, endTime: event.endTime,
+    venueName: event.venueName, sector: event.sector, communityName: event.communityName, category: event.category, image: event.coverImageUrl ?? event.imageUrl,
+    seatNumber: booked.seatNumber, kind: booked.paymentStatus === "gift" ? "gift" : "paid", priceLabel: booked.amount ? formatInr(booked.amount) : pricing.label,
+    holder: viewer?.name || undefined, countdown: seeYouLabel(event.date, event.startTime),
+  } : null;
   const when = `${formatDate(event.date)} · ${event.startTime}`;
   const jsonLd = {
     "@context": "https://schema.org", "@type": "SportsEvent", name: event.title, description: event.description,
@@ -67,7 +81,7 @@ export default async function EventPage({ params, searchParams }: Props) {
       </DetailHero>
       <div className="event-detail-layout mx-auto grid max-w-7xl gap-10 px-4 py-10 sm:px-6 sm:py-14 lg:grid-cols-[minmax(0,1fr)_350px] lg:px-8">
         <div className="min-w-0 space-y-8">
-          <PaymentReturnNotice outcome={typeof payment === "string" ? payment : undefined} />
+          {ticket ? <TicketConfirmation ticket={ticket} clearParam="payment" /> : <PaymentReturnNotice outcome={outcome} />}
           {!upcoming && <p role="status" className="rounded-lg border border-border-strong bg-surface px-4 py-3 text-sm text-text-secondary">{event.status === "cancelled" ? "This gathering has been cancelled." : "This gathering has ended."} Check the host community for other sessions.</p>}
           <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {[["Date", formatDate(event.date)], ["Time · IST", `${event.startTime} – ${event.endTime}`], ["Cost", event.price], ["Level", event.level ?? "Ask the host"]].map(([label, value]) => <div key={label} className="min-w-0 rounded-lg border border-border-subtle bg-surface p-4"><dt className="font-mono text-[10px] uppercase tracking-widest text-text-secondary">{label}</dt><dd className="mt-2 break-words text-sm font-semibold">{value}</dd></div>)}

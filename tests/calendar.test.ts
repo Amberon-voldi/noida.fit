@@ -25,3 +25,13 @@ test("calendar download includes stable UID and supports a session crossing midn
   assert.match(result,/UID:event-1@noida.fit/);
   assert.match(result,/END:VCALENDAR\r\n$/);
 });
+test("the booking countdown counts India calendar days, not 24-hour periods", async () => {
+  const { seeYouLabel } = await import("../lib/calendar");
+  const at = (iso: string) => Date.parse(iso);
+  // 23:00 IST on the 9th: a 06:00 start on the 10th is tomorrow, even though it's only 7 hours away.
+  assert.equal(seeYouLabel("2026-11-10", "06:00 AM", at("2026-11-09T17:30:00.000Z")), "See you tomorrow at 06:00 AM");
+  assert.equal(seeYouLabel("2026-11-10", "06:00 AM", at("2026-11-10T00:00:00.000Z")), "See you today at 06:00 AM");
+  assert.equal(seeYouLabel("2026-11-14", "06:00 AM", at("2026-11-10T04:00:00.000Z")), "See you on Saturday at 06:00 AM");
+  assert.equal(seeYouLabel("2026-11-30", "06:00 AM", at("2026-11-10T04:00:00.000Z")), "See you in 20 days");
+  assert.equal(seeYouLabel("not-a-date", "06:00 AM"), "See you there");
+});

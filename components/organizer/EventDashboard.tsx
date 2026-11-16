@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, ArrowUpRight, Check, Copy, CopyPlus, Download, Gift, LayoutDashboard, Pencil, ScanLine, Search, Share2, UsersRound, type LucideIcon } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { ArrowLeft, ArrowUpRight, Check, Copy, CopyPlus, Download, Gift, LayoutDashboard, LoaderCircle, Pencil, Phone, ScanLine, Search, Share2, UsersRound, type LucideIcon } from "lucide-react";
 import type { GiftLink, OrganizerEventSummary } from "@/types/organizer";
 import { OrganizerCheckInForm } from "@/components/participation/OrganizerCheckInForm";
 import { formatDate, SITE_CONFIG } from "@/lib/config";
@@ -33,10 +34,13 @@ function Stat({ label, value, detail, accent = false, percent }: { label: string
 /** One session, everything an organizer runs it with: numbers, guests, the check-in desk and gift links. */
 export function EventDashboard({ summary, giftLinks, initialTab }: { summary: OrganizerEventSummary; giftLinks: GiftLink[] | null; initialTab: DashboardTab }) {
   const { event, attendees } = summary;
+  const router = useRouter();
   const [tab, setTab] = useState(initialTab);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<Filter>("all");
   const [copied, setCopied] = useState(false);
+  const [checking, setChecking] = useState<string | null>(null);
+  const [checkError, setCheckError] = useState<{ pass: string; message: string } | null>(null);
   const pricing = parseEventPrice(event.price);
   const published = event.status === "published";
   const publicUrl = `${SITE_CONFIG.url}/event/${event.slug}`;
@@ -47,11 +51,27 @@ export function EventDashboard({ summary, giftLinks, initialTab }: { summary: Or
   const activeGiftLinks = giftLinks?.filter(link => link.status === "active").length ?? 0;
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase();
+    const digits = needle.replace(/\D/g, "");
     return attendees.filter(attendee => {
       const match = filter === "all" ? true : filter === "in" ? attendee.checkInStatus === "checked_in" : filter === "waiting" ? attendee.checkInStatus !== "checked_in" : filter === "paid" ? attendee.ticket?.paid === true : Boolean(attendee.gift);
-      return match && (!needle || attendee.displayName.toLowerCase().includes(needle) || attendee.gift?.label?.toLowerCase().includes(needle));
+      return match && (!needle || attendee.displayName.toLowerCase().includes(needle) || attendee.gift?.label?.toLowerCase().includes(needle) || (digits.length >= 3 && attendee.guest?.phone.includes(digits)));
     });
   }, [attendees, filter, query]);
+
+  /** Guests without an account can be checked in from the list too, e.g. when their phone is flat. */
+  async function checkInGuest(pass: string): Promise<void> {
+    setChecking(pass); setCheckError(null);
+    try {
+      const response = await fetch("/api/check-in/organizer", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ eventId: event.id, guestPass: pass }) });
+      const data = await response.json().catch(() => null) as { checkedIn?: boolean; error?: string } | null;
+      if (!response.ok || !data?.checkedIn) { setCheckError({ pass, message: data?.error || "Check-in didn’t go through. Try again." }); return; }
+      router.refresh();
+    } catch {
+      setCheckError({ pass, message: "Nothing was recorded. Check the connection and try again." });
+    } finally {
+      setChecking(null);
+    }
+  }
 
   // On a phone the tab row scrolls sideways: keep the open tab in view, including a deep-linked one.
   useEffect(() => { document.getElementById(`tab-${tab}`)?.scrollIntoView({ block: "nearest", inline: "nearest" }); }, [tab]);
@@ -148,9 +168,9 @@ export function EventDashboard({ summary, giftLinks, initialTab }: { summary: Or
     {tab === "guests" && <section id="panel-guests" role="tabpanel" aria-labelledby="tab-guests" className="mt-6">
       <div className="flex flex-wrap gap-2">
         <label className="relative min-w-0 flex-1 basis-48">
-          <span className="sr-only">Search guests by name</span>
+          <span className="sr-only">Search guests by name, or a guest’s mobile number</span>
           <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-secondary" aria-hidden="true" />
-          <input type="search" value={query} onChange={change => setQuery(change.target.value)} placeholder="Search by name" className="min-h-11 w-full rounded-lg border border-border-strong bg-surface-elevated pl-9 pr-3 text-base text-white" />
+          <input type="search" value={query} onChange={change => setQuery(change.target.value)} placeholder="Search by name or mobile" className="min-h-11 w-full rounded-lg border border-border-strong bg-surface-elevated pl-9 pr-3 text-base text-white" />
         </label>
         <button type="button" onClick={exportCsv} disabled={!attendees.length} className="inline-flex min-h-11 items-center gap-1.5 rounded-lg border border-border-strong px-4 text-sm font-semibold text-white hover:bg-surface-hover disabled:opacity-50"><Download size={15} aria-hidden="true" />Export CSV</button>
       </div>
@@ -158,26 +178,37 @@ export function EventDashboard({ summary, giftLinks, initialTab }: { summary: Or
         {filters.map(([value, label]) => <button key={value} type="button" aria-pressed={filter === value} onClick={() => setFilter(value)} className={`min-h-9 rounded-md border px-3 text-xs font-semibold ${filter === value ? "border-velocity bg-velocity text-slate-950" : "border-border-strong text-text-secondary hover:text-white"}`}>{label}</button>)}
       </div>
       {visible.length ? <ul className="mt-3 divide-y divide-border-subtle rounded-xl border border-border-subtle bg-surface">
-        {visible.map((attendee, index) => <li key={`${attendee.displayName}-${attendee.seatNumber ?? index}`} className="flex min-h-12 items-center justify-between gap-3 px-4 py-2 text-sm">
-          <span className="min-w-0">
-            <span className="block truncate font-medium text-white">{attendee.displayName}</span>
-            <span className="block text-xs text-text-secondary">{[attendee.seatNumber !== undefined && `Spot #${attendee.seatNumber}`, (attendee.ticket || attendee.gift) && guestTicketLabel(attendee)].filter(Boolean).join(" · ")}</span>
-          </span>
-          <span className="flex shrink-0 items-center gap-2">
-            {attendee.gift && <Gift size={15} className="text-velocity" aria-label="Gifted spot" />}
-            {attendee.checkInStatus === "checked_in"
-              ? <span className="rounded-full bg-velocity/15 px-2.5 py-1 text-xs font-semibold text-velocity">In{attendee.checkedInAt ? ` · ${timeFormatter.format(new Date(attendee.checkedInAt))}` : ""}</span>
-              : <span className="rounded-full border border-border-subtle px-2.5 py-1 text-xs text-text-secondary">Not yet</span>}
-          </span>
+        {visible.map((attendee, index) => <li key={attendee.guest?.pass ?? `${attendee.displayName}-${attendee.seatNumber ?? index}`} className="px-4 py-2 text-sm">
+          <div className="flex min-h-10 items-center justify-between gap-3">
+            <span className="min-w-0">
+              <span className="flex items-center gap-2">
+                <span className="truncate font-medium text-white">{attendee.displayName}</span>
+                {attendee.guest && <span className="shrink-0 rounded-full border border-border-strong px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-text-secondary">Guest pass</span>}
+              </span>
+              <span className="block text-xs text-text-secondary">
+                {[attendee.seatNumber !== undefined && `Spot #${attendee.seatNumber}`, (attendee.ticket || attendee.gift) && guestTicketLabel(attendee)].filter(Boolean).join(" · ")}
+                {attendee.guest && <> · <a href={`tel:+91${attendee.guest.phone}`} className="inline-flex items-center gap-1 font-medium text-velocity hover:text-velocity-glow"><Phone size={11} aria-hidden="true" />{attendee.guest.phone.replace(/^(\d{5})(\d{5})$/, "$1 $2")}</a></>}
+              </span>
+            </span>
+            <span className="flex shrink-0 items-center gap-2">
+              {attendee.gift && <Gift size={15} className="text-velocity" aria-label="Gifted spot" />}
+              {attendee.checkInStatus === "checked_in"
+                ? <span className="rounded-full bg-velocity/15 px-2.5 py-1 text-xs font-semibold text-velocity">In{attendee.checkedInAt ? ` · ${timeFormatter.format(new Date(attendee.checkedInAt))}` : ""}</span>
+                : attendee.guest && summary.checkInWindow === "open"
+                  ? <button type="button" onClick={() => checkInGuest(attendee.guest!.pass)} disabled={checking !== null} aria-label={`Check in ${attendee.displayName}`} className="inline-flex min-h-9 items-center gap-1.5 rounded-full bg-velocity px-3 text-xs font-bold text-slate-950 disabled:opacity-60">{checking === attendee.guest.pass && <LoaderCircle size={13} className="animate-spin" aria-hidden="true" />}Check in</button>
+                  : <span className="rounded-full border border-border-subtle px-2.5 py-1 text-xs text-text-secondary">Not yet</span>}
+            </span>
+          </div>
+          {checkError && checkError.pass === attendee.guest?.pass && <p role="alert" className="mt-1 text-xs text-rose-200">{checkError.message}</p>}
         </li>)}
       </ul> : <p className="mt-3 rounded-xl border border-dashed border-border-strong p-5 text-sm text-text-secondary">{summary.confirmedRsvps ? "No guests match." : "No one is going yet. Share the session, or invite people with a gift link."}</p>}
-      <p className="mt-3 text-xs text-text-secondary">Only names, spots and attendance are shown or exported. Contact details and account IDs stay private.</p>
+      <p className="mt-3 text-xs text-text-secondary">Members’ contact details and account IDs stay private. Guests who claimed a gift without an account gave you their mobile number; it isn’t in the CSV export.</p>
     </section>}
 
     {tab === "checkin" && <section id="panel-checkin" role="tabpanel" aria-labelledby="tab-checkin" className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">
       <div className="min-w-0 rounded-2xl border border-border-strong bg-surface p-4 sm:p-6">
-        <h2 className="text-xl font-bold text-white">Scan .fit IDs</h2>
-        <p className="mt-1 mb-4 text-sm leading-relaxed text-text-secondary">Ask each person to open their .fit ID and flip it to the check-in QR. Only people going to this session can be checked in, including gifted spots.</p>
+        <h2 className="text-xl font-bold text-white">Scan .fit IDs and guest passes</h2>
+        <p className="mt-1 mb-4 text-sm leading-relaxed text-text-secondary">Ask each person to open their .fit ID and flip it to the check-in QR. Guests who claimed a gift without an account show the QR on their guest pass, or you can check them in from the guest list. Only people going to this session can be checked in.</p>
         <OrganizerCheckInForm event={{ id: event.id, title: event.title, checkInWindow: summary.checkInWindow, checkedIn: summary.checkedIn, confirmedRsvps: summary.confirmedRsvps }} />
       </div>
       <dl className="grid h-fit grid-cols-2 gap-3">

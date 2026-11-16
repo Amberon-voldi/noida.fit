@@ -15,7 +15,7 @@ type Props = { params: Promise<{ giftId: string }> };
 /** Metadata and page share one read per request. */
 const load = cache(async (giftId: string) => {
   const user = await getCurrentAppwriteUser();
-  return { view: await getGiftView(giftId, user?.$id), signedIn: Boolean(user) };
+  return { view: await getGiftView(giftId, user?.$id), signedIn: Boolean(user), holder: user?.name || undefined };
 });
 
 /** The link is the invitation, so its preview names the guest and the event; it is never indexed. */
@@ -40,7 +40,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function GiftPage({ params }: Props) {
   const { giftId } = await params;
-  const { view, signedIn } = await load(giftId);
+  const { view, signedIn, holder } = await load(giftId);
   if (!view) notFound();
   const { event, link, state } = view;
   const pricing = parseEventPrice(event.price);
@@ -62,7 +62,11 @@ export default async function GiftPage({ params }: Props) {
           {[["When", `${formatDate(event.date)} · ${event.startTime}`], ["Where", `${event.venueName}, ${event.sector}`], ["Your ticket", pricing.kind === "paid" ? `Free (was ${pricing.label})` : "Free"]].map(([label, value]) =>
             <div key={label} className="min-w-0 rounded-lg border border-border-subtle bg-surface-elevated p-4"><dt className="font-mono text-[10px] uppercase tracking-widest text-text-secondary">{label}</dt><dd className="mt-2 break-words text-sm font-semibold text-white">{value}</dd></div>)}
         </dl>
-        <GiftClaim giftId={link.id} initialState={state} signedIn={signedIn} />
+        <GiftClaim giftId={link.id} initialState={state} signedIn={signedIn} allowGuests={link.allowGuests} ticket={{
+          eventId: event.id, eventSlug: event.slug, title: event.title, date: event.date, dateLabel: formatDate(event.date), startTime: event.startTime, endTime: event.endTime,
+          venueName: event.venueName, sector: event.sector, communityName: event.communityName, category: event.category, image: event.coverImageUrl ?? event.imageUrl,
+          kind: "gift", ...(pricing.kind === "paid" ? { priceLabel: pricing.label } : {}), holder,
+        }} />
       </section>
       <Link href={`/event/${event.slug}`} className="mt-6 inline-flex min-h-11 items-center gap-1 font-semibold text-velocity hover:text-velocity-glow">Everything about this session <ArrowUpRight className="h-4 w-4" aria-hidden="true" /></Link>
     </div>

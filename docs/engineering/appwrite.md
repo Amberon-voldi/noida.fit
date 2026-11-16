@@ -84,10 +84,11 @@ Appwrite owns `$createdAt` and `$updatedAt`; code strips caller-supplied `$` met
 | Events | unique slug, title, activityId, communitySlug, venueSlug, sector, date, startsAt, endsAt, capacity, featured, optional organizerUserId, status, demo, payload |
 | Places | unique slug, sector, featured, status, demo, payload |
 | Communities | unique slug, activityId, status, demo, payload |
-| RSVPs | eventId, userId, status (confirmed; pending = a paid ticket's 30-minute hold until PayU confirms payment), seatNumber, createdAt; tickets for paid events also set amount (paise), paymentStatus (pending/paid) and paymentRef; a spot claimed through a gift link has paymentStatus gift, paymentRef gift:<link id> and no amount; unique(eventId,userId), unique(eventId,seatNumber) |
-| Check-ins | eventId, userId, timestamp, verificationMethod; unique(eventId,userId) |
+| RSVPs | eventId, userId, status (confirmed; pending = a paid ticket's 30-minute hold until PayU confirms payment), seatNumber, createdAt; tickets for paid events also set amount (paise), paymentStatus (pending/paid) and paymentRef; a spot claimed through a gift link has paymentStatus gift, paymentRef gift:<link id> and no amount; a guest who claimed a gift without an account holds it under userId `guest.<30 hex>` (from the event and their mobile number, so one spot per number) with no document permissions; unique(eventId,userId), unique(eventId,seatNumber) |
+| Check-ins | eventId, userId, timestamp, verificationMethod (organizer_qr, or guest_pass for a gift guest without an account, whose row has no document permissions); unique(eventId,userId) |
 | Memberships | userId, communityId, status, createdAt; unique(userId,communityId) |
-| Gift links (optional, `npm run appwrite:gift-links`) | random 25-character ID (the secret in /gift/<id>), eventId, createdBy, optional label (120) and note (500), spots (1–20), status (active/revoked), createdAt; key index on eventId. No client grants: server-only |
+| Gift links (optional, `npm run appwrite:gift-links`) | random 25-character ID (the secret in /gift/<id>), eventId, createdBy, optional label (120) and note (500), spots (1–20), optional allowGuests (claim without an account), status (active/revoked), createdAt; key index on eventId. No client grants: server-only |
+| Gift guests (optional, same command) | random 25-character ID (the secret in /pass/<id> and its NF-GUEST: QR), eventId, linkId, name (80), phone (10-digit Indian mobile), createdAt; key index on eventId. No client grants: server-only; the organizer's guest list shows the name and number |
 | Saved items | userId, itemId, itemType, createdAt; unique(userId,itemType,itemId) |
 | Participation | userId, optional eventId, activityId, title, occurredAt, source, status; unique(userId,eventId) |
 

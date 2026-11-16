@@ -4,7 +4,7 @@ import { useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle, CheckCircle2, Clock3, UserX } from "lucide-react";
 import type { CheckInWindowState } from "@/types/organizer";
-import { participantTokenFromQr } from "@/lib/check-in-qr";
+import { checkInCodeFromQr } from "@/lib/check-in-qr";
 import { formatInr } from "@/lib/pricing";
 import { CheckInScanner } from "./CheckInScanner";
 
@@ -27,7 +27,7 @@ function failure(code: string | undefined, message: string): Pick<ScanResult, "o
   switch (code) {
     case "RSVP_REQUIRED": return { outcome: "not-on-list", title: "Not on the RSVP list", detail: message };
     case "CHECKIN_TOKEN_EXPIRED": return { outcome: "expired", title: "QR expired", detail: "Ask them to refresh the check-in QR on their .fit ID, then scan again." };
-    case "CHECKIN_TOKEN_INVALID": return { outcome: "error", title: "Not a valid check-in QR", detail: "Ask them to open their .fit ID and show the check-in side of the card." };
+    case "CHECKIN_TOKEN_INVALID": return { outcome: "error", title: "Not a valid check-in QR", detail: "Ask them to open their .fit ID and show the check-in side of the card, or open their guest pass." };
     case "CHECKIN_CLOSED": return { outcome: "error", title: "Check-in is closed", detail: "New check-ins open 30 minutes before the start and close an hour after the end." };
     default: return { outcome: "error", title: "Could not check in", detail: message };
   }
@@ -55,21 +55,21 @@ export function OrganizerCheckInForm({ event }: { event: OperatorEvent }) {
     if (busy.current) return;
     busy.current = true; setPending(true);
     try {
-      let token: string;
-      try { token = participantTokenFromQr(value); } catch (reason) {
-        push({ outcome: "error", title: "Not a check-in QR", detail: reason instanceof Error ? reason.message : "Scan the check-in side of their .fit ID." });
+      let code: ReturnType<typeof checkInCodeFromQr>;
+      try { code = checkInCodeFromQr(value); } catch (reason) {
+        push({ outcome: "error", title: "Not a check-in QR", detail: reason instanceof Error ? reason.message : "Scan the check-in side of their .fit ID, or their guest pass." });
         return;
       }
-      const response = await fetch("/api/check-in/organizer", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ eventId: event.id, token }) });
+      const response = await fetch("/api/check-in/organizer", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ eventId: event.id, ...code }) });
       if (response.status === 401) { router.push(`/login?callbackUrl=/organizer/events/${encodeURIComponent(event.id)}`); return; }
-      const data = await response.json().catch(() => null) as { checkedIn?: boolean; displayName?: string; checkedInAt?: string; alreadyCheckedIn?: boolean; amountDue?: number; error?: string; code?: string } | null;
+      const data = await response.json().catch(() => null) as { checkedIn?: boolean; displayName?: string; checkedInAt?: string; alreadyCheckedIn?: boolean; amountDue?: number; guest?: boolean; error?: string; code?: string } | null;
       if (!response.ok || !data?.checkedIn || !data.displayName) {
         push(failure(data?.code, data?.error || "Participant check-in could not be completed. Try again."));
         return;
       }
       push(data.alreadyCheckedIn
         ? { outcome: "already", title: data.displayName, detail: `Already checked in at ${data.checkedInAt ? timeFormatter.format(new Date(data.checkedInAt)) : "an earlier scan"}.` }
-        : { outcome: "checked-in", title: data.displayName, detail: data.amountDue ? `Checked in. Collect ${formatInr(data.amountDue)} for their ticket.` : "Checked in. Attendance is on their .fit ID." });
+        : { outcome: "checked-in", title: data.displayName, detail: data.guest ? "Checked in with their guest pass." : data.amountDue ? `Checked in. Collect ${formatInr(data.amountDue)} for their ticket.` : "Checked in. Attendance is on their .fit ID." });
       setInput("");
       router.refresh();
     } catch {
@@ -96,7 +96,7 @@ export function OrganizerCheckInForm({ event }: { event: OperatorEvent }) {
     {windowNote && <p className="rounded-xl border border-amber-400/60 bg-black/70 p-3 text-center text-sm text-amber-200 backdrop-blur-md" role="note">{windowNote}</p>}
     {pending && <p className="rounded-xl bg-black/70 p-4 text-center text-base font-semibold text-white backdrop-blur-md">Checking this participant…</p>}
     {!pending && resultCard(true)}
-    {!pending && !latest && <p className="rounded-xl bg-black/60 p-4 text-center text-sm text-white/85 backdrop-blur-md">Point the camera at a participant’s check-in QR. Their details appear here.</p>}
+    {!pending && !latest && <p className="rounded-xl bg-black/60 p-4 text-center text-sm text-white/85 backdrop-blur-md">Point the camera at a .fit ID check-in QR or a guest pass. Their details appear here.</p>}
     {results.length > 1 && <ul className="flex gap-2 overflow-x-auto pb-1" aria-label="Recent scans">
       {results.slice(1, 5).map(result => <li key={result.id} className="flex shrink-0 items-center gap-1.5 rounded-full bg-black/60 px-3 py-1.5 text-xs backdrop-blur-md">
         <span className="max-w-32 truncate text-white">{result.title}</span>

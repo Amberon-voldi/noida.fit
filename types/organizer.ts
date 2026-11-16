@@ -11,6 +11,8 @@ export interface OrganizerAttendee {
   ticket?: { amount: number; paid: boolean };
   /** A spot claimed through one of the organizer's gift links; `label` is who the link was for. */
   gift?: { linkId: string; label?: string };
+  /** Claimed through a gift link without an account: their guest pass ID (to check them in by hand) and the mobile number they gave. */
+  guest?: { pass: string; phone: string };
   checkInStatus: "not_checked_in" | "checked_in";
   checkedInAt?: string;
 }
@@ -41,6 +43,8 @@ export interface GiftLink {
   /** How many people the link can admit. */
   spots: number;
   claimed: number;
+  /** People can claim with a name and mobile number instead of an account, and get a guest pass. */
+  allowGuests: boolean;
   status: "active" | "revoked";
   createdAt: string;
 }

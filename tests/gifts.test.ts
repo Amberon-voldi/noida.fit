@@ -13,7 +13,7 @@ const guest = { id: "creator-guest" };
 const friend = { id: "creator-friend" };
 
 before(async () => {
-  Object.assign(process.env, { NEXT_PUBLIC_APPWRITE_ENDPOINT: "https://appwrite.test/v1", NEXT_PUBLIC_APPWRITE_PROJECT_ID: "gifts-test", APPWRITE_KEY: "synthetic-runtime-key", APPWRITE_CHECKIN_SECRET: "synthetic-checkin-secret-".repeat(3), NEXT_PUBLIC_APPWRITE_DATABASE_ID: "gifts-test", NEXT_PUBLIC_APPWRITE_GIFT_LINKS_COLLECTION_ID: "gift_links", ...Object.fromEntries(["PROFILES", "FITNESS_IDS", "EVENTS", "RSVPS", "CHECKINS", "ACTIVITIES", "PLACES", "COMMUNITIES", "MEMBERSHIPS", "SAVED_ITEMS", "PARTICIPATIONS"].map(name => [`NEXT_PUBLIC_APPWRITE_COLLECTION_${name}`, name.toLowerCase()])) });
+  Object.assign(process.env, { NEXT_PUBLIC_APPWRITE_ENDPOINT: "https://appwrite.test/v1", NEXT_PUBLIC_APPWRITE_PROJECT_ID: "gifts-test", APPWRITE_KEY: "synthetic-runtime-key", APPWRITE_CHECKIN_SECRET: "synthetic-checkin-secret-".repeat(3), NEXT_PUBLIC_APPWRITE_DATABASE_ID: "gifts-test", NEXT_PUBLIC_APPWRITE_GIFT_LINKS_COLLECTION_ID: "gift_links", NEXT_PUBLIC_APPWRITE_GIFT_GUESTS_COLLECTION_ID: "gift_guests", ...Object.fromEntries(["PROFILES", "FITNESS_IDS", "EVENTS", "RSVPS", "CHECKINS", "ACTIVITIES", "PLACES", "COMMUNITIES", "MEMBERSHIPS", "SAVED_ITEMS", "PARTICIPATIONS"].map(name => [`NEXT_PUBLIC_APPWRITE_COLLECTION_${name}`, name.toLowerCase()])) });
   globalThis.fetch = async (input, init) => {
     const url = new URL(String(input)); assert.equal(url.origin, "https://appwrite.test");
     const method = init?.method ?? "GET";
@@ -30,7 +30,7 @@ before(async () => {
     if (method === "DELETE") { rows.delete(key); return new Response(null, { status: 204 }); }
     if (method === "POST" && rows.has(key)) return Response.json({ code: 409, type: "document_already_exists", message: "conflict" }, { status: 409 });
     // Appwrite stores null for a cleared optional attribute.
-    const row = Object.fromEntries(Object.entries({ ...rows.get(key), ...body.data, $id: id ?? body.documentId }).filter(([, value]) => value !== null));
+    const row = Object.fromEntries(Object.entries({ ...rows.get(key), ...body.data, ...(body.permissions ? { $permissions: body.permissions } : {}), $id: id ?? body.documentId }).filter(([, value]) => value !== null));
     rows.set(key, row);
     return Response.json(row, { status: method === "POST" ? 201 : 200 });
   };
@@ -142,4 +142,74 @@ test("the guest list CSV neutralises formulas and carries no contact details", a
     "Asha,3,₹299 paid,",
     "",
   ].join("\r\n"));
+});
+
+test("a link that needs an account refuses guests; an open link gives a guest pass with no account", async () => {
+  reset();
+  const membersOnly = await create();
+  assert.equal(membersOnly.allowGuests, false);
+  assert.equal((await gifts.getGiftView(membersOnly.id))?.link.allowGuests, false);
+  await rejects(gifts.claimGiftAsGuest(membersOnly.id, { name: "Asha", phone: "98765 43210" }), "GIFT_ACCOUNT_REQUIRED");
+  const open = await create({ spots: 2, allowGuests: true });
+  assert.equal((await gifts.getGiftView(open.id))?.link.allowGuests, true);
+  await rejects(gifts.claimGiftAsGuest(open.id, { name: "Asha", phone: "12345" }), "PHONE_INVALID");
+  const claim = await gifts.claimGiftAsGuest(open.id, { name: "  Asha   Rao ", phone: "+91 98765-43210" });
+  assert.match(claim.passId, /^p[A-Za-z0-9_-]{24}$/);
+  assert.equal(claim.seatNumber, 1);
+  const seat = ticket(gifts.guestHolderId("paid", "9876543210"))!;
+  assert.deepEqual({ status: seat.status, paymentStatus: seat.paymentStatus, paymentRef: seat.paymentRef, permissions: seat.$permissions }, { status: "confirmed", paymentStatus: "gift", paymentRef: `gift:${open.id}`, permissions: [] }, "no account can read a guest's seat");
+  const row = rows.get(`gift_guests/${claim.passId}`)!;
+  assert.deepEqual({ eventId: row.eventId, linkId: row.linkId, name: row.name, phone: row.phone, permissions: row.$permissions }, { eventId: "paid", linkId: open.id, name: "Asha Rao", phone: "9876543210", permissions: [] });
+  await rejects(gifts.claimGiftAsGuest(open.id, { name: "Someone else", phone: "09876543210" }), "GUEST_ALREADY_GOING");
+  await gifts.claimGiftAsGuest(open.id, { name: "Friend", phone: "9123456789" });
+  await rejects(gifts.claimGiftAsGuest(open.id, { name: "Third", phone: "9000000000" }), "GIFT_USED");
+  assert.equal((await gifts.listGiftLinks(organizerUser, "paid")).find(link => link.id === open.id)?.claimed, 2);
+  const pass = await gifts.getGuestPass(claim.passId);
+  assert.deepEqual({ state: pass?.state, name: pass?.pass.name, seat: pass?.pass.seatNumber, event: pass?.event.slug }, { state: "valid", name: "Asha Rao", seat: 1, event: "sunrise-5k" });
+  assert.equal(await gifts.getGuestPass("p".padEnd(25, "x")), null, "an unknown pass shows nothing");
+  assert.equal(await gifts.getGuestPass("../gift_links/x"), null);
+});
+
+test("a guest claim that finds no free seat leaves no pass behind", async () => {
+  reset({ capacity: 1 });
+  const link = await create({ spots: 2, allowGuests: true });
+  await gifts.claimGift(guest, link.id);
+  await rejects(gifts.claimGiftAsGuest(link.id, { name: "Late", phone: "9876543210" }), "EVENT_FULL");
+  assert.deepEqual([...rows.keys()].filter(key => key.startsWith("gift_guests/")), []);
+});
+
+test("the desk checks a guest in from their pass, and the guest list names them with their number", async () => {
+  reset({ capacity: 5 });
+  // Check-in opens 30 minutes before the start.
+  const start = Date.now() + 10 * 60_000;
+  Object.assign(rows.get("events/paid")!, { startsAt: new Date(start).toISOString(), endsAt: new Date(start + 60 * 60_000).toISOString() });
+  const link = await create({ allowGuests: true, label: "Asha" });
+  const { passId } = await gifts.claimGiftAsGuest(link.id, { name: "Asha", phone: "9876543210" });
+  const event = (await (await import("../lib/data")).getEventAnyStatus("paid"))!;
+  assert.deepEqual((await organizer.getOrganizerEventSummary(organizerUser, event)).attendees, [
+    { displayName: "Asha", rsvpStatus: "confirmed", seatNumber: 1, gift: { linkId: link.id, label: "Asha" }, guest: { pass: passId, phone: "9876543210" }, checkInStatus: "not_checked_in" },
+  ]);
+  await rejects(gifts.checkInGuest(stranger, "paid", passId), "ORGANIZER_REQUIRED");
+  const first = await gifts.checkInGuest(organizerUser, "paid", passId);
+  assert.deepEqual({ name: first.displayName, guest: first.guest, again: first.alreadyCheckedIn }, { name: "Asha", guest: true, again: false });
+  assert.equal((await gifts.checkInGuest(organizerUser, "paid", passId)).alreadyCheckedIn, true, "a second scan doesn't check in twice");
+  const holder = gifts.guestHolderId("paid", "9876543210");
+  const checkin = rows.get(`checkins/${participation.checkInDocumentId("paid", holder)}`)!;
+  assert.deepEqual({ method: checkin.verificationMethod, permissions: checkin.$permissions }, { method: "guest_pass", permissions: [] });
+  assert.equal(rows.has(`participations/${participation.participationDocumentId("paid", holder)}`), false, "a guest has no passport");
+  assert.equal((await gifts.getGuestPass(passId))?.state, "checked-in");
+  const summary = await organizer.getOrganizerEventSummary(organizerUser, event);
+  assert.deepEqual({ checkedIn: summary.checkedIn, status: summary.attendees[0].checkInStatus }, { checkedIn: 1, status: "checked_in" });
+  await rejects(gifts.checkInGuest(organizerUser, "paid", "p".padEnd(25, "x")), "RSVP_REQUIRED");
+  const { guestTicketLabel } = await import("../lib/guest-csv");
+  assert.equal(guestTicketLabel(summary.attendees[0]), "Gift (Asha), guest pass");
+});
+
+test("the desk tells a guest pass QR from a .fit ID check-in QR", async () => {
+  const qr = await import("../lib/check-in-qr");
+  const pass = `p${"A".repeat(24)}`;
+  assert.deepEqual(qr.checkInCodeFromQr(` ${qr.guestQrValue(pass)} `), { guestPass: pass });
+  assert.throws(() => qr.checkInCodeFromQr("NF-GUEST:../../events/paid"), /didn’t read cleanly/);
+  const token = `${"a".repeat(20)}.${"b".repeat(43)}`;
+  assert.deepEqual(qr.checkInCodeFromQr(qr.participantQrValue(token)), { token });
 });
