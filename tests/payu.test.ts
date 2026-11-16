@@ -11,6 +11,8 @@ let rows = new Map<string, Record<string, unknown>>();
 let writes: { method: string; collection: string; data?: Record<string, unknown> }[] = [];
 let transactions = new Map<string, Record<string, unknown>>();
 let verifyCalls = 0;
+/** The member's Appwrite account prefs, read and written with their session. */
+const account = { prefs: {} as Record<string, unknown>, saves: 0, down: false };
 const key = "synthKey";
 const salt = "synthetic-payu-salt-for-tests";
 const member = { id: "ticket-member", name: "Asha K.", email: "asha@example.test" };
@@ -40,7 +42,15 @@ before(async () => {
     assert.equal(url.origin, "https://appwrite.test");
     const method = init?.method ?? "GET";
     const body = init?.body ? JSON.parse(String(init.body)) : {};
-    const match = /collections\/([^/]+)\/documents(?:\/([^/]+))?$/.exec(url.pathname); assert.ok(match, url.pathname);
+    if (url.pathname === "/v1/account/prefs") {
+      assert.equal(new Headers(init?.headers).get("x-appwrite-session"), "synthetic-session", "written as the member, not with the API key");
+      if (account.down) return Response.json({ code: 503, type: "general_service_disabled", message: "down" }, { status: 503 });
+      if (method === "GET") return Response.json(account.prefs);
+      account.saves += 1;
+      account.prefs = body.prefs;
+      return Response.json({ $id: member.id, prefs: account.prefs });
+    }
+    const match =/collections\/([^/]+)\/documents(?:\/([^/]+))?$/.exec(url.pathname); assert.ok(match, url.pathname);
     const [, collection, id] = match;
     const path = `${collection}/${id ?? body.documentId}`;
     if (method === "GET" && id) return rows.has(path) ? Response.json(rows.get(path)) : Response.json({ code: 404, type: "document_not_found", message: "absent" }, { status: 404 });
@@ -238,4 +248,26 @@ test("the webhook settles signed notifications and asks PayU to retry when it ca
   await withPayuDown(async () => {
     assert.equal((await post(resultFor(fields))).status, 503);
   });
+});
+
+test("the checkout mobile number is kept on the member's own account to pre-fill the next checkout", async t => {
+  const warnings = t.mock.method(console, "warn", () => {});
+  const auth = await import("../lib/appwrite/auth");
+  account.prefs = { termsAcceptedAt: "2026-01-01T00:00:00.000Z", privacyAcceptedAt: "2026-01-01T00:00:00.000Z" };
+  await auth.rememberPaymentPhone("synthetic-session", "+91 98765-43210");
+  assert.deepEqual(account.prefs, { termsAcceptedAt: "2026-01-01T00:00:00.000Z", privacyAcceptedAt: "2026-01-01T00:00:00.000Z", paymentPhone: "9876543210" }, "consent times are kept");
+  assert.equal(auth.savedPaymentPhone(account.prefs), "9876543210");
+  await auth.rememberPaymentPhone("synthetic-session", "98765 43210");
+  await auth.rememberPaymentPhone("synthetic-session", "12345");
+  await auth.rememberPaymentPhone(null, "9123456789");
+  assert.equal(account.saves, 1, "an unchanged, invalid or signed-out number is not written");
+  await auth.rememberPaymentPhone("synthetic-session", "9123456789");
+  assert.equal(auth.savedPaymentPhone(account.prefs), "9123456789", "a new number replaces the old one");
+  account.down = true;
+  await auth.rememberPaymentPhone("synthetic-session", "9000000001");
+  account.down = false;
+  assert.equal(warnings.mock.callCount(), 1, "a failed save is logged, never thrown into the payment");
+  assert.ok(!JSON.stringify(warnings.mock.calls[0].arguments).includes("9000000001"), "the number is not logged");
+  assert.equal(auth.savedPaymentPhone({ paymentPhone: "not a number" }), undefined);
+  assert.equal(auth.savedPaymentPhone(undefined), undefined);
 });

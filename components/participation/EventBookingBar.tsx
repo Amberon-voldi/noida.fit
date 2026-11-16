@@ -18,6 +18,8 @@ export interface EventBookingBarProps {
   spotsLeft?: number;
   /** PayU is set up and this is a real listing: tickets are paid online. */
   payOnline?: boolean;
+  /** The mobile number the member last paid with, to pre-fill checkout. */
+  savedPhone?: string;
 }
 
 /** Below desktop width: the price, the essentials and the one action, always within reach.
@@ -53,7 +55,7 @@ export function EventBookingBar(props: EventBookingBarProps) {
               </button>}
         </div>
       </aside>
-      <TicketCheckout open={checkout.open} title={props.title} when={props.when} venueName={props.venueName} priceLabel={checkout.priceLabel} pending={pending} error={checkout.error} onConfirm={checkout.confirm} onClose={checkout.close} />
+      <TicketCheckout open={checkout.open} title={props.title} when={props.when} venueName={props.venueName} priceLabel={checkout.priceLabel} savedPhone={props.savedPhone} pending={pending} error={checkout.error} onConfirm={checkout.confirm} onClose={checkout.close} />
     </>
   );
 }

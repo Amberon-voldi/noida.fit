@@ -6,6 +6,7 @@ import { traceAppwriteOperation } from "@/lib/appwrite/errors";
 import { APPWRITE_SESSION_COOKIE } from "@/lib/appwrite/config";
 import { getAdminServices, getGuestServices, getSessionServices } from "@/lib/appwrite/server";
 import { assertUsernameAvailable, ensureProfileForUser } from "@/lib/appwrite/profiles";
+import { normalizeIndianMobile } from "@/lib/phone";
 
 export function sessionCookieOptions(expire: string) {
   return {
@@ -111,6 +112,33 @@ export async function sendEmailVerification(sessionSecret: string, verifyUrl: st
 /** Appwrite refuses this for API keys (missing scope); the emailed secret is the credential. */
 export async function completeEmailVerification(userId: string, secret: string): Promise<void> {
   await traceAppwriteOperation("auth.verification.update", () => getGuestServices().account.updateVerification({ userId, secret }), { traceId: randomUUID() });
+}
+
+/** Account prefs key for the mobile number a member last paid with. Prefs are private to the account. */
+const PAYMENT_PHONE_PREF = "paymentPhone";
+
+/** The mobile number a member last gave at checkout, to pre-fill the next one. */
+export function savedPaymentPhone(prefs: unknown): string | undefined {
+  const value = typeof prefs === "object" && prefs !== null ? (prefs as Record<string, unknown>)[PAYMENT_PHONE_PREF] : undefined;
+  return typeof value === "string" ? normalizeIndianMobile(value) ?? undefined : undefined;
+}
+
+/**
+ * Keeps the mobile number a member gave at checkout on their own account. Best effort: a failure is
+ * logged and never stops the payment. Prefs are replaced whole, so the stored ones (consent times) are kept.
+ */
+export async function rememberPaymentPhone(sessionSecret: string | null, value: string): Promise<void> {
+  const phone = normalizeIndianMobile(value);
+  if (!sessionSecret || !phone) return;
+  try {
+    const { account } = getSessionServices(sessionSecret);
+    const prefs = await account.getPrefs();
+    if (prefs[PAYMENT_PHONE_PREF] === phone) return;
+    await account.updatePrefs({ prefs: { ...prefs, [PAYMENT_PHONE_PREF]: phone } });
+  } catch (error) {
+    const code = typeof error === "object" && error !== null && "code" in error ? error.code : undefined;
+    console.warn("[account] Checkout phone not saved", { code });
+  }
 }
 
 export { APPWRITE_SESSION_COOKIE };

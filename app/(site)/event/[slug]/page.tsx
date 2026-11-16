@@ -15,6 +15,8 @@ import { getActivities, getEventBySlug } from "@/lib/data";
 import { CATEGORY_LABELS, formatDate, SITE_CONFIG } from "@/lib/config";
 import { parseEventPrice } from "@/lib/pricing";
 import { isPayuConfigured } from "@/lib/payments/payu";
+import { savedPaymentPhone } from "@/lib/appwrite/auth";
+import { getCurrentAppwriteUser } from "@/lib/appwrite/server";
 
 type Props = { params: Promise<{ slug: string }>; searchParams: Promise<{ payment?: string | string[] }> };
 
@@ -36,6 +38,8 @@ export default async function EventPage({ params, searchParams }: Props) {
   const pricing = parseEventPrice(event.price);
   // Demo listings never take real money.
   const payOnline = pricing.kind === "paid" && !event.demo && isPayuConfigured();
+  // The number the member last paid with pre-fills checkout. The navbar already read the account this request.
+  const savedPhone = payOnline ? savedPaymentPhone((await getCurrentAppwriteUser())?.prefs) : undefined;
   const when = `${formatDate(event.date)} · ${event.startTime}`;
   const jsonLd = {
     "@context": "https://schema.org", "@type": "SportsEvent", name: event.title, description: event.description,
@@ -76,7 +80,7 @@ export default async function EventPage({ params, searchParams }: Props) {
           <section aria-labelledby="event-actions-heading" className="rounded-xl border border-border-strong bg-surface p-5">
             <h2 id="event-actions-heading" className="eyebrow mb-4">{event.demo ? "Try participation" : "Your next step"}</h2>
             {event.demo && <p className="mb-4 text-xs leading-relaxed text-text-secondary">Saving or RSVPing stores a real account record for this demo. It does not book a real session or take a payment.</p>}
-            {upcoming ? <EventActions eventId={event.id} eventSlug={event.slug} title={event.title} date={event.date} startTime={event.startTime} endTime={event.endTime} venueName={event.venueName} communityName={event.communityName} price={event.price} when={when} payOnline={payOnline} /> : <div className="flex flex-wrap gap-2"><SaveButton itemType="event" itemId={event.id} /><ShareButton title={event.title} /></div>}
+            {upcoming ? <EventActions eventId={event.id} eventSlug={event.slug} title={event.title} date={event.date} startTime={event.startTime} endTime={event.endTime} venueName={event.venueName} communityName={event.communityName} price={event.price} when={when} payOnline={payOnline} savedPhone={savedPhone} /> : <div className="flex flex-wrap gap-2"><SaveButton itemType="event" itemId={event.id} /><ShareButton title={event.title} /></div>}
           </section>
           <section aria-labelledby="meeting-heading" className="rounded-xl border border-border-subtle bg-surface p-5">
             <h2 id="meeting-heading" className="eyebrow">Meeting point</h2><p className="mt-3 font-bold">{event.venueName}</p><p className="mt-1 text-sm text-text-secondary">{event.sector}</p>
@@ -85,7 +89,7 @@ export default async function EventPage({ params, searchParams }: Props) {
           <Link href={`/community/${event.communitySlug}`} className="block rounded-xl border border-border-subtle bg-surface p-5 hover:border-border-strong"><p className="eyebrow">Host community</p><p className="mt-2 font-bold">{event.communityName}</p><p className="mt-1 text-sm text-velocity">View schedule →</p></Link>
         </aside>
       </div>
-      {upcoming && <EventBookingBar eventId={event.id} title={event.title} date={event.date} startTime={event.startTime} venueName={event.venueName} price={event.price} when={when} spotsLeft={typeof event.capacity === "number" ? Math.max(0, event.capacity - event.attendeesCount) : undefined} payOnline={payOnline} />}
+      {upcoming && <EventBookingBar eventId={event.id} title={event.title} date={event.date} startTime={event.startTime} venueName={event.venueName} price={event.price} when={when} spotsLeft={typeof event.capacity === "number" ? Math.max(0, event.capacity - event.attendeesCount) : undefined} payOnline={payOnline} savedPhone={savedPhone} />}
     </div>
   );
 }

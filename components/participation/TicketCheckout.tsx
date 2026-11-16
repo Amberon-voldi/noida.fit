@@ -11,6 +11,8 @@ interface Props {
   when: string;
   venueName: string;
   priceLabel: string;
+  /** The mobile number the member last paid with; checkout starts with it filled in. */
+  savedPhone?: string;
   pending: boolean;
   error: string | null;
   onConfirm: (phone: string) => void;
@@ -18,11 +20,11 @@ interface Props {
 }
 
 /** The summary a member confirms before paying for a ticket; the ticket is confirmed once PayU confirms the payment. */
-export function TicketCheckout({ open, title, when, venueName, priceLabel, pending, error, onConfirm, onClose }: Props) {
+export function TicketCheckout({ open, title, when, venueName, priceLabel, savedPhone, pending, error, onConfirm, onClose }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   const phoneId = useId();
-  const [phone, setPhone] = useState("");
+  const [phone, setPhone] = useState(savedPhone ?? "");
   const [phoneError, setPhoneError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -61,7 +63,7 @@ export function TicketCheckout({ open, title, when, venueName, priceLabel, pendi
           <div>
               <label htmlFor={phoneId} className="text-sm font-semibold text-white">Mobile number</label>
               <input id={phoneId} type="tel" inputMode="tel" autoComplete="tel" required maxLength={20} value={phone} onChange={event => { setPhone(event.target.value); setPhoneError(null); }} placeholder="98765 43210" aria-invalid={Boolean(phoneError)} aria-describedby={`${phoneId}-hint`} className="mt-1.5 min-h-11 w-full rounded-xl border border-border-subtle bg-surface px-3.5 py-2.5 text-[15px] text-white transition-colors hover:border-border-strong focus:border-velocity focus:outline-none" />
-              <p id={`${phoneId}-hint`} className={`mt-1.5 text-xs ${phoneError ? "text-rose-200" : "text-text-secondary"}`}>{phoneError ?? "PayU needs it to process the payment."}</p>
+              <p id={`${phoneId}-hint`} className={`mt-1.5 text-xs ${phoneError ? "text-rose-200" : "text-text-secondary"}`}>{phoneError ?? "PayU needs it to process the payment. We’ll remember it for your next ticket."}</p>
             </div>
           <p className="text-xs leading-relaxed text-text-secondary">You’ll pay {priceLabel} on PayU’s secure checkout. We hold your spot for {TICKET_HOLD_MINUTES} minutes while you pay, and your ticket is confirmed once PayU confirms the payment. One ticket per account.</p>
           {error && <p role="alert" className="rounded-lg border border-rose-400/60 bg-rose-400/10 p-3 text-sm text-rose-200">{error}</p>}
