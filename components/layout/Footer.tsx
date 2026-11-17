@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Logo } from "@/components/brand/Logo";
 import { SITE_CONFIG } from "@/lib/config";
+import { LEGAL_ENTITY_NAME } from "@/lib/privacy";
 
 const FOOTER_COLUMNS = [
   {
@@ -72,7 +73,7 @@ export function Footer() {
           <Link href="/stories" className="inline-flex min-h-11 items-center text-sm text-text-secondary">Stories</Link>
         </nav>
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border-subtle py-6 text-xs text-text-secondary">
-          <p>&copy; {new Date().getFullYear()} NOIDA.FIT · NCR</p>
+          <p>&copy; {new Date().getFullYear()} NOIDA.FIT · Operated by {LEGAL_ENTITY_NAME} (sole proprietor), Noida</p>
           <div className="flex flex-wrap items-center gap-x-5 gap-y-1">
             <nav aria-label="Legal information" className="flex flex-wrap gap-x-4">
               <Link href="/privacy" className="inline-flex min-h-11 items-center hover:text-white">Privacy</Link>

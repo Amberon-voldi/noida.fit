@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { LEGAL_ENTITY_DESCRIPTION, LEGAL_ENTITY_NAME, REGISTERED_ADDRESS } from "@/lib/privacy";
 
 export const metadata: Metadata = {
   title: "About",
@@ -92,7 +93,7 @@ export default function AboutPage() {
 
         <section aria-labelledby="directory-heading">
           <h2 id="directory-heading" className="mb-4 text-2xl font-bold">About the directory</h2>
-          <p className="leading-relaxed text-text-secondary">Listings cover communities, venues and sessions across Noida and Greater Noida. Check each organizer&apos;s current instructions for access, equipment, availability and event pricing before attending. An RSVP records your intent to participate; it does not replace an organizer&apos;s booking or payment process.</p>
+          <p className="leading-relaxed text-text-secondary">Listings cover communities, venues and sessions across Noida and Greater Noida. Check each organizer&apos;s current instructions for access, equipment, availability and event pricing before attending. Free sessions take an RSVP. Paid sessions sell tickets on NOIDA.FIT, paid online through our payment partner PayU; each session is run by its organizer. See the <Link href="/refund-policy" className="font-semibold text-velocity underline hover:text-velocity-glow">Refund &amp; Cancellation Policy</Link>.</p>
         </section>
 
         {/* Contact */}
@@ -116,6 +117,7 @@ export default function AboutPage() {
               List Your Community
             </Link>
           </div>
+          <p className="mt-6 text-sm text-text-secondary">NOIDA.FIT is owned and operated by {LEGAL_ENTITY_NAME}, {LEGAL_ENTITY_DESCRIPTION}, {REGISTERED_ADDRESS}.</p>
         </section>
       </div>
     </div>

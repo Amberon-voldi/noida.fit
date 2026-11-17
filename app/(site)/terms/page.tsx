@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import Link from "next/link";
+import { TICKET_HOLD_MINUTES } from "@/lib/pricing";
 import {
   EFFECTIVE_DATE,
   LEGAL_ENTITY_DESCRIPTION,
@@ -10,7 +12,7 @@ import {
 
 export const metadata: Metadata = {
   title: "Terms & Conditions",
-  description: "Terms for using NOIDA.FIT to discover fitness communities, activities and events.",
+  description: "Terms for using NOIDA.FIT to discover fitness communities, activities and events, and to buy tickets for paid sessions.",
   alternates: { canonical: "/terms" },
 };
 
@@ -28,13 +30,19 @@ export default function TermsPage() {
         <div className="mt-10 space-y-10 leading-relaxed text-text-secondary">
           <section aria-labelledby="terms-who-we-are">
             <h2 id="terms-who-we-are" className="text-xl font-bold text-white">Who we are</h2>
-            <p className="mt-3">NOIDA.FIT is operated by {LEGAL_ENTITY_NAME}, {LEGAL_ENTITY_DESCRIPTION}, trading as {TRADING_NAME}, {REGISTERED_ADDRESS}. These terms describe the current NOIDA.FIT discovery and participation features.</p>
+            <p className="mt-3">NOIDA.FIT is owned and operated by {LEGAL_ENTITY_NAME}, {LEGAL_ENTITY_DESCRIPTION}, trading as {TRADING_NAME}, {REGISTERED_ADDRESS}. These terms describe the current NOIDA.FIT discovery, participation and ticketing features.</p>
           </section>
 
           <section aria-labelledby="terms-purpose">
             <h2 id="terms-purpose" className="text-xl font-bold text-white">Platform purpose</h2>
-            <p className="mt-3">NOIDA.FIT helps people discover independent fitness communities, activities, places and events in Noida and Greater Noida. It is a discovery and participation platform. It is not a gym operator, medical provider, payment processor, ticketing service or booking intermediary.</p>
-            <p className="mt-3">Listing prices are informational. An RSVP on NOIDA.FIT does not charge you, reserve paid inventory, or replace an organizer&apos;s payment or booking process.</p>
+            <p className="mt-3">NOIDA.FIT helps people discover independent fitness communities, activities, places and events in Noida and Greater Noida, and join their sessions: free sessions by RSVP, and paid sessions by buying a ticket on NOIDA.FIT. It is not a gym operator or medical provider.</p>
+          </section>
+
+          <section aria-labelledby="terms-tickets">
+            <h2 id="terms-tickets" className="text-xl font-bold text-white">Tickets and payments</h2>
+            <p className="mt-3">A paid session shows its ticket price before you pay. When you start checkout, your spot is held for {TICKET_HOLD_MINUTES} minutes while you pay online through our payment partner, PayU. Your ticket is confirmed only once PayU confirms the payment, and you then see it in your account.</p>
+            <p className="mt-3">You pay on PayU&apos;s secure pages: NOIDA.FIT never sees or stores your card, UPI or bank details. PayU asks for your mobile number, which you give at checkout.</p>
+            <p className="mt-3">Each session is run by its organizer, who is responsible for delivering it. Cancellations and refunds follow our <Link href="/refund-policy" className="font-semibold text-velocity underline hover:text-velocity-glow">Refund &amp; Cancellation Policy</Link>. Organizers may also give free spots through gift links; a gifted spot needs no payment.</p>
           </section>
 
           <section aria-labelledby="terms-account">

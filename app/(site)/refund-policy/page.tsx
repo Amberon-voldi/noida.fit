@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 import { Mail } from "lucide-react";
-import { PRIVACY_CONTACT } from "@/lib/privacy";
+import { LEGAL_ENTITY_DESCRIPTION, LEGAL_ENTITY_NAME, PRIVACY_CONTACT, REGISTERED_ADDRESS } from "@/lib/privacy";
 
-const REFUND_EFFECTIVE_DATE = "18 October 2026";
+const REFUND_EFFECTIVE_DATE = "17 November 2026";
 
 export const metadata: Metadata = {
   title: "Refund & Cancellation Policy",
@@ -31,7 +31,7 @@ export default function RefundPolicyPage() {
         <div className="mt-10 space-y-10 leading-relaxed text-text-secondary">
           <section aria-labelledby="refund-overview">
             <h2 id="refund-overview" className="text-xl font-bold text-white">1. Overview</h2>
-            <p className="mt-3">Welcome to Noida.fit. This Refund &amp; Cancellation Policy governs cancellations, refund requests, and booking-related disputes for events, activities, experiences, and other offerings listed on the Noida.fit platform.</p>
+            <p className="mt-3">Welcome to Noida.fit, operated by {LEGAL_ENTITY_NAME}, {LEGAL_ENTITY_DESCRIPTION}, {REGISTERED_ADDRESS}. Ticket payments are processed by our payment partner, PayU. This Refund &amp; Cancellation Policy governs cancellations, refund requests, and booking-related disputes for events, activities, experiences, and other offerings listed on the Noida.fit platform.</p>
             <p className="mt-3">By booking or purchasing a ticket through Noida.fit, you agree to this policy and any additional event-specific terms communicated by the event organizer at the time of booking.</p>
           </section>
 
@@ -107,7 +107,7 @@ export default function RefundPolicyPage() {
           <section aria-labelledby="refund-contact">
             <h2 id="refund-contact" className="text-xl font-bold text-white">11. Contact and Support</h2>
             <p className="mt-3">For refund or cancellation assistance, customers should contact Noida.fit through the official contact details published on the platform or the support channel provided in their booking confirmation. Please include your booking ID and transaction reference to help us review your request efficiently.</p>
-            <p className="mt-3">Email: <a className="font-semibold text-velocity underline hover:text-velocity-glow" href={`mailto:${PRIVACY_CONTACT}`}>{PRIVACY_CONTACT}</a>. Do not send passwords or full card details by email.</p>
+            <p className="mt-3">Operator: {LEGAL_ENTITY_NAME}, {LEGAL_ENTITY_DESCRIPTION}, {REGISTERED_ADDRESS}. Email: <a className="font-semibold text-velocity underline hover:text-velocity-glow" href={`mailto:${PRIVACY_CONTACT}`}>{PRIVACY_CONTACT}</a>. Do not send passwords or full card details by email.</p>
           </section>
 
           <section aria-labelledby="refund-updates">

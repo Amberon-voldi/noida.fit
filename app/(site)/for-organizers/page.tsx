@@ -32,7 +32,7 @@ const STEPS = [
 const FAQS = [
   {
     q: "Is listing on NOIDA.FIT free?",
-    a: "There is no payment or checkout in the listing-request flow. Session fees, if any, are set by organizers and should be stated clearly in their listings.",
+    a: "Listing is free: there is no payment in the listing-request flow. Organizers set their session fee. Paid sessions sell tickets on NOIDA.FIT, paid online through PayU, and free sessions take RSVPs.",
   },
   {
     q: "What kind of communities can list?",
