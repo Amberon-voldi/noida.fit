@@ -80,7 +80,7 @@ function reset(capacity = 2) {
   rows.set("events/free", { $id: "free", slug: "free-run", title: "Free run", demo: false, ...schedule, payload: JSON.stringify({ price: "FREE" }) });
 }
 const ticketRow = (eventId: string, userId = member.id) => rows.get(`rsvps/${participation.rsvpDocumentId(eventId, userId)}`);
-const start = (input: Partial<{ eventId: string; amount: number; phone: string }> = {}, user = member) => payments.startTicketPayment(user, { eventId: "paid", amount: 19900, phone: "98765 43210", ...input }, "https://noida.fit");
+const start = (input: Partial<{ eventId: string; amount: number; phone: string }> = {}, user = member) => payments.startTicketPayment(user, { eventId: "paid", amount: 19900, phone: "98XXXXXXX", ...input }, "https://noida.fit");
 const captured = (fields: Record<string, string>, overrides: Record<string, unknown> = {}) => ({ mihpayid: "403993715531", status: "success", unmappedstatus: "captured", amt: "199.00", udf1: fields.udf1, udf2: fields.udf2, ...overrides });
 
 /** What PayU posts back for a request form, signed with the documented response hash. */
@@ -257,7 +257,7 @@ test("the checkout mobile number is kept on the member's own account to pre-fill
   await auth.rememberPaymentPhone("synthetic-session", "+91 98765-43210");
   assert.deepEqual(account.prefs, { termsAcceptedAt: "2026-01-01T00:00:00.000Z", privacyAcceptedAt: "2026-01-01T00:00:00.000Z", paymentPhone: "9876543210" }, "consent times are kept");
   assert.equal(auth.savedPaymentPhone(account.prefs), "9876543210");
-  await auth.rememberPaymentPhone("synthetic-session", "98765 43210");
+  await auth.rememberPaymentPhone("synthetic-session", "98XXXXXXX");
   await auth.rememberPaymentPhone("synthetic-session", "12345");
   await auth.rememberPaymentPhone(null, "9123456789");
   assert.equal(account.saves, 1, "an unchanged, invalid or signed-out number is not written");

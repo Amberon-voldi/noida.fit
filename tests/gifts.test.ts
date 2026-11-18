@@ -150,7 +150,7 @@ test("a link that needs an account refuses guests; an open link gives a guest pa
   const membersOnly = await create();
   assert.equal(membersOnly.allowGuests, false);
   assert.equal((await gifts.getGiftView(membersOnly.id))?.link.allowGuests, false);
-  await rejects(gifts.claimGiftAsGuest(membersOnly.id, { phone: "98765 43210" }), "GIFT_ACCOUNT_REQUIRED");
+  await rejects(gifts.claimGiftAsGuest(membersOnly.id, { phone: "98XXXXXXX" }), "GIFT_ACCOUNT_REQUIRED");
   const open = await create({ spots: 2, allowGuests: true, label: "Asha Rao" });
   assert.equal((await gifts.getGiftView(open.id))?.link.allowGuests, true);
   await rejects(gifts.claimGiftAsGuest(open.id, { phone: "12345" }), "PHONE_INVALID");
@@ -227,7 +227,7 @@ test("a number from the organizer makes the guest's claim one tap, and only its 
   await rejects(create({ allowGuests: true, label: "Riya", phone: "12345" }), "PHONE_INVALID");
   await rejects(create({ allowGuests: true, phone: "9876543210" }), "LABEL_REQUIRED");
   assert.equal((await create({ label: "Riya", phone: "9876543210" })).phone, undefined, "members claim on their account: no number kept");
-  const link = await create({ spots: 3, allowGuests: true, label: "Riya (@riya.runs)", phone: "+91 98765 43210" });
+  const link = await create({ spots: 3, allowGuests: true, label: "Riya (@riya.runs)", phone: "+91 98XXXXXXX" });
   assert.equal(link.phone, "9876543210", "the organizer sees the number they gave");
   const view = await gifts.getGiftView(link.id);
   assert.deepEqual(view?.link.preset, { name: "Riya (@riya.runs)", phoneEnding: "3210" });
@@ -277,7 +277,7 @@ test("a link made with a number that already has a spot opens that guest's pass"
   const view = await gifts.getGiftView(again.id);
   assert.equal(view?.link.preset, undefined, "no one-tap claim: they already have a spot");
   assert.deepEqual(view?.passes.map(item => [item.id, item.name, item.state]), [[pass.passId, "Riya", "valid"]], "the new link opens their existing pass");
-  await rejects(gifts.claimGiftAsGuest(again.id, { phone: "98765 43210" }), "GUEST_ALREADY_GOING");
+  await rejects(gifts.claimGiftAsGuest(again.id, { phone: "98XXXXXXX" }), "GUEST_ALREADY_GOING");
   const other = await create({ allowGuests: true, label: "Kabir", phone: "9000000001" });
   assert.deepEqual((await gifts.getGiftView(other.id))?.passes, [], "nothing to open until that guest claims");
 });

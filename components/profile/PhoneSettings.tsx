@@ -49,7 +49,7 @@ export function PhoneSettings({ phone }: { phone?: string }) {
         <legend>Mobile number</legend>
         <div>
           <label htmlFor="settings-phone" className="settings-label">Mobile / WhatsApp number · private</label>
-          <input id="settings-phone" name="phone" type="tel" inputMode="tel" autoComplete="tel" maxLength={20} value={value} onChange={event => { setValue(event.target.value); setError(""); }} placeholder="98765 43210" aria-invalid={Boolean(error)} aria-describedby={error ? "settings-phone-help settings-phone-error" : "settings-phone-help"} className="settings-input" />
+          <input id="settings-phone" name="phone" type="tel" inputMode="tel" autoComplete="tel" maxLength={20} value={value} onChange={event => { setValue(event.target.value); setError(""); }} placeholder="98XXXXXXX" aria-invalid={Boolean(error)} aria-describedby={error ? "settings-phone-help settings-phone-error" : "settings-phone-help"} className="settings-input" />
           <p id="settings-phone-help" className="settings-hint mt-1.5">{saved ? "We fill it in when you book or pay for a ticket." : "None saved yet. Add one and we’ll fill it in when you book or pay for a ticket."} Payment links for tickets you haven’t paid yet come to it on WhatsApp. The organizer of a session sees it only when you book a ticket to pay on WhatsApp.</p>
         </div>
       </fieldset>

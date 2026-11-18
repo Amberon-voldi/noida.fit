@@ -118,7 +118,7 @@ export function GiftLinks({ eventId, eventTitle, published, initialLinks, guestP
           </div>
         </fieldset> : <p className="rounded-lg border border-border-subtle p-3 text-xs text-text-secondary">Guests sign in or sign up to claim. Claiming without an account isn’t switched on for the site yet.</p>}
         {allowGuests && <label className="block text-sm font-semibold text-white">Their mobile number <span className="font-normal text-text-secondary">(optional)</span>
-          <input type="tel" inputMode="tel" autoComplete="off" value={phone} onChange={change => setPhone(change.target.value)} maxLength={20} placeholder="98765 43210" className={field} />
+          <input type="tel" inputMode="tel" autoComplete="off" value={phone} onChange={change => setPhone(change.target.value)} maxLength={20} placeholder="98XXXXXXX" className={field} />
           <span className="mt-1 block text-xs text-text-secondary">Add it and they claim with one tap: nothing to fill in. Only you see it; the invite shows its last four digits.</span>
         </label>}
         <label className="block text-sm font-semibold text-white">Note <span className="font-normal text-text-secondary">(optional)</span>

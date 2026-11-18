@@ -139,7 +139,7 @@ export function GiftClaim({ giftId, initialState, signedIn, allowGuests, preset,
   </div>;
   if (!signedIn && allowGuests) return <form onSubmit={claimAsGuest} noValidate className="mt-5 sm:mt-6">
     <label htmlFor={`${formId}-phone`} className="block text-sm font-semibold text-white">Your mobile number</label>
-    <input id={`${formId}-phone`} type="tel" inputMode="tel" autoComplete="tel" required maxLength={20} value={phone} onChange={change => { setPhone(change.target.value); setPhoneError(null); }} readOnly={pending} placeholder="98765 43210" aria-invalid={Boolean(phoneError)} aria-describedby={`${formId}-phone-hint`} className={`${field} sm:max-w-xs`} />
+    <input id={`${formId}-phone`} type="tel" inputMode="tel" autoComplete="tel" required maxLength={20} value={phone} onChange={change => { setPhone(change.target.value); setPhoneError(null); }} readOnly={pending} placeholder="98XXXXXXX" aria-invalid={Boolean(phoneError)} aria-describedby={`${formId}-phone-hint`} className={`${field} sm:max-w-xs`} />
     <p id={`${formId}-phone-hint`} className={`mt-1.5 text-xs ${phoneError ? "text-rose-200" : "text-text-secondary"}`}>{phoneError ?? `Only ${ticket.communityName ?? "the organizer"} sees it.`}</p>
     <div className="mt-4">{claimButton("submit", pending || !phone.trim())}</div>
     <p className="mt-3 text-xs text-text-secondary">No account or payment needed. You’ll get a guest pass with a QR for the door.</p>

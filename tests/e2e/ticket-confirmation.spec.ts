@@ -36,7 +36,7 @@ test("a spot booked to pay on WhatsApp says, up front, that the payment link is 
   const dialog = page.getByRole("dialog", { name: "Spot confirmed!" });
   await expect(dialog).toBeVisible();
   await expect(dialog.getByText("Payment link coming on WhatsApp", { exact: true })).toBeVisible();
-  await expect(dialog.getByText("We’ll send your ₹99 payment link to 98765 43210. Keep an eye on your chats.")).toBeVisible();
+  await expect(dialog.getByText("We’ll send your ₹99 payment link to 98XXXXXXX. Keep an eye on your chats.")).toBeVisible();
   // It comes right after the headline, before the ticket.
   const order = await dialog.evaluate(element => [".ticket-headline", ".ticket-whatsapp", ".ticket"].map(selector => element.querySelector(selector)!.getBoundingClientRect().top));
   expect(order).toEqual([...order].sort((a, b) => a - b));

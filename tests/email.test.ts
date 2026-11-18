@@ -11,10 +11,10 @@ const booking = { event, seatNumber: 3, name: "Asha Rao", phone: "9876543210", a
 test("the spot-confirmed email leads with the payment details coming on WhatsApp", () => {
   const email = spotConfirmedEmail(booking);
   assert.equal(email.subject, "You’re in! Spot #3 confirmed for BCC Run & Rave");
-  assert.match(email.preheader, /^Your ₹99 payment link is coming on WhatsApp to \+91 98765 43210\. Sunday,? 22 November · 06:30 AM\.$/);
+  assert.match(email.preheader, /^Your ₹99 payment link is coming on WhatsApp to \+91 98XXXXXXX\. Sunday,? 22 November · 06:30 AM\.$/);
   const whatsapp = email.html.indexOf("Payment details coming on WhatsApp");
   assert.ok(whatsapp > 0 && whatsapp < email.html.indexOf("Admit one"), "the WhatsApp callout comes before the ticket");
-  assert.match(email.html, /We’ll send your <strong[^>]*>₹99<\/strong> payment link to <strong[^>]*>\+91 98765 43210<\/strong> on WhatsApp\./);
+  assert.match(email.html, /We’ll send your <strong[^>]*>₹99<\/strong> payment link to <strong[^>]*>\+91 98XXXXXXX<\/strong> on WhatsApp\./);
   assert.match(email.html, /You’re in, Asha! 🎉/);
   assert.match(email.html, /Admit one · Spot #3/);
   assert.match(email.html, /06:30 AM – 10:00 AM/);

@@ -349,7 +349,7 @@ test("members see, change and remove their saved mobile number in settings", asy
   // On phones the section starts collapsed.
   if (!(await form.isVisible())) await page.getByRole("button", { name: /^Profile & privacy/ }).click();
   const phone = form.getByLabel(/Mobile \/ WhatsApp number/);
-  await expect(phone).toHaveValue("98765 43210");
+  await expect(phone).toHaveValue("98XXXXXXX");
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   if (process.env.SCREENSHOT_DIR) await form.screenshot({ path: `${process.env.SCREENSHOT_DIR}/settings-phone.png` });
   await phone.fill("+91 91234-56789");

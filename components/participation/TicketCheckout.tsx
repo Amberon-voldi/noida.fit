@@ -87,7 +87,7 @@ export function TicketCheckout({ open, title, when, venueName, priceLabel, mode,
           </div>}
           <div>
             <label htmlFor={phoneId} className="text-sm font-semibold text-white">{whatsapp ? "WhatsApp number" : "Mobile number"}</label>
-            <input id={phoneId} type="tel" inputMode="tel" autoComplete="tel" required maxLength={20} value={phone} onChange={event => { setPhone(event.target.value); setPhoneError(null); }} placeholder="98765 43210" aria-invalid={Boolean(phoneError)} aria-describedby={`${phoneId}-hint`} className={inputClass} />
+            <input id={phoneId} type="tel" inputMode="tel" autoComplete="tel" required maxLength={20} value={phone} onChange={event => { setPhone(event.target.value); setPhoneError(null); }} placeholder="98XXXXXXX" aria-invalid={Boolean(phoneError)} aria-describedby={`${phoneId}-hint`} className={inputClass} />
             <p id={`${phoneId}-hint`} className={`mt-1.5 text-xs ${phoneError ? "text-rose-200" : "text-text-secondary"}`}>{phoneError ?? (whatsapp ? "We’ll send your payment link to this number on WhatsApp." : "PayU needs it to process the payment. We’ll remember it for your next ticket.")}</p>
           </div>
           <p className="text-xs leading-relaxed text-text-secondary">{whatsapp

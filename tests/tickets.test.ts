@@ -275,7 +275,7 @@ test("a newly booked spot is emailed to its member once; a failed email never fa
   assert.equal(email.html, true);
   assert.match(email.subject, /You’re in! Spot #1 confirmed for Synthetic paid session/);
   assert.match(email.content, /Payment details coming on WhatsApp/);
-  assert.match(email.content, /₹199<\/strong> payment link to <strong[^>]*>\+91 98765 43210<\/strong> on WhatsApp/);
+  assert.match(email.content, /₹199<\/strong> payment link to <strong[^>]*>\+91 98XXXXXXX<\/strong> on WhatsApp/);
   assert.match(email.content, /https:\/\/noida\.fit\/event\/sunrise-5k/);
   await reserve(member);
   assert.equal(emails.length, 1, "a repeat tap on a spot they hold sends no second email");
