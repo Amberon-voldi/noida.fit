@@ -334,3 +334,34 @@ test.describe("on a phone", () => {
     await expect(dialog.getByRole("button", { name: /Back of card/ }).first()).toHaveAttribute("aria-pressed", "true");
   });
 });
+
+test("members see, change and remove their saved mobile number in settings", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 900 });
+  await mount(page, { ...data(), phone: "9876543210" });
+  const calls: { method: string; body: unknown }[] = [];
+  await page.route("**/api/profile/phone", async route => {
+    const request = route.request();
+    const body = request.postData() ? request.postDataJSON() : null;
+    calls.push({ method: request.method(), body });
+    await route.fulfill({ json: request.method() === "PUT" ? { phone: body.phone, ticketsUpdated: 1 } : { phone: null } });
+  });
+  const form = page.locator("form", { has: page.getByRole("group", { name: "Mobile number" }) });
+  // On phones the section starts collapsed.
+  if (!(await form.isVisible())) await page.getByRole("button", { name: /^Profile & privacy/ }).click();
+  const phone = form.getByLabel(/Mobile \/ WhatsApp number/);
+  await expect(phone).toHaveValue("98765 43210");
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  if (process.env.SCREENSHOT_DIR) await form.screenshot({ path: `${process.env.SCREENSHOT_DIR}/settings-phone.png` });
+  await phone.fill("+91 91234-56789");
+  await form.getByRole("button", { name: "Save number" }).click();
+  await expect(form.getByRole("status")).toHaveText("Number saved. Your payment link for 1 unpaid ticket will come to it on WhatsApp.");
+  await expect(phone).toHaveValue("91234 56789");
+  await phone.fill("12345");
+  await form.getByRole("button", { name: "Save number" }).click();
+  await expect(form.getByRole("alert")).toHaveText("Enter a 10-digit Indian mobile number.");
+  await form.getByRole("button", { name: "Remove" }).click();
+  await expect(form.getByRole("status")).toHaveText("Number removed.");
+  await expect(phone).toHaveValue("");
+  await expect(form.getByRole("button", { name: "Remove" })).toHaveCount(0);
+  expect(calls).toEqual([{ method: "PUT", body: { phone: "9123456789" } }, { method: "DELETE", body: null }]);
+});

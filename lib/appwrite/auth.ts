@@ -130,17 +130,28 @@ export function savedPaymentPhone(prefs: unknown): string | undefined {
 }
 
 /**
+ * Sets the mobile number kept on the member's own account, or removes it (null), as the member, from
+ * their settings. Prefs are replaced whole, so the stored ones (consent times) are kept. Throws on failure.
+ */
+export async function setPaymentPhone(sessionSecret: string, phone: string | null): Promise<void> {
+  const { account } = getSessionServices(sessionSecret);
+  const prefs = await account.getPrefs();
+  if ((prefs[PAYMENT_PHONE_PREF] ?? null) === phone) return;
+  const next = { ...prefs };
+  if (phone) next[PAYMENT_PHONE_PREF] = phone;
+  else delete next[PAYMENT_PHONE_PREF];
+  await account.updatePrefs({ prefs: next });
+}
+
+/**
  * Keeps the mobile number a member gave at checkout on their own account. Best effort: a failure is
- * logged and never stops the payment. Prefs are replaced whole, so the stored ones (consent times) are kept.
+ * logged and never stops the payment.
  */
 export async function rememberPaymentPhone(sessionSecret: string | null, value: string): Promise<void> {
   const phone = normalizeIndianMobile(value);
   if (!sessionSecret || !phone) return;
   try {
-    const { account } = getSessionServices(sessionSecret);
-    const prefs = await account.getPrefs();
-    if (prefs[PAYMENT_PHONE_PREF] === phone) return;
-    await account.updatePrefs({ prefs: { ...prefs, [PAYMENT_PHONE_PREF]: phone } });
+    await setPaymentPhone(sessionSecret, phone);
   } catch (error) {
     const code = typeof error === "object" && error !== null && "code" in error ? error.code : undefined;
     console.warn("[account] Checkout phone not saved", { code });

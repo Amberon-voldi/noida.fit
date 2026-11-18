@@ -296,6 +296,36 @@ export async function reserveTicket(userId: string, eventId: string, expectedAmo
   return allocateSeat(event, eventId, userId, { ...fields, amount }, start);
 }
 
+/** Still waiting on its WhatsApp payment link: a confirmed spot booked to pay later, not yet paid. */
+const awaitingWhatsappPayment = (row: TicketRow) => row.status === "confirmed" && Boolean(row.amount) && row.paymentStatus !== "paid" ? whatsappContactOf(row.paymentRef) : undefined;
+
+/**
+ * A member changed their mobile number in settings: the payment links for their spots booked to pay on
+ * WhatsApp, still unpaid, for sessions that haven't started, now go to it. The name they booked with stays.
+ * Paid tickets and everyone else's are never touched. Returns how many spots changed.
+ */
+export async function updateWhatsappNumber(userId: string, phone: string): Promise<number> {
+  documentIdSchema.parse(userId);
+  const rows = await listAppwriteDocuments<TicketRow>(collections.rsvps, [Query.equal("userId", userId)]);
+  let updated = 0;
+  for (const row of rows) {
+    const contact = row.userId === userId ? awaitingWhatsappPayment(row) : undefined;
+    if (!contact || contact.phone === phone) continue;
+    const event = await getAppwriteDocument<EventRecord>(collections.events, row.eventId);
+    try {
+      if (!event || Date.now() >= eventWindow(event).start) continue;
+    } catch {
+      continue;
+    }
+    // Re-read just before writing: a payment that confirmed a moment ago keeps its own reference.
+    const latest = await getAppwriteDocument<TicketRow>(collections.rsvps, row.$id);
+    if (!latest || latest.paymentRef !== row.paymentRef || !awaitingWhatsappPayment(latest)) continue;
+    await updateAppwriteDocument(collections.rsvps, row.$id, { paymentRef: whatsappPaymentRef(phone, contact.name) });
+    updated += 1;
+  }
+  return updated;
+}
+
 /**
  * A spot the organizer gave away with a gift link (lib/services/gifts.ts): confirmed at once and never
  * charged, on free and paid events alike. It takes a seat like any RSVP, so capacity still applies.

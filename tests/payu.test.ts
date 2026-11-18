@@ -271,3 +271,19 @@ test("the checkout mobile number is kept on the member's own account to pre-fill
   assert.equal(auth.savedPaymentPhone({ paymentPhone: "not a number" }), undefined);
   assert.equal(auth.savedPaymentPhone(undefined), undefined);
 });
+
+test("members change or remove their saved number from settings, and their other account preferences stay", async () => {
+  const auth = await import("../lib/appwrite/auth");
+  const consent = { termsAcceptedAt: "2026-01-01T00:00:00.000Z", privacyAcceptedAt: "2026-01-01T00:00:00.000Z" };
+  account.prefs = { ...consent, paymentPhone: "9876543210" };
+  account.saves = 0;
+  await auth.setPaymentPhone("synthetic-session", "9123456789");
+  assert.deepEqual(account.prefs, { ...consent, paymentPhone: "9123456789" });
+  await auth.setPaymentPhone("synthetic-session", null);
+  assert.deepEqual(account.prefs, consent, "removing forgets only the number");
+  await auth.setPaymentPhone("synthetic-session", null);
+  assert.equal(account.saves, 2, "removing a number that isn't there writes nothing");
+  account.down = true;
+  await assert.rejects(auth.setPaymentPhone("synthetic-session", "9123456789"), "a settings save that fails says so");
+  account.down = false;
+});

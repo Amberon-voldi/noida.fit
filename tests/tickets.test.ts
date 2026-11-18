@@ -177,6 +177,27 @@ test("a spot booked to pay on WhatsApp is confirmed at once with its price due, 
   assert.deepEqual({ paymentStatus: paid.paymentStatus, whatsapp: paid.whatsapp }, { paymentStatus: "paid", whatsapp: undefined });
 });
 
+test("a new number in settings moves only the member's own unpaid WhatsApp bookings for sessions not yet started", async t => {
+  t.mock.method(console, "info", () => {}); reset();
+  await service.reserveTicket(member, "paid", 19900, { name: "Asha Rao", phone: "9876543210" });
+  await service.reserveTicket("other-member", "paid", 19900, { name: "Ravi", phone: "9123456780" });
+  writes = [];
+  assert.equal(await service.updateWhatsappNumber(member, "9988776655"), 1);
+  assert.equal(ticketRow("paid")!.paymentRef, "whatsapp:9988776655:Asha Rao", "the name they booked with stays");
+  assert.equal(ticketRow("paid", "other-member")!.paymentRef, "whatsapp:9123456780:Ravi", "nobody else's booking changes");
+  assert.equal(writes.length, 1);
+  assert.equal(await service.updateWhatsappNumber(member, "9988776655"), 0, "the same number again writes nothing");
+  // A session that has started keeps the number it was booked with.
+  rows.get("events/paid")!.startsAt = new Date(Date.now() - 5 * 60_000).toISOString();
+  assert.equal(await service.updateWhatsappNumber("other-member", "9000000001"), 0);
+  assert.equal(ticketRow("paid", "other-member")!.paymentRef, "whatsapp:9123456780:Ravi");
+  // A paid ticket keeps its payment reference.
+  rows.get("events/paid")!.startsAt = new Date(Date.now() + 10 * 60_000).toISOString();
+  await service.confirmTicketPayment("paid", member, 19900, "pay_synthetic");
+  assert.equal(await service.updateWhatsappNumber(member, "9000000002"), 0);
+  assert.equal(ticketRow("paid")!.paymentRef, "pay_synthetic");
+});
+
 test("an unpaid hold becomes the spot booked to pay on WhatsApp, at the price it was held at", async t => {
   t.mock.method(console, "info", () => {}); reset();
   const hold = await service.holdTicket(member, "paid", 19900);

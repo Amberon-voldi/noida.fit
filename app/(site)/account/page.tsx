@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { getCurrentAppwriteUser } from "@/lib/appwrite/server";
+import { savedPaymentPhone } from "@/lib/appwrite/auth";
 import { ensureProfileForUser, profileSettings, toFitnessProfile } from "@/lib/appwrite/profiles";
 import { getAccountParticipation } from "@/lib/participation";
 import { getCommunities, getEvents, getOrganizerEvents, getPlaces, getUpcomingEvents } from "@/lib/data";
@@ -24,6 +25,7 @@ export default async function AccountPage() {
     profile={toFitnessProfile(stored, participation)}
     settings={profileSettings(stored)}
     email={user.email}
+    phone={savedPaymentPhone(user.prefs)}
     canOrganize={user.labels.includes("admin") || managedEvents.length > 0 || managedClubs.length > 0}
     participation={participation}
     events={events}
