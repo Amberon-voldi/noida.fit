@@ -10,7 +10,8 @@ import { getActivities, getCommunities, getOrganizerEvents, getPlaces } from "@/
 import { HttpError } from "@/lib/http";
 import { isMediaPath } from "@/lib/media";
 import { parseEventPrice } from "@/lib/pricing";
-import { isAdminUser } from "@/lib/services/participation";
+import { allClubOrganizers, organizerIdsOf } from "@/lib/services/organizers";
+import { isAdminUser, managesEvent } from "@/lib/services/participation";
 import type { AuthUser } from "@/lib/auth";
 import type { Community } from "@/types/community";
 import type { Place } from "@/types/place";
@@ -44,12 +45,13 @@ export type OrganizerEventInput = z.infer<typeof organizerEventInputSchema>;
 
 const published = <T extends { status?: string }>(item: T) => (item.status ?? "published") === "published";
 
-/** Clubs an organizer may schedule for: ones they already run an assigned event for. Admins: all. */
+/** Clubs an organizer may schedule for: ones the team made them an organizer of, and ones they already run an assigned event for. Admins: all. */
 export async function organizerClubs(user: Actor): Promise<Community[]> {
-  const [communities, events] = await Promise.all([getCommunities(), getOrganizerEvents(user.id, isAdminUser(user))]);
-  if (isAdminUser(user)) return communities;
+  const admin = isAdminUser(user);
+  const [communities, events, owners] = await Promise.all([getCommunities(), getOrganizerEvents(user.id, admin), admin ? null : allClubOrganizers()]);
+  if (admin) return communities;
   const run = new Set(events.map(event => event.communitySlug));
-  return communities.filter(community => run.has(community.slug));
+  return communities.filter(community => run.has(community.slug) || owners?.get(community.slug)?.includes(user.id));
 }
 
 export async function organizerVenues(): Promise<Place[]> {
@@ -115,7 +117,7 @@ async function create(user: Actor, value: unknown): Promise<{ id: string; slug: 
     venueSlug: place.slug, venueName: place.name, sector: place.sector,
     ...clean(input), ...schedule(input.date, input.startTime, input.endTime),
     ...(input.coverImageUrl ? { coverImageUrl: input.coverImageUrl } : {}),
-    organizerUserId: user.id,
+    organizerUserIds: [user.id],
   });
   return { id: saved.id, slug: String(saved.record.slug) };
 }
@@ -127,11 +129,12 @@ export async function uploadOrganizerBanner(user: Actor, file: unknown): Promise
   return { path };
 }
 
-/** Loads an event the caller manages, for the edit form. */
+/** Loads an event the caller manages (one of its organizers, or an organizer of its club), for the edit form. */
 export async function getManagedEventRecord(user: Actor, eventId: string) {
   const stored = await getEventRecord(eventId);
   if (!stored) throw new HttpError(404, "EVENT_NOT_FOUND", "Event was not found");
-  if (!isAdminUser(user) && stored.record.organizerUserId !== user.id) throw new HttpError(403, "ORGANIZER_REQUIRED", "You do not manage this event");
+  const managed = await managesEvent(user, { organizerIds: organizerIdsOf(stored.record), communitySlug: String(stored.record.communitySlug ?? "") });
+  if (!managed) throw new HttpError(403, "ORGANIZER_REQUIRED", "You do not manage this event");
   return stored;
 }
 

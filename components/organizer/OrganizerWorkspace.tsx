@@ -13,14 +13,15 @@ export type WorkspaceView = "upcoming" | "drafts" | "past";
 export interface OrganizerWorkspaceProps {
   events: Event[];
   summaries: OrganizerEventSummary[];
+  /** The clubs this account runs (lib/services/organizer-events.ts organizerClubs): all, for admins. */
   communities: Community[];
   isAdmin: boolean;
   view: WorkspaceView;
 }
 
-function communitySummaries(events: Event[], summaries: OrganizerEventSummary[], communities: Community[], isAdmin: boolean): OrganizerClubSummary[] {
-  const visible = isAdmin ? communities : communities.filter(community => events.some(event => event.communitySlug === community.slug));
-  return visible.map(community => {
+/** Every club the account runs, even one with no sessions yet: its organizers schedule the first from here. */
+function communitySummaries(events: Event[], summaries: OrganizerEventSummary[], communities: Community[]): OrganizerClubSummary[] {
+  return communities.map(community => {
     const clubEvents = events.filter(event => event.communitySlug === community.slug);
     const clubSummaries = summaries.filter(summary => summary.event.communitySlug === community.slug);
     return {
@@ -30,7 +31,7 @@ function communitySummaries(events: Event[], summaries: OrganizerEventSummary[],
       confirmedRsvps: clubSummaries.reduce((total, summary) => total + summary.confirmedRsvps, 0),
       checkedIn: clubSummaries.reduce((total, summary) => total + summary.checkedIn, 0),
     };
-  }).filter(summary => isAdmin || summary.eventCount > 0);
+  });
 }
 
 const sum = (summaries: OrganizerEventSummary[], pick: (summary: OrganizerEventSummary) => number) => summaries.reduce((total, summary) => total + pick(summary), 0);
@@ -80,7 +81,7 @@ function SessionCard({ summary, live = false }: { summary: OrganizerEventSummary
 }
 
 export function OrganizerWorkspace({ events, summaries, communities, isAdmin, view }: OrganizerWorkspaceProps) {
-  const clubs = communitySummaries(events, summaries, communities, isAdmin);
+  const clubs = communitySummaries(events, summaries, communities);
   const live = summaries.filter(summary => summary.checkInWindow === "open");
   const notLive = summaries.filter(summary => summary.checkInWindow !== "open");
   const drafts = notLive.filter(summary => summary.event.status === "draft");

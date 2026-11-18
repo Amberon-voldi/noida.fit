@@ -23,6 +23,8 @@ const optionalUrl = safeUrl.optional();
 const category = z.enum(["running", "cycling", "strength", "sports", "wellness", "outdoor"]);
 const status = z.enum(["draft", "published", "cancelled"]);
 const tags = z.array(plainText(60, 1)).max(20).optional();
+/** Accounts the team assigned to run a club or an event (lib/services/organizers.ts). */
+const organizerUserIds = z.array(contentIdSchema).max(20).optional();
 const common = {
   slug,
   status,
@@ -76,6 +78,7 @@ const communityFields = {
   socialLinks: z.object({ instagram: optionalUrl, whatsapp: optionalUrl, website: optionalUrl, strava: optionalUrl }).strict(),
   bannerUrl: optionalImage,
   crestUrl: optionalImage,
+  organizerUserIds,
 };
 const eventFields = {
   ...common,
@@ -97,6 +100,8 @@ const eventFields = {
   capacity: z.number().int().min(1).max(100000),
   attendeesCount: z.literal(0).default(0),
   featured: z.boolean().default(false),
+  organizerUserIds,
+  /** One organizer, from before an event could have several; saving moves it into organizerUserIds. */
   organizerUserId: id.optional(),
   coverImageUrl: optionalImage,
   imageUrl: optionalImage,

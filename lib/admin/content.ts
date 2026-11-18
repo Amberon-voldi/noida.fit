@@ -7,6 +7,7 @@ import { getAdminServices, getAppwriteDatabaseConfig } from "@/lib/appwrite/serv
 import { HttpError } from "@/lib/http";
 import { assertAdmin, type AdminActor } from "@/lib/admin/auth";
 import { runAdminMutation } from "@/lib/admin/audit";
+import { organizerIdsOf } from "@/lib/services/organizers";
 import {
   contentIdSchema, contentKinds, contentSchemas, type ContentKind, type ContentRecord,
   validateRecord, validateSchedule,
@@ -35,7 +36,16 @@ function decode(kind: ContentKind, row: Row): Record<string, unknown> {
   // Appwrite metadata and unknown database columns never enter the editable record.
   const record = { ...base, ...Object.fromEntries(columns[kind].filter(key => row[key] !== undefined && row[key] !== null).map(key => [key, row[key]])), id: row.$id };
   if (kind === "events" && !row.organizerUserId) delete (record as Record<string, unknown>).organizerUserId;
-  return record;
+  return kind === "events" || kind === "communities" ? withOrganizerList(record) : record;
+}
+/** Organizers as one list: an older event's single organizerUserId becomes its first entry. */
+function withOrganizerList(record: Record<string, unknown>): Record<string, unknown> {
+  const ids = organizerIdsOf(record);
+  const next = { ...record };
+  delete next.organizerUserId;
+  if (ids.length) next.organizerUserIds = ids;
+  else delete next.organizerUserIds;
+  return next;
 }
 function toListed(kind: ContentKind, row: Row): ListedContent { return { id: row.$id, updatedAt: row.$updatedAt, record: decode(kind, row) }; }
 function recordName(kind: ContentKind, record: Record<string, unknown>): string { return String(record[kind === "events" ? "title" : "name"] ?? record.slug ?? "Untitled"); }
@@ -56,13 +66,13 @@ function requireVersion(current: Row, expectedUpdatedAt: string | undefined): vo
 async function write(kind: ContentKind, record: ContentRecord, create: boolean): Promise<ListedContent> {
   const { databases } = getAdminServices();
   const { databaseId } = getAppwriteDatabaseConfig();
-  const value = record as Record<string, unknown>;
+  const value = kind === "events" || kind === "communities" ? withOrganizerList(record) : record as Record<string, unknown>;
   const fields = Object.fromEntries(columns[kind].filter(key => value[key] !== undefined).map(key => [key, value[key]]));
-  // Explicit null also clears an old assignment in the real operational column.
-  if (kind === "events") fields.organizerUserId = value.organizerUserId ?? null;
+  // The column keeps the first organizer, for older readers. Explicit null also clears an old assignment.
+  if (kind === "events") fields.organizerUserId = organizerIdsOf(value)[0] ?? null;
   const args = {
     databaseId, collectionId: appwriteCollections[kind], documentId: record.id,
-    data: { ...fields, payload: JSON.stringify(record) },
+    data: { ...fields, payload: JSON.stringify(value) },
     permissions: record.status === "published" ? [Permission.read(Role.any())] : [],
   };
   // Never upsert: a create collision must not overwrite an existing editorial record.
@@ -87,13 +97,14 @@ async function validateReferences(kind: ContentKind, record: ContentRecord, prev
       ]);
       if (![activity, community, place].every(published)) throw new HttpError(400, "INVALID_REFERENCE", "Published events need published activity, community and place references");
     }
-    const oldOrganizer = previous ? decode(kind, previous).organizerUserId : undefined;
-    if (event.organizerUserId && event.organizerUserId !== oldOrganizer) {
-      // Fail closed if the user is absent or the runtime cannot verify the assignment.
-      const { users } = getAdminServices();
-      const organizer = await users.get({ userId: event.organizerUserId });
-      if (!organizer.status) throw new HttpError(400, "INVALID_ORGANIZER", "Assign an active Appwrite user as organizer");
-    }
+  }
+  if (kind === "events" || kind === "communities") {
+    const before = new Set(previous ? organizerIdsOf(decode(kind, previous)) : []);
+    const added = organizerIdsOf(record).filter(id => !before.has(id));
+    // Fail closed if an account is absent or the runtime cannot verify the assignment.
+    const { users } = getAdminServices();
+    const accounts = await Promise.all(added.map(userId => users.get({ userId })));
+    if (accounts.some(account => !account.status)) throw new HttpError(400, "INVALID_ORGANIZER", "Assign active member accounts as organizers");
   }
   if (kind === "communities" && record.status === "published") {
     const community = record as CommunityRecord;

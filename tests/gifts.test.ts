@@ -122,7 +122,8 @@ test("the organizer's numbers count gifted spots, revenue and people paying now"
   seat("payer-2", 3, { status: "confirmed", amount: 29900, paymentStatus: "paid" });
   seat("paying", 4, { status: "pending", amount: 29900, paymentStatus: "pending" });
   seat("lapsed", 5, { status: "pending", amount: 29900, paymentStatus: "pending", createdAt: new Date(Date.now() - 31 * 60_000).toISOString() });
-  const [event] = await (await import("../lib/data")).getEventAnyStatus("paid").then(found => [found!]);
+  // The dashboard's events come from getOrganizerEvents, which names their organizers; public reads never do.
+  const [event] = await (await import("../lib/data")).getEventAnyStatus("paid").then(found => [{ ...found!, organizerUserIds: [organizerUser.id] }]);
   const summary = await organizer.getOrganizerEventSummary(organizerUser, event);
   assert.deepEqual({ going: summary.confirmedRsvps, revenue: summary.revenue, payingNow: summary.payingNow, giftsClaimed: summary.giftsClaimed }, { going: 3, revenue: 59800, payingNow: 1, giftsClaimed: 1 });
   assert.deepEqual(summary.attendees.find(attendee => attendee.gift)?.gift, { linkId: link.id, label: "Riya" });
@@ -191,7 +192,7 @@ test("the desk checks a guest in from their pass, and the guest list names them 
   Object.assign(rows.get("events/paid")!, { startsAt: new Date(start).toISOString(), endsAt: new Date(start + 60 * 60_000).toISOString() });
   const link = await create({ allowGuests: true, label: "Asha" });
   const { passId } = await gifts.claimGiftAsGuest(link.id, { phone: "9876543210" });
-  const event = (await (await import("../lib/data")).getEventAnyStatus("paid"))!;
+  const event = { ...(await (await import("../lib/data")).getEventAnyStatus("paid"))!, organizerUserIds: [organizerUser.id] };
   assert.deepEqual((await organizer.getOrganizerEventSummary(organizerUser, event)).attendees, [
     { displayName: "Asha", rsvpStatus: "confirmed", seatNumber: 1, gift: { linkId: link.id, label: "Asha" }, guest: { pass: passId, phone: "9876543210" }, checkInStatus: "not_checked_in" },
   ]);

@@ -199,6 +199,21 @@ test("booking to pay on WhatsApp needs a name and an Indian mobile number, and n
   assert.throws(() => payments.ticketReservationInputSchema.parse({ eventId: "paid", amount: 19900, name: "Asha", phone: "9876543210", userId: "spoofed" }));
 });
 
+test("a club's organizers work the check-in desk for its sessions, which strangers cannot", async t => {
+  t.mock.method(console, "info", () => {}); reset();
+  const owner = { id: "club-owner", labels: [] as string[] };
+  rows.get("events/free")!.communitySlug = "dawn-runners";
+  rows.set("communities/club", { $id: "club", slug: "dawn-runners", status: "published", payload: JSON.stringify({ name: "Dawn Runners", organizerUserIds: ["co-owner", owner.id] }) });
+  await service.createRsvp(member, "free");
+  const { token } = await service.createParticipantCheckInToken(member);
+  await assert.rejects(service.checkInParticipant({ id: "someone-else", labels: [] }, "free", token), { code: "ORGANIZER_REQUIRED" });
+  assert.equal(await service.canManageEvent({ id: "someone-else", labels: [] }, "free"), false);
+  assert.equal(await service.canManageEvent(owner, "free"), true);
+  assert.equal((await service.checkInParticipant(owner, "free", token)).alreadyCheckedIn, false);
+  // A club's organizers run only that club's sessions.
+  await assert.rejects(service.checkInParticipant(owner, "paid", token), { code: "ORGANIZER_REQUIRED" });
+});
+
 test("organizers price a session as FREE or a rupee amount, never free-form text", async () => {
   const { organizerEventInputSchema } = await import("../lib/services/organizer-events");
   const input = { title: "Synthetic session", description: "A synthetic session used only by this test.", date: "2026-12-01", startTime: "06:00 AM", endTime: "07:00 AM", venueSlug: "stadium", capacity: 20, status: "published" };

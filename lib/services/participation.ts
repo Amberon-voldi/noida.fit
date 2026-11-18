@@ -12,6 +12,7 @@ import { HttpError } from "@/lib/http";
 import { MAX_TICKET_RUPEES, parseEventPrice, ticketHoldEndsAt } from "@/lib/pricing";
 import type { AuthUser } from "@/lib/auth";
 import { getAdminServices } from "@/lib/appwrite/server";
+import { clubOrganizerIds, organizerIdsOf } from "@/lib/services/organizers";
 import type { RSVP, SavedItem, Membership, Participation, CheckIn } from "@/types/platform";
 
 export type { RSVP, SavedItem, Membership, Participation, CheckIn } from "@/types/platform";
@@ -36,6 +37,7 @@ type EventRecord = {
   startsAt: string;
   endsAt: string;
   organizerUserId?: string;
+  communitySlug?: string;
   activityId: string;
   payload?: string;
 };
@@ -443,9 +445,15 @@ export function isAdminUser(user: Pick<AuthUser, "labels">): boolean {
   return user.labels?.includes("admin") === true;
 }
 
+/** Whether an account runs an event: an admin, one of the event's organizers, or an organizer of its club. */
+export async function managesEvent(user: Pick<AuthUser, "id" | "labels">, event: { organizerIds: string[]; communitySlug?: string }): Promise<boolean> {
+  if (isAdminUser(user) || event.organizerIds.includes(user.id)) return true;
+  return (await clubOrganizerIds(event.communitySlug)).includes(user.id);
+}
+
 export async function canManageEvent(user: Pick<AuthUser, "id" | "labels">, eventId: string): Promise<boolean> {
   const event = await getEvent(eventId);
-  return isAdminUser(user) || event.organizerUserId === user.id;
+  return managesEvent(user, { organizerIds: organizerIdsOf(event), communitySlug: event.communitySlug });
 }
 
 function validateCheckInEvent(event: EventRecord): { opensAt: number; closesAt: number } {
@@ -531,7 +539,7 @@ export async function repairRecordedCheckIn(actor: Pick<AuthUser, "id" | "labels
 async function getOperatedEvent(operator: Pick<AuthUser, "id" | "labels">, eventId: string) {
   documentIdSchema.parse(operator.id);
   const event = await getEvent(eventId, false);
-  if (!isAdminUser(operator) && event.organizerUserId !== operator.id) {
+  if (!(await managesEvent(operator, { organizerIds: organizerIdsOf(event), communitySlug: event.communitySlug }))) {
     throw new HttpError(403, "ORGANIZER_REQUIRED", "Only this event’s assigned operator or an administrator can check in participants");
   }
   return event;

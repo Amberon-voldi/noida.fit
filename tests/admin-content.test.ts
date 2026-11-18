@@ -179,6 +179,22 @@ test("published event references, capacity seats and organizer assignment remain
   assert.equal((contentWrites().at(-1)?.body.data as Record<string, unknown>).organizerUserId, null);
 });
 
+test("the team assigns several organizers to a club and to an event; the event column keeps the first", async t => {
+  t.mock.method(console, "info", () => {}); fixture();
+  const club = put("communities", "club", { status: "draft" });
+  const savedClub = await service.updateAdminContent(actor, "communities", "club", { ...club, organizerUserIds: ["owner-1", "owner-2", "owner-1"] }, version, "Add club organizers");
+  assert.deepEqual(savedClub.record.organizerUserIds, ["owner-1", "owner-2"]);
+  const event = put("events", "event", { status: "draft", organizerUserId: "first-organizer" });
+  const savedEvent = await service.updateAdminContent(actor, "events", "event", { ...event, organizerUserIds: ["co-host"] }, version, "Add a co-host");
+  assert.deepEqual(savedEvent.record.organizerUserIds, ["co-host", "first-organizer"]);
+  assert.equal("organizerUserId" in savedEvent.record, false);
+  const data = contentWrites().at(-1)?.body.data as Record<string, unknown>;
+  assert.equal(data.organizerUserId, "co-host");
+  assert.deepEqual(JSON.parse(String(data.payload)).organizerUserIds, ["co-host", "first-organizer"]);
+  assert.equal("organizerUserId" in JSON.parse(String(data.payload)), false);
+  assert.throws(() => contentSchemas.communities.parse({ ...club, organizerUserIds: Array.from({ length: 21 }, (_, index) => `owner-${index}`) }));
+});
+
 test("all historical reference kinds block deletion; unrelated IDs do not", async t => {
   t.mock.method(console, "info", () => {});
   const cases: [keyof typeof contentSchemas, string, Record<string, unknown>][] = [

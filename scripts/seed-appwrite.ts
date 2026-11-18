@@ -90,7 +90,7 @@ async function seedEvents(): Promise<void> {
       endsAt: event.endsAt,
       featured: event.featured,
       capacity: event.capacity,
-      ...(event.organizerUserId ? { organizerUserId: event.organizerUserId } : {}),
+      ...(event.organizerUserIds?.length ? { organizerUserId: event.organizerUserIds[0] } : {}),
     });
   }
 }

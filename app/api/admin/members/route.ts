@@ -1,4 +1,4 @@
-import { listAdminMembers, manageAdminMember, memberActionSchema } from "@/lib/admin/members";
+import { getAdminMembersByIds, listAdminMembers, manageAdminMember, memberActionSchema } from "@/lib/admin/members";
 import { requireAdminMutationUser, requireAdminUser } from "@/lib/admin/auth";
 import { jsonError, jsonOk, readJson } from "@/lib/http";
 
@@ -8,6 +8,9 @@ export async function GET(request: Request) {
   try {
     const user = await requireAdminUser();
     const params = new URL(request.url).searchParams;
+    // ?ids=a,b: those accounts by ID, e.g. the organizers already assigned to a club or event.
+    const ids = params.get("ids");
+    if (ids !== null) return jsonOk(await getAdminMembersByIds(user, ids.split(",").filter(Boolean)));
     const offsetValue = Number(params.get("offset") ?? "0");
     const offset = Number.isSafeInteger(offsetValue) && offsetValue >= 0 ? Math.min(offsetValue, 100_000) : 0;
     return jsonOk(await listAdminMembers(user, params.get("q") ?? "", offset));

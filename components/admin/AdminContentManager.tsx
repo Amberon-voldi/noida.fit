@@ -16,7 +16,7 @@ const imageFields: Record<ContentKind, [key: string, label: string, hint: string
   places: [["coverImageUrl", "Cover image", "Wide (about 3:1). Shown on the place page and cards."]],
   events: [["coverImageUrl", "Cover image", "Wide (about 16:9). Shown on the event page and cards."]],
 };
-const optionalKeys = new Set(["organizerUserId", "primaryVenueSlug", "communityCrestUrl", ...Object.values(imageFields).flat().map(([key]) => key)]);
+const optionalKeys = new Set(["organizerUserId", "organizerUserIds", "primaryVenueSlug", "communityCrestUrl", ...Object.values(imageFields).flat().map(([key]) => key)]);
 const categories = ["running", "cycling", "strength", "sports", "wellness", "outdoor"] as const;
 /** Other content each editor links to, loaded for its dropdowns. */
 const referenceKinds: Record<ContentKind, ContentKind[]> = { activities: [], communities: ["activities", "places"], places: ["activities"], events: ["activities", "communities", "places"] };
@@ -51,7 +51,9 @@ export function AdminContentManager({ kind, initialRecords, initialError = "", t
   const [memberQuery, setMemberQuery] = useState("");
   const [members, setMembers] = useState<Member[] | null>(null);
   const [membersError, setMembersError] = useState("");
+  const [memberNames, setMemberNames] = useState<Record<string, string>>({});
   const editing = Boolean(json);
+  const hasOrganizers = kind === "events" || kind === "communities";
   // New records keep their slug in step with the name until the slug is edited by hand.
   const [slugFollowsName, setSlugFollowsName] = useState(false);
 
@@ -63,6 +65,7 @@ export function AdminContentManager({ kind, initialRecords, initialError = "", t
     catch { return null; }
   }, [json]);
   const busy = Boolean(pending);
+  const organizerIds = Array.isArray(draft?.organizerUserIds) ? (draft.organizerUserIds as unknown[]).map(String) : [];
   // Load the records this editor links to once it opens, so references are picked, not typed.
   useEffect(() => {
     const needed = referenceKinds[kind].filter(other => !refs[other]);
@@ -79,7 +82,7 @@ export function AdminContentManager({ kind, initialRecords, initialError = "", t
   }, [editing, kind, refs]);
   // Organizer search: member accounts by name, 25 at a time.
   useEffect(() => {
-    if (!editing || kind !== "events") return;
+    if (!editing || !hasOrganizers) return;
     const controller = new AbortController();
     const timer = window.setTimeout(() => {
       fetch(`/api/admin/members?q=${encodeURIComponent(memberQuery.trim())}`, { cache: "no-store", signal: controller.signal })
@@ -91,7 +94,22 @@ export function AdminContentManager({ kind, initialRecords, initialError = "", t
         .catch(caught => { if (!(caught instanceof Error && caught.name === "AbortError")) setMembersError(caught instanceof Error ? caught.message : "Members could not be loaded"); });
     }, memberQuery ? 300 : 0);
     return () => { window.clearTimeout(timer); controller.abort(); };
-  }, [editing, kind, memberQuery]);
+  }, [editing, hasOrganizers, memberQuery]);
+  // Names for organizers already on the record, so the list shows people, not account IDs.
+  const unnamed = organizerIds.filter(id => !(id in memberNames)).join(",");
+  useEffect(() => {
+    if (!unnamed) return;
+    const controller = new AbortController();
+    fetch(`/api/admin/members?ids=${encodeURIComponent(unnamed)}`, { cache: "no-store", signal: controller.signal })
+      .then(async response => {
+        const data = await response.json().catch(() => null) as { members?: Member[] } | null;
+        // An account that no longer exists keeps an empty name and shows as "Account not found".
+        const found = new Map((response.ok ? data?.members ?? [] : []).map(member => [member.id, member.name]));
+        if (response.ok) setMemberNames(current => ({ ...current, ...Object.fromEntries(unnamed.split(",").map(id => [id, found.get(id) ?? ""])) }));
+      })
+      .catch(() => { /* The list shows account IDs until names load. */ });
+    return () => controller.abort();
+  }, [unnamed]);
   function patchMany(changes: Record<string, unknown>) {
     if (!draft || busy) return;
     const next = { ...draft };
@@ -273,6 +291,29 @@ export function AdminContentManager({ kind, initialRecords, initialError = "", t
   function checkField(key: string, label: string) {
     return <label className="admin-checkbox" key={key}><input type="checkbox" checked={draft?.[key] === true} onChange={event => patch(key, event.target.checked)} disabled={busy || !draft} /><span>{label}</span></label>;
   }
+  /** The accounts that run this club or event: listed by name, removed one by one, added from a member search. */
+  function organizersField(legend: string, help: string) {
+    const setOrganizers = (ids: string[]) => patchMany({ organizerUserIds: ids.length ? ids : undefined });
+    const candidates = (members ?? []).filter(member => member.enabled && !organizerIds.includes(member.id)).slice(0, 8);
+    const full = organizerIds.length >= 20;
+    const nameFor = (id: string) => id in memberNames ? memberNames[id] || "Account not found" : "Loading name…";
+    return <fieldset className="admin-field-group"><legend>{legend}</legend>
+      <p className="admin-note">{help}</p>
+      {organizerIds.length ? <ul className="admin-organizer-list" aria-label={`${legend}: assigned`}>{organizerIds.map(id => <li key={id}>
+        <span className="min-w-0">{nameFor(id)}<small className="block font-mono text-xs text-text-secondary">{id}</small></span>
+        <button type="button" className={buttonClass} onClick={() => setOrganizers(organizerIds.filter(item => item !== id))} disabled={busy || !draft} aria-label={`Remove ${memberNames[id] || id}`}>Remove</button>
+      </li>)}</ul> : <p className="admin-note mt-2">No organizers yet.</p>}
+      <label className="mt-3 block"><span>Find a member to add</span><input type="search" value={memberQuery} onChange={event => setMemberQuery(event.target.value)} placeholder="Search by name or email…" readOnly={busy || !draft} className="admin-field" /></label>
+      {membersError ? <p className="admin-error mt-2" role="alert">{membersError}</p>
+        : !members ? <p className="admin-note mt-2">Loading members…</p>
+        : candidates.length ? <ul className="admin-organizer-list" aria-label="Members matching your search">{candidates.map(member => <li key={member.id}>
+          <span className="min-w-0">{member.name}<small className="block font-mono text-xs text-text-secondary">{member.id}</small></span>
+          <button type="button" className={buttonClass} onClick={() => { setMemberNames(current => ({ ...current, [member.id]: member.name })); setOrganizers([...organizerIds, member.id]); }} disabled={busy || !draft || full} aria-label={`Add ${member.name}`}>Add</button>
+        </li>)}</ul>
+        : <p className="admin-note mt-2">{memberQuery.trim() ? "No other active members match." : "Everyone listed is already an organizer."}</p>}
+      {full && <p className="admin-note mt-2">That’s the most organizers one record can have (20).</p>}
+    </fieldset>;
+  }
 
   return <div className="admin-page">
     <header className="admin-page-header">
@@ -308,8 +349,9 @@ export function AdminContentManager({ kind, initialRecords, initialError = "", t
         })}{!refs.activities.length && <p className="admin-note">No activities yet.</p>}</div> : <p className="admin-note">Loading activities…</p>}
       </fieldset>}
       {refsError && <p className="admin-error mt-3" role="alert">{refsError}</p>}
+      {kind === "communities" && organizersField("Club organizers", "Club owners and organizers. They can schedule sessions for this club and run all of its sessions in their organizer panel: guests, check-in, gift links and edits. Not admin rights.")}
       {kind === "events" && <>
-        <fieldset className="admin-field-group"><legend>Community, venue & organizer</legend><div className="admin-fields">
+        <fieldset className="admin-field-group"><legend>Community & venue</legend><div className="admin-fields">
           {selectField("communitySlug", "Community", refs.communities ? options("communities", record => String(record.slug)) : null, { help: "Also sets the club name and logo shown on the event.", onSelect: slug => {
             const club = refs.communities?.find(item => item.record.slug === slug)?.record;
             patchMany({ communitySlug: slug, ...(club ? { communityName: String(club.name ?? slug), communityCrestUrl: club.crestUrl as string | undefined } : {}) });
@@ -319,11 +361,8 @@ export function AdminContentManager({ kind, initialRecords, initialError = "", t
             patchMany({ venueSlug: slug, ...(place ? { venueName: String(place.name ?? slug), ...(typeof place.sector === "string" && place.sector ? { sector: place.sector } : {}) } : {}) });
           } })}
           {suggestField("sector", "Sector", distinct(refs.places, "sector"), "Filled from the place; pick another sector or type one.")}
-          <div className="admin-organizer-picker">
-            <label><span>Find organizer by name</span><input type="search" value={memberQuery} onChange={event => setMemberQuery(event.target.value)} placeholder="Search members…" readOnly={busy || !draft} className="admin-field" /></label>
-            {selectField("organizerUserId", "Organizer", members ? members.filter(member => member.enabled).map(member => ({ value: member.id, label: `${member.name} · ${member.id}` })) : null, { optional: "No organizer", help: membersError || "Gives this account event-scoped check-in access, not admin rights." })}
-          </div>
         </div></fieldset>
+        {organizersField("Event organizers", "Each one gets this session in their organizer panel: guests, check-in, gift links and edits. Not admin rights. The club’s organizers already have it.")}
         <fieldset className="admin-field-group"><legend>Schedule & capacity</legend><div className="admin-fields">{textField("date", "Date (IST)", "date")}{textField("startTime", "Start display time (e.g. 06:00 AM)")}{textField("endTime", "End display time (e.g. 07:00 AM)")}{textField("startsAt", "Start timestamp with timezone offset")}{textField("endsAt", "End timestamp with timezone offset")}{textField("capacity", "Capacity", "number")}{textField("price", "Price (FREE, or an amount like ₹199 to sell tickets)")}</div></fieldset>
       </>}
       {imageFields[kind].length > 0 && <fieldset className="admin-field-group"><legend>Images</legend><p className="admin-note">Uploads go to Appwrite Storage and appear on the site after you save the record.</p><div className="admin-image-fields">{imageFields[kind].map(([key, label, hint]) => imageField(key, label, hint))}</div></fieldset>}

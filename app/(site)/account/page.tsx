@@ -4,6 +4,7 @@ import { getCurrentAppwriteUser } from "@/lib/appwrite/server";
 import { ensureProfileForUser, profileSettings, toFitnessProfile } from "@/lib/appwrite/profiles";
 import { getAccountParticipation } from "@/lib/participation";
 import { getCommunities, getEvents, getOrganizerEvents, getPlaces, getUpcomingEvents } from "@/lib/data";
+import { organizerClubs } from "@/lib/services/organizer-events";
 import { AccountWorkspace } from "@/components/profile/AccountWorkspace";
 
 export const metadata: Metadata = {
@@ -15,14 +16,15 @@ export default async function AccountPage() {
   const user = await getCurrentAppwriteUser();
   if (!user) redirect("/login?callbackUrl=/account");
 
-  const [stored, participation, events, upcomingEvents, communities, places, managedEvents] = await Promise.all([
+  const [stored, participation, events, upcomingEvents, communities, places, managedEvents, managedClubs] = await Promise.all([
     ensureProfileForUser(user), getAccountParticipation(user.$id), getEvents(), getUpcomingEvents(), getCommunities(), getPlaces(), getOrganizerEvents(user.$id),
+    organizerClubs({ id: user.$id, labels: user.labels }),
   ]);
   return <AccountWorkspace
     profile={toFitnessProfile(stored, participation)}
     settings={profileSettings(stored)}
     email={user.email}
-    canOrganize={user.labels.includes("admin") || managedEvents.length > 0}
+    canOrganize={user.labels.includes("admin") || managedEvents.length > 0 || managedClubs.length > 0}
     participation={participation}
     events={events}
     upcomingEvents={upcomingEvents}

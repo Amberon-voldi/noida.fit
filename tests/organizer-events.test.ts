@@ -157,3 +157,51 @@ test("only club organizers can upload a banner, and only a real image is stored"
   await assert.rejects(service.uploadOrganizerBanner(organizer, "not a file"), { code: "MEDIA_REQUIRED" });
   assert.equal(uploads.length, 1);
 });
+
+test("the team's club organizers run every session of their club, and can schedule its first one", async () => {
+  const owner = { id: "club-owner", labels: [] as string[] };
+  const coOwner = { id: "co-owner", labels: [] as string[] };
+  // Other Club has no sessions yet; the team made two people its organizers.
+  const club = rows.get("communities")!.find(row => row.slug === "other-club")!;
+  club.payload = JSON.stringify({ ...JSON.parse(String(club.payload)), organizerUserIds: [owner.id, coOwner.id] });
+  assert.deepEqual((await service.organizerClubs(owner)).map(community => community.slug), ["other-club"]);
+  const created = await service.createOrganizerEvent(owner, { ...form(), communitySlug: "other-club" });
+  assert.deepEqual(eventRecord(created.id).organizerUserIds, [owner.id]);
+  assert.equal(eventRow(created.id).organizerUserId, owner.id, "the column keeps the first organizer");
+  // The club's other organizer runs it too, though they didn't create it, and editing keeps the assignments.
+  const stored = await service.getManagedEventRecord(coOwner, created.id);
+  await service.updateOrganizerEvent(coOwner, created.id, form({ title: "Renamed by the co-owner" }), stored.updatedAt);
+  assert.equal(eventRecord(created.id).title, "Renamed by the co-owner");
+  assert.deepEqual(eventRecord(created.id).organizerUserIds, [owner.id]);
+  // Only their own club.
+  await assert.rejects(service.getManagedEventRecord(owner, "existing"), { code: "ORGANIZER_REQUIRED" });
+  await assert.rejects(service.createOrganizerEvent(owner, { ...form(), communitySlug: "dawn-runners" }), { code: "ORGANIZER_REQUIRED" });
+});
+
+test("an event's co-organizers run that session, and an older single organizer becomes the first of the list", async () => {
+  const coHost = { id: "co-host", labels: [] as string[] };
+  await assert.rejects(service.getManagedEventRecord(coHost, "existing"), { code: "ORGANIZER_REQUIRED" });
+  const legacy = await service.getManagedEventRecord(organizer, "existing");
+  assert.deepEqual(legacy.record.organizerUserIds, [organizer.id]);
+  assert.equal("organizerUserId" in legacy.record, false);
+  const existing = eventRow("existing");
+  existing.payload = JSON.stringify({ ...JSON.parse(String(existing.payload)), organizerUserIds: [organizer.id, coHost.id] });
+  const stored = await service.getManagedEventRecord(coHost, "existing");
+  await service.updateOrganizerEvent(coHost, "existing", form({ title: "Co-hosted run" }), stored.updatedAt);
+  assert.equal(eventRecord("existing").title, "Co-hosted run");
+  assert.deepEqual(eventRecord("existing").organizerUserIds, [organizer.id, coHost.id]);
+  assert.equal(eventRecord("existing").organizerUserId, undefined, "the payload holds only the list");
+  assert.equal(eventRow("existing").organizerUserId, organizer.id);
+  // Co-hosting one session lets them schedule for its club, but not for another.
+  assert.deepEqual((await service.organizerClubs(coHost)).map(community => community.slug), ["dawn-runners"]);
+  await assert.rejects(service.createOrganizerEvent(coHost, { ...form(), communitySlug: "other-club" }), { code: "ORGANIZER_REQUIRED" });
+});
+
+test("an older event's organizer comes only from its database column, as before; a stale payload copy grants nothing", async () => {
+  const { organizerIdsOf } = await import("../lib/services/organizers");
+  assert.deepEqual(organizerIdsOf({ organizerUserId: "column", payload: JSON.stringify({ organizerUserId: "stale" }) }), ["column"]);
+  assert.deepEqual(organizerIdsOf({ organizerUserId: null, payload: JSON.stringify({ organizerUserId: "stale" }) }), []);
+  assert.deepEqual(organizerIdsOf({ organizerUserId: "column", payload: JSON.stringify({ organizerUserIds: ["co-host", "column"] }) }), ["co-host", "column"]);
+  assert.deepEqual(organizerIdsOf({ organizerUserIds: ["a", "a", "b"], organizerUserId: "c" }), ["a", "b", "c"]);
+  assert.deepEqual(organizerIdsOf({ payload: "not json" }), []);
+});

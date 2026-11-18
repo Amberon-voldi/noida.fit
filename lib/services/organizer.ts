@@ -9,6 +9,7 @@ import {
 import { HttpError } from "@/lib/http";
 import { ticketHoldEndsAt } from "@/lib/pricing";
 import { giftGuests, giftLinkLabels } from "@/lib/services/gifts";
+import { allClubOrganizers, organizerIdsOf, runsEvent } from "@/lib/services/organizers";
 import { eventWindow, isAdminUser, isGuestHolder, whatsappContactOf } from "@/lib/services/participation";
 import type { AuthUser } from "@/lib/auth";
 import type { Event } from "@/types/event";
@@ -80,7 +81,9 @@ export async function getOrganizerEventSummaries(
   events: Event[],
 ): Promise<OrganizerEventSummary[]> {
   const admin = isAdminUser(user);
-  if (events.some(event => !admin && event.organizerUserId !== user.id)) {
+  // Club organizers run every session of their club: look the clubs up only when some event needs it.
+  const clubs = admin || events.every(event => organizerIdsOf(event).includes(user.id)) ? null : await allClubOrganizers();
+  if (clubs && events.some(event => !runsEvent(user.id, organizerIdsOf(event), clubs.get(event.communitySlug)))) {
     throw new HttpError(403, "ORGANIZER_REQUIRED", "You do not manage this event");
   }
   if (!events.length) return [];

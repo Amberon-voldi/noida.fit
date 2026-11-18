@@ -25,15 +25,27 @@ export const memberActionSchema = z.object({
   reason: z.string().trim().min(5).max(300),
 }).strict();
 
+type AppwriteUser = Awaited<ReturnType<ReturnType<typeof getAdminServices>["users"]["get"]>>;
+const toAdminMember = (user: AppwriteUser): AdminMember => ({ id: user.$id, name: user.name || "NOIDA.FIT member", enabled: user.status, admin: user.labels.includes("admin"), joinedAt: user.$createdAt, emailVerified: user.emailVerification });
+
 /** IDs are operational selectors available only to admins; email/password/prefs/sessions are never returned. */
 export async function listAdminMembers(actor: AdminActor, search = "", offset = 0) {
   assertAdmin(actor);
   const { users } = getAdminServices();
   const result = await users.list({ queries: [Query.limit(25), Query.offset(offset)], ...(search.trim() ? { search: search.trim().slice(0, 100) } : {}) });
-  return {
-    total: result.total,
-    members: result.users.map(user => ({ id: user.$id, name: user.name || "NOIDA.FIT member", enabled: user.status, admin: user.labels.includes("admin"), joinedAt: user.$createdAt, emailVerified: user.emailVerification } satisfies AdminMember)),
-  };
+  return { total: result.total, members: result.users.map(toAdminMember) };
+}
+
+/** The named accounts, e.g. to show who a club's or event's organizers are. Accounts that no longer exist are left out. */
+export async function getAdminMembersByIds(actor: AdminActor, ids: string[]) {
+  assertAdmin(actor);
+  const { users } = getAdminServices();
+  const wanted = [...new Set(ids)].slice(0, 20).map(id => documentIdSchema.parse(id));
+  const found = await Promise.all(wanted.map(userId => users.get({ userId }).catch((error: unknown) => {
+    if (typeof error === "object" && error !== null && "code" in error && error.code === 404) return null;
+    throw error;
+  })));
+  return { members: found.filter(user => user !== null).map(toAdminMember) };
 }
 
 export async function manageAdminMember(actor: AdminActor, input: z.infer<typeof memberActionSchema>) {

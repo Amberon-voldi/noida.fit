@@ -9,6 +9,7 @@ import type { Activity } from "@/types/activity";
 import { appwriteCollections } from "@/lib/appwrite/config";
 import { getAppwriteDocument, listAppwriteDocuments, listSharedAppwriteDocuments, Query } from "@/lib/appwrite/database";
 import type { AppwriteDocument } from "@/lib/appwrite/database";
+import { allClubOrganizers, organizerIdsOf, runsEvent } from "@/lib/services/organizers";
 
 type ContentDocument = Record<string, unknown>;
 
@@ -26,6 +27,14 @@ function decodePayload<T extends object>(document: AppwriteDocument<ContentDocum
   return { ...(payload as Record<string, unknown>), id: document.$id } as T;
 }
 
+/** Organizer account IDs are private (lib/services/organizers.ts): listings never carry them. */
+function withoutOrganizers<T extends object>(record: T): T {
+  const copy: Record<string, unknown> = { ...(record as Record<string, unknown>) };
+  delete copy.organizerUserId;
+  delete copy.organizerUserIds;
+  return copy as T;
+}
+
 function decodeActivity(document: AppwriteDocument<ContentDocument>): Activity {
   const activity = decodePayload<Activity>(document);
   return {
@@ -39,7 +48,7 @@ function decodeActivity(document: AppwriteDocument<ContentDocument>): Activity {
 }
 
 function decodeCommunity(document: AppwriteDocument<ContentDocument>): Community {
-  const community = decodePayload<Community>(document);
+  const community = withoutOrganizers(decodePayload<Community>(document));
   return {
     ...community,
     id: document.$id,
@@ -51,7 +60,7 @@ function decodeCommunity(document: AppwriteDocument<ContentDocument>): Community
 }
 
 function decodeEvent(document: AppwriteDocument<ContentDocument>): Event {
-  const event = decodePayload<Event>(document);
+  const event = withoutOrganizers(decodePayload<Event>(document));
   return {
     ...event,
     id: document.$id,
@@ -66,7 +75,6 @@ function decodeEvent(document: AppwriteDocument<ContentDocument>): Event {
     endsAt: String(document.endsAt ?? event.endsAt),
     featured: Boolean(document.featured ?? event.featured),
     capacity: typeof document.capacity === "number" ? document.capacity : event.capacity,
-    organizerUserId: typeof document.organizerUserId === "string" ? document.organizerUserId : undefined,
     status: String(document.status ?? event.status ?? "published") as Event["status"],
     demo: Boolean(document.demo ?? event.demo),
   };
@@ -144,19 +152,23 @@ export async function getEvents(): Promise<Event[]> {
   return loadEvents();
 }
 
-/** Server-only operational view. Unlike public discovery, this includes an organizer's draft and cancelled records. */
+/**
+ * Server-only operational view. Unlike public discovery, this includes an organizer's draft and cancelled
+ * records: every event they organize, and every event of a club they organize. Admins see all.
+ */
 const loadOrganizerEvents = cache(async (userId: string, admin: boolean): Promise<Event[]> => {
   await connection();
-  const [allDocuments, rsvps] = await Promise.all([
+  const [allDocuments, rsvps, clubs] = await Promise.all([
     // Keep this compatible with already-provisioned projects; the organizer
     // attribute was optional before the operational panel existed.
     listAppwriteDocuments<ContentDocument>(appwriteCollections.events),
     listAppwriteDocuments<{eventId: string; status: string}>(appwriteCollections.rsvps, [Query.select(["eventId", "status"])]),
+    admin ? null : allClubOrganizers(),
   ]);
-  const documents = admin ? allDocuments : allDocuments.filter(document => document.organizerUserId === userId);
+  const documents = admin ? allDocuments : allDocuments.filter(document => runsEvent(userId, organizerIdsOf(document), clubs?.get(String(document.communitySlug))));
   const counts = new Map<string, number>();
   for (const rsvp of rsvps) if (rsvp.status === "confirmed") counts.set(rsvp.eventId, (counts.get(rsvp.eventId) ?? 0) + 1);
-  return documents.map(document => ({ ...decodeEvent(document), attendeesCount: counts.get(document.$id) ?? 0 }))
+  return documents.map(document => ({ ...decodeEvent(document), organizerUserIds: organizerIdsOf(document), attendeesCount: counts.get(document.$id) ?? 0 }))
     .sort((a, b) => (a.startsAt ?? a.date).localeCompare(b.startsAt ?? b.date));
 });
 

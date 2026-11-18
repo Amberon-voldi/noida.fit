@@ -250,25 +250,31 @@ test("event editor picks its activity, club, place and organizer from dropdowns 
   await page.getByLabel("Community", { exact: true }).selectOption({ label: "Sunrise Riders" });
   await page.getByLabel("Place", { exact: true }).selectOption({ label: "Sector 18 Park" });
   await expect(page.getByLabel("Sector", { exact: true })).toHaveValue("Sector 18");
-  await page.getByLabel("Find organizer by name").fill("asha");
-  const organizer = page.getByLabel("Organizer", { exact: true });
-  await expect(organizer.locator("option", { hasText: "Asha Organizer" })).toHaveCount(1);
-  await expect(organizer.locator("option", { hasText: "Asha Suspended" })).toHaveCount(0);
-  await organizer.selectOption({ label: "Asha Organizer · user-asha" });
+  const organizers = page.getByRole("group", { name: "Event organizers" });
+  await expect(organizers.getByText("No organizers yet.")).toBeVisible();
+  await organizers.getByLabel("Find a member to add").fill("asha");
   await expect.poll(() => searches).toContain("asha");
+  await expect(organizers.getByRole("button", { name: "Add Asha Suspended" })).toHaveCount(0);
+  await organizers.getByRole("button", { name: "Add Asha Organizer" }).click();
+  await organizers.getByLabel("Find a member to add").fill("ravi");
+  await organizers.getByRole("button", { name: "Add Ravi" }).click();
+  await expect(organizers.getByRole("list", { name: "Event organizers: assigned" }).getByRole("listitem")).toHaveText([/Asha Organizer/, /Ravi/]);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  if (process.env.SCREENSHOT_DIR) await page.getByRole("group", { name: "Community, venue & organizer" }).screenshot({ path: `${process.env.SCREENSHOT_DIR}/admin-event-refs.png` });
+  if (process.env.SCREENSHOT_DIR) await organizers.screenshot({ path: `${process.env.SCREENSHOT_DIR}/admin-event-organizers.png` });
 
   await page.getByLabel("Mutation reason", { exact: false }).fill("Link event to club and place");
   await page.getByRole("button", { name: "Save changes", exact: true }).click();
   await expect.poll(() => saves.length).toBe(1);
-  expect(saves[0].record).toMatchObject({ activityId: "act-cycle", category: "cycling", communitySlug: "sunrise-riders", communityName: "Sunrise Riders", communityCrestUrl: "/media/crest1", venueSlug: "sector-18-park", venueName: "Sector 18 Park", sector: "Sector 18", organizerUserId: "user-asha" });
+  expect(saves[0].record).toMatchObject({ activityId: "act-cycle", category: "cycling", communitySlug: "sunrise-riders", communityName: "Sunrise Riders", communityCrestUrl: "/media/crest1", venueSlug: "sector-18-park", venueName: "Sector 18 Park", sector: "Sector 18", organizerUserIds: ["user-asha", "user-ravi"] });
 
-  // "No organizer" removes the assignment rather than saving an empty ID.
-  await organizer.selectOption("");
-  await page.getByLabel("Mutation reason", { exact: false }).fill("Remove organizer");
+  // Removing the last organizer drops the list rather than saving an empty one.
+  await organizers.getByRole("button", { name: "Remove Asha Organizer" }).click();
+  await organizers.getByRole("button", { name: "Remove Ravi" }).click();
+  await expect(organizers.getByText("No organizers yet.")).toBeVisible();
+  await page.getByLabel("Mutation reason", { exact: false }).fill("Remove organizers");
   await page.getByRole("button", { name: "Save changes", exact: true }).click();
   await expect.poll(() => saves.length).toBe(2);
+  expect(saves[1].record).not.toHaveProperty("organizerUserIds");
   expect(saves[1].record).not.toHaveProperty("organizerUserId");
 });
 

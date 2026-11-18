@@ -29,7 +29,8 @@ export interface Event {
   capacity?: number;
   coverImageUrl?: string;
   imageUrl?: string;
-  organizerUserId?: string;
+  /** Organizer views only (lib/data.ts getOrganizerEvents): the accounts assigned to run this event. */
+  organizerUserIds?: string[];
   status?: "published" | "cancelled" | "draft";
   demo?: boolean;
   tags?: string[];
