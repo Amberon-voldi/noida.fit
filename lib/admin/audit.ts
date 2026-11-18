@@ -24,6 +24,14 @@ function auditCollection(): string {
   return id;
 }
 
+/** Appwrite's error type (e.g. "user_unauthorized") or status, never its message: enough to tell what to fix. */
+function appwriteCause(error: unknown): string {
+  const details = typeof error === "object" && error !== null ? error as { code?: unknown; type?: unknown } : {};
+  if (typeof details.type === "string" && details.type) return details.type;
+  if (typeof details.code === "number" && details.code) return `HTTP ${details.code}`;
+  return error instanceof Error ? error.name : "unknown";
+}
+
 /** Durable intent is written BEFORE any privileged change. No raw content or secrets are logged. */
 export async function runAdminMutation<T>(user: AdminActor, action: string, target: string, reason: string, run: () => Promise<T>): Promise<T> {
   assertAdmin(user);
@@ -34,8 +42,11 @@ export async function runAdminMutation<T>(user: AdminActor, action: string, targ
   let record;
   try {
     record = await createAppwriteDocument<AuditRow>(collection, { actorId: user.id, action, target, reason: reason.trim(), status: "started", occurredAt: new Date().toISOString() }, undefined, []);
-  } catch {
-    throw new HttpError(503, "AUDIT_UNAVAILABLE", "No change was made: the audit store could not record this action");
+  } catch (error) {
+    // Admins see why, so a missing permission or attribute is fixed rather than guessed at.
+    const cause = appwriteCause(error);
+    console.error("[admin-audit] Audit intent could not be recorded; no change was made", { action, cause });
+    throw new HttpError(503, "AUDIT_UNAVAILABLE", `No change was made: the audit store could not record this action (Appwrite: ${cause})`);
   }
   let result: T;
   try {

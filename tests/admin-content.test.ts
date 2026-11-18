@@ -157,7 +157,10 @@ test("authorization and audit failure prevent backend content writes", async t =
   delete process.env.NEXT_PUBLIC_APPWRITE_ADMIN_AUDIT_COLLECTION_ID;
   await assert.rejects(service.createAdminContent(actor, "activities", contentTemplates.activities, "Create new draft"), /audit/);
   process.env.NEXT_PUBLIC_APPWRITE_ADMIN_AUDIT_COLLECTION_ID = "audit"; failCollection = "audit";
-  await assert.rejects(service.createAdminContent(actor, "activities", contentTemplates.activities, "Create new draft"), /audit/);
+  const logged = t.mock.method(console, "error", () => {});
+  // The admin is told Appwrite's reason, never its message, so the store can be fixed.
+  await assert.rejects(service.createAdminContent(actor, "activities", contentTemplates.activities, "Create new draft"), { code: "AUDIT_UNAVAILABLE", message: /audit store could not record this action \(Appwrite: general_unknown\)/ });
+  assert.ok(!JSON.stringify(logged.mock.calls).includes("Synthetic failure"), "Appwrite's own message is not logged");
   assert.deepEqual(contentWrites(), []);
 });
 
