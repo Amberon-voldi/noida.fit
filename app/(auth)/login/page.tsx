@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
-import { LoginForm } from "@/components/auth/LoginForm";
+import { AuthForm } from "@/components/auth/AuthForm";
 import { safeCallbackUrl } from "@/components/auth/validation";
 
 export const metadata: Metadata = {
@@ -15,5 +15,5 @@ export default async function LoginPage({ searchParams }: {
 }) {
   const callbackUrl = safeCallbackUrl((await searchParams).callbackUrl);
   if (await auth()) redirect(callbackUrl);
-  return <LoginForm callbackUrl={callbackUrl} />;
+  return <AuthForm callbackUrl={callbackUrl} />;
 }

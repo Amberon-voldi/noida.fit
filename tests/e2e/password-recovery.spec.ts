@@ -4,7 +4,10 @@ import { test, expect } from "@playwright/test";
 test("sign-in links to a recovery request that answers the same for any email", async ({ page }) => {
   let payload: unknown;
   await page.route("**/api/auth/recovery", async route => { payload = route.request().postDataJSON(); await route.fulfill({ json: { ok: true } }); });
+  await page.route("**/api/auth/lookup", route => route.fulfill({ json: { exists: true } }));
   await page.goto("/login");
+  await page.getByLabel("Email", { exact: true }).fill("member@example.test");
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
   await page.getByRole("link", { name: "Forgot password?", exact: true }).click();
   await expect(page).toHaveURL(/\/forgot-password$/);
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Forgot your password?");

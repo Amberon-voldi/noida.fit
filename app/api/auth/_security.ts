@@ -13,10 +13,10 @@ export function isSameOrigin(request: Request): boolean {
   }
 }
 
-export function guardMutation(request: Request, bucket: string, userId?: string) {
+export function guardMutation(request: Request, bucket: string, userId?: string, maxRequests?: number) {
   try {
     assertSameOrigin(request);
-    assertRateLimit(request, bucket, userId);
+    assertRateLimit(request, bucket, userId, maxRequests);
     return null;
   } catch (error) {
     return jsonError(error);

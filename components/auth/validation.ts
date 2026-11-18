@@ -24,6 +24,9 @@ export const signupSchema = loginSchema.extend({
 
 export const recoveryRequestSchema = z.object({ email: emailSchema }).strict();
 
+/** The auth form's first step: just the email, to learn whether to sign in or sign up. */
+export const emailLookupSchema = z.object({ email: emailSchema }).strict();
+
 /** userId/secret arrive from the emailed Appwrite link; the new password follows signup rules. */
 export const recoveryConfirmSchema = z.object({
   userId: z.string().trim().min(1).max(36).regex(/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/),

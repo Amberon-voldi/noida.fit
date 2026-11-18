@@ -1,6 +1,6 @@
 import "server-only";
 
-import { ID } from "node-appwrite";
+import { ID, Query } from "node-appwrite";
 import { randomUUID } from "node:crypto";
 import { traceAppwriteOperation } from "@/lib/appwrite/errors";
 import { APPWRITE_SESSION_COOKIE } from "@/lib/appwrite/config";
@@ -42,6 +42,12 @@ export async function createEmailSession(email: string, password: string) {
     await deleteCurrentSession(session.secret).catch(() => undefined);
     throw error;
   }
+}
+
+/** Whether an account uses this email, so the auth form asks for its password or for signup details. */
+export async function accountExists(email: string): Promise<boolean> {
+  const { total } = await traceAppwriteOperation("auth.lookup", () => getAdminServices().users.list({ queries: [Query.equal("email", [email]), Query.limit(1)] }), { traceId: randomUUID() });
+  return total > 0;
 }
 
 /** A signup that fails after creating an account is recoverable by login. */

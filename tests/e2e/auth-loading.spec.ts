@@ -40,10 +40,12 @@ for (const flow of ["login", "signup"] as const) {
     });
     try {
       await page.goto(`/${flow}?callbackUrl=%2Fabout`);
+      await page.route("**/api/auth/lookup", route => route.fulfill({ json: { exists: flow === "login" } }));
+      await page.getByLabel("Email", { exact: true }).fill("loading@example.test");
+      await page.getByRole("button", { name: "Continue" }).click();
       if (flow === "signup") {
         await page.getByLabel("Your name", { exact: true }).fill("Loading Test");
       }
-      await page.getByLabel("Email", { exact: true }).fill("loading@example.test");
       await page.getByLabel("Password", { exact: true }).fill("Test-password-123");
       if (flow === "signup") {
         await page.getByRole("checkbox", { name: /Terms and Conditions/ }).check();
@@ -82,10 +84,12 @@ for (const flow of ["login", "signup"] as const) {
         else await route.fulfill({ status: 503, json: { error: "Test service unavailable" } });
       });
       await page.goto(`/${flow}`);
+      await page.route("**/api/auth/lookup", route => route.fulfill({ json: { exists: flow === "login" } }));
+      await page.getByLabel("Email", { exact: true }).fill("loading@example.test");
+      await page.getByRole("button", { name: "Continue" }).click();
       if (flow === "signup") {
         await page.getByLabel("Your name", { exact: true }).fill("Loading Test");
       }
-      await page.getByLabel("Email", { exact: true }).fill("loading@example.test");
       await page.getByLabel("Password", { exact: true }).fill("Test-password-123");
       if (flow === "signup") {
         await page.getByRole("checkbox", { name: /Terms and Conditions/ }).check();

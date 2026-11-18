@@ -59,6 +59,7 @@ function fakeAppwrite() {
   let sessionError: { status: number; type: string } | undefined;
   let documentError: { status: number; type: string } | undefined;
   let accountError = false;
+  let usersError = false;
   let raceUsername: string | undefined;
   const user = { $id: "private-auth-user", $createdAt: "2026-09-01T00:00:00.000Z", name: "Noida Runner", email: "runner@example.test", prefs: {}, labels: [] };
   transport = async (input, init) => {
@@ -84,6 +85,14 @@ function fakeAppwrite() {
     }
     if (path === "/account/sessions/current" && method === "DELETE") return new Response(null, { status: 204 });
     if (/^\/users\/[^/]+\/prefs$/.test(path) && method === "PATCH") return Response.json(body.prefs);
+    if (path === "/users" && method === "GET") {
+      if (usersError) return failure(503);
+      assert.equal(headers.get("x-appwrite-key"), "test-key-not-real");
+      const queries = [...url.searchParams.values()].map((value) => JSON.parse(value) as { method: string; attribute?: string; values: unknown[] });
+      const emails = queries.filter((query) => query.method === "equal" && query.attribute === "email").flatMap((query) => query.values);
+      const users = emails.includes(user.email) ? [user] : [];
+      return Response.json({ total: users.length, users });
+    }
     if (path === "/account/verification" && method === "POST") {
       assert.equal(headers.get("x-appwrite-session"), "server-only-session-secret");
       return Response.json({ $id: "verification-token", userId: user.$id, secret: "" }, { status: 201 });
@@ -133,7 +142,7 @@ function fakeAppwrite() {
     }
     throw new Error(`Unexpected mutation: ${method} ${path}`);
   };
-  return { rows, calls, user, setFitnessFailure: (value: boolean) => { failFitnessId = value; }, setSessionFailure: (value: boolean) => { unavailableSession = value; }, raceForUsername: (value: string) => { raceUsername = value; }, setSessionError: (status: number, type: string) => { sessionError = { status, type }; }, setDocumentError: (status: number, type: string) => { documentError = { status, type }; }, setAccountError: () => { accountError = true; } };
+  return { rows, calls, user, setFitnessFailure: (value: boolean) => { failFitnessId = value; }, setSessionFailure: (value: boolean) => { unavailableSession = value; }, raceForUsername: (value: string) => { raceUsername = value; }, setSessionError: (status: number, type: string) => { sessionError = { status, type }; }, setDocumentError: (status: number, type: string) => { documentError = { status, type }; }, setAccountError: () => { accountError = true; }, setUsersError: () => { usersError = true; } };
 }
 
 test("runtime and CLI configuration use the same public resource variables while the key stays private", async () => {
@@ -454,6 +463,34 @@ test("proxy rewrites canonical handles and preserves protected-route callbacks w
   const redirected = proxy.proxy(new NextRequest("https://noida.fit/account?tab=saved"));
   assert.equal(new URL(redirected.headers.get("location")!).searchParams.get("callbackUrl"), "/account?tab=saved");
   assert.equal(proxy.proxy(new NextRequest("https://noida.fit/%E0%A4%A")).status, 400);
+});
+
+test("the auth form's email step says only whether an account exists, and never leaks Appwrite details", async (t) => {
+  t.mock.method(console, "error", () => undefined);
+  const { POST } = await import("../app/api/auth/lookup/route");
+  const lookUp = (body: unknown, origin = "https://noida.fit") => POST(new NextRequest("https://noida.fit/api/auth/lookup", {
+    method: "POST", headers: { Origin: origin, "content-type": "application/json" }, body: JSON.stringify(body),
+  }));
+  let backend = fakeAppwrite();
+  const known = await lookUp({ email: "  Runner@Example.TEST " });
+  assert.equal(known.status, 200);
+  assert.deepEqual(await known.json(), { exists: true }, "only the answer: no ID, name or other account details");
+  assert.match(known.headers.get("cache-control") || "", /no-store/);
+  assert.deepEqual(await (await lookUp({ email: "newcomer@example.test" })).json(), { exists: false });
+  assert.equal(backend.calls.filter((call) => call.path === "/users").length, 2);
+
+  backend = fakeAppwrite();
+  assert.equal((await lookUp({ email: "not-an-email" })).status, 400);
+  assert.equal((await lookUp({ email: "runner@example.test", password: "extra" })).status, 400);
+  assert.equal((await lookUp({ email: "runner@example.test" }, "https://evil.test")).status, 403);
+  assert.equal(backend.calls.length, 0);
+
+  backend.setUsersError();
+  const down = await lookUp({ email: "runner@example.test" });
+  assert.equal(down.status, 503);
+  const body = await down.json() as { code: string; error: string };
+  assert.equal(body.code, "LOOKUP_UNAVAILABLE");
+  assert.doesNotMatch(JSON.stringify(body), /Private Appwrite|test-key/);
 });
 
 test("signup emails a verification link that returns to the site, without failing on a send error", async () => {

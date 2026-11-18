@@ -40,6 +40,7 @@ export const endpointGuide = [
   ["GET", "/api/admin/attendance?eventId=&offset=", "Admin", "50-row event roster, RSVP/check-in counts and repair-needed states."],
   ["POST", "/api/admin/attendance", "Admin + audit", "Repair derived verified participation from an existing trusted check-in."],
   ["GET", "/api/admin/audit?offset=", "Admin", "50 newest action records per page."],
+  ["POST", "/api/auth/lookup", "Guest + same origin", "The auth form's first step: answers { exists } for an email, so the form asks for the password (sign in) or for name, password and consents (sign up). Reveals only whether the email is registered; 10 requests per 10 minutes per visitor."],
   ["POST", "/api/auth/signup", "Guest + same origin", "Create account/session and private profile/ID; repair interrupted setup; email a verification link (a failed send does not fail signup)."],
   ["POST", "/api/auth/login", "Guest + same origin", "Verify credentials and establish HttpOnly session."],
   ["POST", "/api/auth/logout", "Same origin", "Revoke current session and clear cookie."],

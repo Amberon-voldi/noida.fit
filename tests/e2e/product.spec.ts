@@ -165,8 +165,9 @@ test("signup → save/follow/RSVP → organizer check-in → private/public .fit
   // Signup has no username field: the server derives it from the name ("Test <hex>" -> "test-<hex>").
   const username=`test-${suffix}`;
   await page.goto("/signup?callbackUrl=/account");
-  await page.getByLabel("Your name",{exact:true}).fill(`Test ${suffix}`);
   await page.getByLabel("Email",{exact:true}).fill(email);
+  await page.getByRole("button",{name:"Continue",exact:true}).click();
+  await page.getByLabel("Your name",{exact:true}).fill(`Test ${suffix}`);
   await page.getByLabel("Password",{exact:true}).fill(password);
   await page.getByRole("checkbox",{name:/Terms and Conditions/}).check();
   await page.getByRole("checkbox",{name:/Privacy Policy/}).check();

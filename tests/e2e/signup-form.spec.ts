@@ -11,31 +11,37 @@ test.beforeAll(async () => {
   const output = await build({ stdin: { loader: "tsx", resolveDir: process.cwd(), contents: `
     import React from 'react'; import { createRoot } from 'react-dom/client';
     import { AppRouterContext } from 'next/dist/shared/lib/app-router-context.shared-runtime';
-    import { SignupForm } from './components/auth/SignupForm';
-    import { LoginForm } from './components/auth/LoginForm';
+    import { AuthForm } from './components/auth/AuthForm';
     const router = { push(){}, prefetch(){}, back(){}, forward(){}, refresh(){}, replace(){} };
-    const forms = { signup: SignupForm, login: LoginForm };
-    window.renderAuth = (form, callbackUrl) => createRoot(document.getElementById('fixture')).render(React.createElement(AppRouterContext.Provider, { value: router }, React.createElement(forms[form], { callbackUrl })));
+    window.renderAuth = (callbackUrl) => createRoot(document.getElementById('fixture')).render(React.createElement(AppRouterContext.Provider, { value: router }, React.createElement(AuthForm, { callbackUrl })));
   ` }, bundle: true, write: false, outfile: "signup-fixture.js", platform: "browser", format: "iife", define: { "process.env": "{}", "process.env.NODE_ENV": '"production"' } });
   script = output.outputFiles.find(file => file.path.endsWith(".js"))!.text;
   stylesheet = (await postcss([tailwindcss()]).process(readFileSync("app/globals.css", "utf8"), { from: join(process.cwd(), "app/globals.css") })).css;
 });
 
-test("signup asks only for name, email and password and lets the server pick the username", async ({ page }) => {
+test("a new email goes on to signup, which asks only for name and password and lets the server pick the username", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.route("**/*", route => route.request().isNavigationRequest() ? route.fulfill({ contentType: "text/html", body: `<style>${stylesheet}</style><main id="fixture" style="max-width:420px;margin:auto;padding:24px 16px"></main>` }) : route.abort());
   await page.route("**/events", route => route.fulfill({ contentType: "text/html", body: "<h1>Events page</h1>" }));
   await page.goto("https://fixture.invalid/signup");
   await page.addScriptTag({ content: script });
-  await page.evaluate(() => (window as unknown as { renderAuth: (form: string, callbackUrl: string) => void }).renderAuth("signup", "/events"));
+  await page.evaluate(() => (window as unknown as { renderAuth: (callbackUrl: string) => void }).renderAuth("/events"));
+  const lookups: Record<string, unknown>[] = [];
   const bodies: Record<string, unknown>[] = [];
+  await page.route("**/api/auth/lookup", async route => { lookups.push(route.request().postDataJSON()); await route.fulfill({ json: { exists: false } }); });
   await page.route("**/api/auth/signup", async route => { bodies.push(route.request().postDataJSON()); await route.fulfill({ json: { ok: true, redirectTo: "/events" } }); });
 
+  await expect(page.getByLabel("Your name")).toHaveCount(0);
+  await expect(page.getByLabel("Password", { exact: true })).toHaveCount(0);
+  await page.getByLabel("Email", { exact: true }).fill(" Rahul@Example.test ");
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(page.getByRole("heading", { name: "Create your .fit ID" })).toBeVisible();
+  expect(lookups).toEqual([{ email: "rahul@example.test" }]);
+  await expect(page.getByLabel("Email", { exact: true })).toHaveValue("rahul@example.test");
   await expect(page.getByLabel("Your name")).toBeFocused();
   await expect(page.getByLabel("Username")).toHaveCount(0);
   await expect(page.getByText("You can change it any time in Settings.")).toBeVisible();
   await page.getByLabel("Your name").fill("Rahul Sharma");
-  await page.getByLabel("Email").fill("rahul@example.test");
   const password = page.getByLabel("Password", { exact: true });
   await password.fill("runfast123");
   await expect(password).toHaveAttribute("type", "password");
@@ -55,6 +61,41 @@ test("signup asks only for name, email and password and lets the server pick the
   expect(bodies).toEqual([{ name: "Rahul Sharma", email: "rahul@example.test", password: "runfast123", acceptTerms: true, acceptPrivacy: true, callbackUrl: "/events" }]);
 });
 
+test("Change goes back to the email step, and a different email can take the other path", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.route("**/*", route => route.request().isNavigationRequest() ? route.fulfill({ contentType: "text/html", body: `<style>${stylesheet}</style><main id="fixture" style="max-width:420px;margin:auto;padding:24px 16px"></main>` }) : route.abort());
+  await page.goto("https://fixture.invalid/login");
+  await page.addScriptTag({ content: script });
+  await page.evaluate(() => (window as unknown as { renderAuth: (callbackUrl: string) => void }).renderAuth("/account"));
+  await page.route("**/api/auth/lookup", route => route.fulfill({ json: { exists: route.request().postDataJSON().email === "member@example.test" } }));
+  const email = page.getByLabel("Email", { exact: true });
+  await email.fill("newcomer@example.test");
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(page.getByRole("heading", { name: "Create your .fit ID" })).toBeVisible();
+  await page.getByRole("button", { name: "Change" }).click();
+  await expect(email).toBeFocused();
+  await expect(page.getByLabel("Your name")).toHaveCount(0);
+  await email.fill("member@example.test");
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(page.getByRole("heading", { name: "Welcome back" })).toBeVisible();
+  await expect(page.getByLabel("Password", { exact: true })).toBeFocused();
+  await expect(page.getByRole("link", { name: "Forgot password?" })).toBeVisible();
+  await expect(page.getByLabel("Your name")).toHaveCount(0);
+});
+
+test("lookup failures stay on the email step with a message", async ({ page }) => {
+  await page.route("**/*", route => route.request().isNavigationRequest() ? route.fulfill({ contentType: "text/html", body: `<style>${stylesheet}</style><main id="fixture" style="max-width:420px;margin:auto;padding:24px 16px"></main>` }) : route.abort());
+  await page.goto("https://fixture.invalid/login");
+  await page.addScriptTag({ content: script });
+  await page.evaluate(() => (window as unknown as { renderAuth: (callbackUrl: string) => void }).renderAuth("/account"));
+  await page.route("**/api/auth/lookup", route => route.fulfill({ status: 429, json: { error: "Too many requests. Try again shortly.", code: "RATE_LIMITED" } }));
+  await page.getByLabel("Email", { exact: true }).fill("member@example.test");
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(page.locator("form").getByRole("alert")).toHaveText("Too many requests. Try again shortly.");
+  await expect(page.getByRole("button", { name: "Continue" })).toBeEnabled();
+  await expect(page.getByLabel("Password", { exact: true })).toHaveCount(0);
+});
+
 test("signing in lands on the protected callback page with the new session, not back on /login", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   const loginPage = `<style>${stylesheet}</style><main id="fixture" style="max-width:420px;margin:auto;padding:24px 16px"></main>`;
@@ -63,6 +104,7 @@ test("signing in lands on the protected callback page with the new session, not 
   await page.route("**/*", async route => {
     const request = route.request();
     const url = new URL(request.url());
+    if (url.pathname === "/api/auth/lookup") return route.fulfill({ json: { exists: true } });
     if (url.pathname === "/api/auth/login") return route.fulfill({ json: { ok: true, redirectTo: "/account" }, headers: { "Set-Cookie": "noidafit_appwrite_session=synthetic; Path=/; Secure; SameSite=Lax" } });
     if (!request.isNavigationRequest()) return route.abort();
     if (url.pathname === "/account") {
@@ -76,8 +118,9 @@ test("signing in lands on the protected callback page with the new session, not 
   });
   await page.goto("https://fixture.invalid/login?callbackUrl=%2Faccount");
   await page.addScriptTag({ content: script });
-  await page.evaluate(() => (window as unknown as { renderAuth: (form: string, callbackUrl: string) => void }).renderAuth("login", "/account"));
+  await page.evaluate(() => (window as unknown as { renderAuth: (callbackUrl: string) => void }).renderAuth("/account"));
   await page.getByLabel("Email", { exact: true }).fill("member@example.test");
+  await page.getByRole("button", { name: "Continue" }).click();
   await page.getByLabel("Password", { exact: true }).fill("runfast123");
   await page.getByRole("button", { name: /Sign in/ }).click();
   await expect(page.getByRole("heading", { name: "My account" })).toBeVisible();
