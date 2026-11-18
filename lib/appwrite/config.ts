@@ -99,6 +99,17 @@ export function requireAppwriteServerConfig(): {
   };
 }
 
+/**
+ * An optional collection's ID from the environment, as Appwrite needs it; "" when unset. A value pasted with
+ * its quotes or spaces (`"admin_audit"` from an .env file into the hosting console) is cleaned: Appwrite
+ * rejects those as general_argument_invalid, which is how admin edits broke after the move to AWS.
+ */
+export function configuredId(value: string | undefined): string {
+  const trimmed = value?.trim() ?? "";
+  const quoted = /^(["'])(.*)\1$/.exec(trimmed);
+  return (quoted ? quoted[2] : trimmed).trim();
+}
+
 export const APPWRITE_SESSION_COOKIE = "noidafit_appwrite_session";
 export const APPWRITE_SESSION_MAX_AGE = 60 * 60 * 24 * 30;
 

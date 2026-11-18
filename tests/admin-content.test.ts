@@ -164,6 +164,21 @@ test("authorization and audit failure prevent backend content writes", async t =
   assert.deepEqual(contentWrites(), []);
 });
 
+test("an audit collection ID pasted with its quotes or spaces still records, so admin edits save", async t => {
+  t.mock.method(console, "info", () => {});
+  for (const pasted of ['"audit"', " audit ", "'audit'"]) {
+    fixture();
+    process.env.NEXT_PUBLIC_APPWRITE_ADMIN_AUDIT_COLLECTION_ID = pasted;
+    await service.createAdminContent(actor, "activities", contentTemplates.activities, "Create new draft");
+    assert.deepEqual(writes.filter(write => write.collection === "audit").map(write => write.method), ["POST", "PATCH"], pasted);
+    assert.equal(contentWrites().length, 1, pasted);
+  }
+  const { configuredId } = await import("../lib/appwrite/config");
+  assert.equal(configuredId(undefined), "");
+  assert.equal(configuredId(' "" '), "");
+  assert.equal(configuredId('"admin_audit'), '"admin_audit', "an unmatched quote is left for Appwrite to report");
+});
+
 test("published event references, capacity seats and organizer assignment remain validated", async t => {
   t.mock.method(console, "info", () => {}); fixture();
   put("activities", "activity-running", { status: "published" });

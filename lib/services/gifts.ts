@@ -2,7 +2,7 @@ import "server-only";
 
 import { createHash, randomBytes } from "node:crypto";
 import { z } from "zod";
-import { appwriteCollections as collections } from "@/lib/appwrite/config";
+import { appwriteCollections as collections, configuredId } from "@/lib/appwrite/config";
 import { createAppwriteDocument, deleteAppwriteDocument, getAppwriteDocument, listAppwriteDocuments, updateAppwriteDocument, Query, type AppwriteDocument } from "@/lib/appwrite/database";
 import { getEventAnyStatus } from "@/lib/data";
 import { HttpError } from "@/lib/http";
@@ -53,14 +53,14 @@ const GIFT_NOT_FOUND = () => new HttpError(404, "GIFT_NOT_FOUND", "This gift lin
 
 /** The private gift link and gift guest tables (`npm run appwrite:gift-links`). Optional, like the admin audit table. */
 export function isGiftLinksConfigured(): boolean {
-  return Boolean(process.env.NEXT_PUBLIC_APPWRITE_GIFT_LINKS_COLLECTION_ID?.trim());
+  return Boolean(configuredId(process.env.NEXT_PUBLIC_APPWRITE_GIFT_LINKS_COLLECTION_ID));
 }
 export function isGuestPassesConfigured(): boolean {
-  return Boolean(process.env.NEXT_PUBLIC_APPWRITE_GIFT_GUESTS_COLLECTION_ID?.trim());
+  return Boolean(configuredId(process.env.NEXT_PUBLIC_APPWRITE_GIFT_GUESTS_COLLECTION_ID));
 }
 /** Appwrite reports a table the setup hasn't created yet as collection_not_found. */
 async function withTable<T>(variable: string, run: (table: string) => Promise<T>): Promise<T> {
-  const table = process.env[variable]?.trim();
+  const table = configuredId(process.env[variable]);
   if (!table) throw NOT_CONFIGURED();
   try {
     return await run(table);

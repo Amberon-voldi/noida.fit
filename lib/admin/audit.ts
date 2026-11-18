@@ -1,5 +1,6 @@
 import "server-only";
 
+import { configuredId } from "@/lib/appwrite/config";
 import { createAppwriteDocument, listAppwriteDocuments, Query, updateAppwriteDocument } from "@/lib/appwrite/database";
 import { HttpError } from "@/lib/http";
 import { assertAdmin, type AdminActor } from "./auth";
@@ -15,11 +16,11 @@ export interface AuditRow {
 }
 
 export function auditConfigured(): boolean {
-  return Boolean(process.env.NEXT_PUBLIC_APPWRITE_ADMIN_AUDIT_COLLECTION_ID);
+  return Boolean(configuredId(process.env.NEXT_PUBLIC_APPWRITE_ADMIN_AUDIT_COLLECTION_ID));
 }
 
 function auditCollection(): string {
-  const id = process.env.NEXT_PUBLIC_APPWRITE_ADMIN_AUDIT_COLLECTION_ID;
+  const id = configuredId(process.env.NEXT_PUBLIC_APPWRITE_ADMIN_AUDIT_COLLECTION_ID);
   if (!id) throw new HttpError(503, "AUDIT_NOT_CONFIGURED", "Admin writes are locked. Configure the private audit collection first; see the Admin guide.");
   return id;
 }
