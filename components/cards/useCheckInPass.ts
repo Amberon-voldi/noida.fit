@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 export interface CheckInPass { token: string; expiresAt: string; }
 export type CheckInPassState =
-  | { status: "idle" | "loading" | "expired" | "unverified" }
+  | { status: "idle" | "loading" | "expired" }
   | { status: "ready"; pass: CheckInPass }
   | { status: "error"; message: string };
 
@@ -27,7 +27,6 @@ export function useCheckInPass(active: boolean) {
     try {
       const response = await fetch("/api/check-in/pass", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: "{}" });
       const data = await response.json().catch(() => null) as (Partial<CheckInPass> & { code?: string; error?: string }) | null;
-      if (response.status === 403 && data?.code === "EMAIL_UNVERIFIED") { setState({ status: "unverified" }); return; }
       if (response.status === 401) { setState({ status: "error", message: "Sign in again to show your check-in QR." }); return; }
       if (data?.code === "CHECKIN_NOT_CONFIGURED") { setState({ status: "error", message: "Check-in QRs are not available right now. Try again in a little while." }); return; }
       if (response.status === 429) { setState({ status: "error", message: "Too many refreshes. Try again in a few minutes." }); return; }

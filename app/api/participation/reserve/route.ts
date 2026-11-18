@@ -1,14 +1,17 @@
 import { rememberPaymentPhone } from "@/lib/appwrite/auth";
 import { getSessionSecret } from "@/lib/appwrite/server";
-import { jsonError, jsonOk, readJson, requireVerifiedMutationUser } from "@/lib/http";
+import { jsonError, jsonOk, readJson, requireMutationUser } from "@/lib/http";
 import { reserveTicketOnWhatsapp, ticketReservationInputSchema } from "@/lib/services/ticket-payments";
 
 export const runtime = "nodejs";
 
-/** Confirms a paid event's spot to pay later; the payment link goes to the WhatsApp number given. The number is kept to pre-fill the next booking. */
+/**
+ * Confirms a paid event's spot to pay later; the payment link goes to the WhatsApp number given. The number
+ * is kept to pre-fill the next booking. Any signed-in member can book: an unverified email is no bar.
+ */
 export async function POST(request: Request) {
   try {
-    const user = await requireVerifiedMutationUser(request, "ticket-reserve", 10);
+    const user = await requireMutationUser(request, "ticket-reserve", 10);
     const input = await readJson(request, ticketReservationInputSchema);
     const [rsvp] = await Promise.all([
       reserveTicketOnWhatsapp(user, input),

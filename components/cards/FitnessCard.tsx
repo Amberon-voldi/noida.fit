@@ -85,7 +85,6 @@ function CheckInBack({ state }: { state: CheckInPassState }) {
         </>}
         {(state.status === "idle" || state.status === "loading") && <span className="fitness-card-qr-text" role="status">Getting your QR…</span>}
         {state.status === "expired" && <span className="fitness-card-qr-text" role="status">This QR expired. Refresh it before the organizer scans.</span>}
-        {state.status === "unverified" && <span className="fitness-card-qr-text" role="status">Verify your email to unlock check-in. Use the link we sent you.</span>}
         {state.status === "error" && <span className="fitness-card-qr-text" role="status">{state.message}</span>}
       </span>
     </span>
