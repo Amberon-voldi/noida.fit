@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { loginUrl, refreshParticipation, useParticipation } from "./useParticipation";
 import { indiaDateTime } from "@/lib/calendar";
@@ -13,6 +13,14 @@ export interface EventBookingInput {
   price: string;
   /** PayU is set up and this is a real listing. A paid event's tickets are only sold online. */
   payOnline?: boolean;
+  /** Online payment is off: a paid event's spot is booked with a WhatsApp number, and the payment link is sent there. */
+  payOnWhatsapp?: boolean;
+}
+
+/** Contact details from the ticket summary: the name on the ticket and the mobile number. */
+export interface TicketContact {
+  name: string;
+  phone: string;
 }
 
 const GATEWAY = /^https:\/\/(?:test|secure)\.payu\.in\/_payment$/;
@@ -35,7 +43,7 @@ function postToGateway(action: string, fields: Record<string, string>): void {
 }
 
 /** RSVP (free) or ticket (paid) state and actions for one event, shared by the action panel and the mobile bar. */
-export function useEventBooking({ eventId, date, startTime, price, payOnline = false }: EventBookingInput) {
+export function useEventBooking({ eventId, date, startTime, price, payOnline = false, payOnWhatsapp = false }: EventBookingInput) {
   const router = useRouter();
   const state = useParticipation();
   const pricing = parseEventPrice(price);
@@ -53,6 +61,8 @@ export function useEventBooking({ eventId, date, startTime, price, payOnline = f
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [, startNavigation] = useTransition();
+  const sellsTickets = payOnline || payOnWhatsapp;
 
   useEffect(() => {
     if (!confirmCancel) return;
@@ -137,12 +147,47 @@ export function useEventBooking({ eventId, date, startTime, price, payOnline = f
     }
   }
 
+  /** Books the spot to pay later: the payment link goes to the WhatsApp number given. The page then celebrates the confirmed spot. */
+  async function reserve({ name, phone }: TicketContact): Promise<void> {
+    setPending(true);
+    setCheckoutError(null);
+    try {
+      const response = await fetch("/api/participation/reserve", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventId, amount: pricing.amount, name, phone }),
+      });
+      if (response.status === 401) {
+        setPending(false);
+        router.push(loginUrl());
+        return;
+      }
+      const data = await response.json().catch(() => null) as { rsvped?: boolean; error?: string; code?: string } | null;
+      if (!response.ok || !data?.rsvped) {
+        if (data?.code === "PRICE_CHANGED" || data?.code === "PAY_ONLINE") router.refresh();
+        throw new Error(data?.error || "Could not book your spot");
+      }
+      await refreshParticipation();
+      // The event page shows the confirmed spot with confetti; the summary closes as it arrives.
+      startNavigation(() => {
+        setCheckoutOpen(false);
+        setPending(false);
+        router.replace(`${window.location.pathname}?booked=1`, { scroll: false });
+      });
+    } catch (error) {
+      setCheckoutError(error instanceof Error ? error.message : "Could not book your spot");
+      setPending(false);
+      void refreshParticipation();
+    }
+  }
+
   function openCheckout(): void {
     setCheckoutError(null);
     setCheckoutOpen(true);
   }
 
-  /** The one button: sign in, RSVP, open the ticket summary (to pay), or (on a second tap) cancel. */
+  /** The one button: sign in, RSVP, open the ticket summary (to pay or book), or (on a second tap) cancel. */
   function act(): void {
     if (!state.authenticated && !state.error) { router.push(loginUrl()); return; }
     if (booking) {
@@ -151,27 +196,30 @@ export function useEventBooking({ eventId, date, startTime, price, payOnline = f
       void request("DELETE");
       return;
     }
-    if (paid) { if (payOnline) openCheckout(); return; }
+    if (paid) { if (sellsTickets) openCheckout(); return; }
     void request("POST");
   }
 
+  /** A spot booked to pay on WhatsApp is confirmed, though its ticket isn't paid for yet. */
+  const bookedLabel = !booking ? "" : !booking.amount ? "You're going" : due && booking.whatsapp ? "Spot confirmed" : "Ticket booked";
   const label = confirmCancel ? "Tap again to cancel"
-    : booking ? (booking.amount ? "Ticket booked" : "You're going")
+    : booking ? bookedLabel
     : started ? (paid ? "Ticket sales closed" : "RSVP closed")
-    : paid && !payOnline ? "Tickets not on sale"
-    : hold ? "Complete payment"
+    : paid && !sellsTickets ? "Tickets not on sale"
+    : hold && payOnline ? "Complete payment"
     : paid ? "Get ticket"
     : state.loaded && !state.authenticated && !state.error ? "Sign in to RSVP" : "RSVP";
 
   return {
-    pricing, booking, hold, holdUntil, due, pending, feedback, confirmCancel, label, act, showFeedback,
-    disabled: pending || !state.loaded || started || (paid && !booking && !payOnline),
+    pricing, booking, bookedLabel, hold, holdUntil, due, pending, feedback, confirmCancel, label, act, showFeedback,
+    disabled: pending || !state.loaded || started || (paid && !booking && !sellsTickets),
     /** Pay a held ticket online; absent when there is nothing to pay or no online payment. */
     payDue: due && payOnline && !started ? openCheckout : undefined,
     checkout: {
       open: checkoutOpen, error: checkoutError, priceLabel: hold?.amount ? formatInr(hold.amount) : due ? formatInr(due) : pricing.label,
+      mode: payOnWhatsapp && !due ? "whatsapp" as const : "online" as const,
       close: () => setCheckoutOpen(false),
-      confirm: (phone: string) => void pay(phone),
+      confirm: (contact: TicketContact) => void (payOnWhatsapp && !due ? reserve(contact) : pay(contact.phone)),
     },
   };
 }

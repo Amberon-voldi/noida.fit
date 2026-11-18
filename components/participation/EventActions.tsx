@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { CalendarPlus, Check, LoaderCircle, Share2 } from "lucide-react";
 import { createIcs } from "@/lib/calendar";
+import { formatIndianMobile } from "@/lib/phone";
 import { formatInr } from "@/lib/pricing";
 import { SaveButton } from "@/components/participation/SaveButton";
 import { TicketCheckout } from "./TicketCheckout";
@@ -22,8 +23,13 @@ export interface EventActionsProps {
   when: string;
   /** PayU is set up and this is a real listing: tickets are paid online. */
   payOnline?: boolean;
-  /** The mobile number the member last paid with, to pre-fill checkout. */
+  /** Online payment is off: a spot is booked with a WhatsApp number, and the payment link is sent there. */
+  payOnWhatsapp?: boolean;
+  /** The mobile number the member last gave, to pre-fill checkout. */
   savedPhone?: string;
+  /** The account's name and email, shown when booking to pay on WhatsApp. */
+  savedName?: string;
+  accountEmail?: string;
   compact?: boolean;
 }
 
@@ -93,12 +99,12 @@ export function EventActions(props: EventActionsProps) {
           </>
         )}
       </div>
-      {booking?.amount && !props.compact && <p className="text-xs leading-relaxed text-text-secondary">Spot #{booking.seatNumber} · <span className="font-semibold text-white">{formatInr(booking.amount)} {due ? "due" : "paid"}</span>{!due ? "." : payDue ? ". Pay online now, or pay the organizer at the event." : props.payOnline ? ". Pay the organizer at the event." : ". Online payment isn’t open yet, so pay the organizer at the event."}</p>}
+      {booking?.amount && !props.compact && <p className="text-xs leading-relaxed text-text-secondary">Spot #{booking.seatNumber} · <span className="font-semibold text-white">{formatInr(booking.amount)} {due ? "due" : "paid"}</span>{!due ? "." : payDue ? ". Pay online now, or pay the organizer at the event." : booking.whatsapp ? `. Your spot is confirmed: we’ll send the payment link on WhatsApp to ${formatIndianMobile(booking.whatsapp.phone)}.` : props.payOnline ? ". Pay the organizer at the event." : ". Online payment isn’t open yet, so pay the organizer at the event."}</p>}
       {hold && !props.compact && <p className="text-xs leading-relaxed text-text-secondary">Your spot is held until <span className="font-semibold text-white">{holdUntil}</span>. Your ticket is confirmed once your payment goes through.</p>}
       {payDue && !props.compact && <button type="button" onClick={payDue} disabled={pending} className="button-primary w-full">{pending && <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />}Pay {formatInr(due)}</button>}
       {rsvped && !props.compact && <p className="text-xs leading-relaxed text-text-secondary">On the day, open your <Link href="/account" className="font-semibold text-velocity underline-offset-2 hover:underline">.fit ID</Link> and show the check-in QR on its back to the organizer.</p>}
       {feedback && <p className="text-[11px] text-velocity" role="status" aria-live="polite">{feedback}</p>}
-      <TicketCheckout open={checkout.open} title={props.title} when={props.when} venueName={props.venueName} priceLabel={checkout.priceLabel} savedPhone={props.savedPhone} pending={pending} error={checkout.error} onConfirm={checkout.confirm} onClose={checkout.close} />
+      <TicketCheckout open={checkout.open} title={props.title} when={props.when} venueName={props.venueName} priceLabel={checkout.priceLabel} mode={checkout.mode} savedPhone={props.savedPhone} savedName={props.savedName} accountEmail={props.accountEmail} pending={pending} error={checkout.error} onConfirm={checkout.confirm} onClose={checkout.close} />
     </div>
   );
 }

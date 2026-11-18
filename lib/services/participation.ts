@@ -25,8 +25,8 @@ export interface AccountParticipation {
 }
 
 type Row<T> = Omit<T, "id">;
-/** paymentRef stays server-side: it never reaches an RSVP DTO. */
-type TicketRow = Row<RSVP> & { paymentRef?: string };
+/** paymentRef stays server-side: only a reserved spot's WhatsApp contact reaches an RSVP DTO, read by its owner. */
+type TicketRow = Omit<Row<RSVP>, "whatsapp"> & { paymentRef?: string };
 type EventRecord = {
   slug: string;
   demo?: boolean;
@@ -68,11 +68,23 @@ function isCode(error: unknown, code: number): boolean {
   return typeof error === "object" && error !== null && "code" in error && error.code === code;
 }
 
+/** A spot reserved to pay later (reserveTicket) carries this paymentRef: the WhatsApp number its payment
+ * link goes to, then the name the member gave. The number is a fixed 10 digits, so the name may hold anything. */
+const WHATSAPP_REF = /^whatsapp:([6-9]\d{9}):(.+)$/;
+export const whatsappPaymentRef = (phone: string, name: string) => `whatsapp:${phone}:${name}`;
+export function whatsappContactOf(paymentRef: string | undefined): { name: string; phone: string } | undefined {
+  const match = paymentRef ? WHATSAPP_REF.exec(paymentRef) : null;
+  return match ? { phone: match[1], name: match[2] } : undefined;
+}
+
 /** Explicit field selection keeps DB metadata and future private attributes out of API DTOs. */
-const rsvpDto = (r: AppwriteDocument<Row<RSVP>>): RSVP => ({
-  id: r.$id, eventId: r.eventId, userId: r.userId, status: r.status, seatNumber: r.seatNumber, createdAt: r.createdAt,
-  ...(r.amount ? { amount: r.amount, paymentStatus: r.paymentStatus === "paid" ? "paid" as const : "pending" as const } : r.paymentStatus === "gift" ? { paymentStatus: "gift" as const } : {}),
-});
+const rsvpDto = (r: AppwriteDocument<TicketRow>): RSVP => {
+  const whatsapp = r.amount ? whatsappContactOf(r.paymentRef) : undefined;
+  return {
+    id: r.$id, eventId: r.eventId, userId: r.userId, status: r.status, seatNumber: r.seatNumber, createdAt: r.createdAt,
+    ...(r.amount ? { amount: r.amount, paymentStatus: r.paymentStatus === "paid" ? "paid" as const : "pending" as const, ...(whatsapp ? { whatsapp } : {}) } : r.paymentStatus === "gift" ? { paymentStatus: "gift" as const } : {}),
+  };
+};
 const savedDto = (r: AppwriteDocument<Row<SavedItem>>): SavedItem => ({ id: r.$id, itemId: r.itemId, itemType: r.itemType, userId: r.userId, createdAt: r.createdAt });
 const membershipDto = (r: AppwriteDocument<Row<Membership>>): Membership => ({ id: r.$id, communityId: r.communityId, status: r.status, userId: r.userId, createdAt: r.createdAt });
 const checkinDto = (r: AppwriteDocument<Row<CheckIn>>): CheckIn => ({ id: r.$id, eventId: r.eventId, userId: r.userId, timestamp: r.timestamp, verificationMethod: r.verificationMethod });
@@ -127,7 +139,7 @@ export async function getParticipationControls(userId: string): Promise<Particip
   documentIdSchema.parse(userId);
   const [rsvps, savedItems, memberships] = await Promise.all([
     // No select: Appwrite rejects a select naming the ticket attributes before `appwrite:setup` has added them.
-    listAppwriteDocuments<Row<RSVP>>(collections.rsvps, [Query.equal("userId", userId)]),
+    listAppwriteDocuments<TicketRow>(collections.rsvps, [Query.equal("userId", userId)]),
     listAppwriteDocuments<Row<SavedItem>>(collections.savedItems, [Query.equal("userId", userId), Query.select(["userId", "itemId", "itemType", "createdAt"])]),
     listAppwriteDocuments<Row<Membership>>(collections.memberships, [Query.equal("userId", userId), Query.select(["userId", "communityId", "status", "createdAt"])]),
   ]);
@@ -196,7 +208,7 @@ export async function unfollowCommunity(userId: string, communityId: string): Pr
 export async function getUserRsvp(eventId: string, userId: string): Promise<RSVP | null> {
   documentIdSchema.parse(eventId);
   documentIdSchema.parse(userId);
-  const row = await getAppwriteDocument<Row<RSVP>>(collections.rsvps, rsvpDocumentId(eventId, userId));
+  const row = await getAppwriteDocument<TicketRow>(collections.rsvps, rsvpDocumentId(eventId, userId));
   return row ? rsvpDto(row) : null;
 }
 
@@ -215,6 +227,15 @@ export async function createRsvp(userId: string, eventId: string): Promise<RSVP>
 }
 
 const holdEnded = (row: { createdAt?: string }, now = Date.now()) => !(ticketHoldEndsAt(String(row.createdAt)) > now);
+
+/** A new ticket is taken only at the price the member confirmed: the event's current one. Returns it (paise). */
+function confirmedTicketPrice(event: EventRecord, expectedAmount: number): number {
+  const pricing = eventPricing(event);
+  if (pricing.kind !== "paid" || expectedAmount !== pricing.amount) {
+    throw new HttpError(409, "PRICE_CHANGED", pricing.kind === "paid" ? `This ticket is ${pricing.label}. Check the price and confirm again.` : "This event’s price has changed. Reload the page and try again.");
+  }
+  return pricing.amount;
+}
 
 /**
  * A paid event's ticket starts as a hold: its seat is reserved (status "pending") for
@@ -241,11 +262,36 @@ export async function holdTicket(userId: string, eventId: string, expectedAmount
       // Released to someone else a moment ago: take a new seat below.
     }
   }
-  const pricing = eventPricing(event);
-  if (pricing.kind !== "paid" || expectedAmount !== pricing.amount) {
-    throw new HttpError(409, "PRICE_CHANGED", pricing.kind === "paid" ? `This ticket is ${pricing.label}. Check the price and confirm again.` : "This event’s price has changed. Reload the page and try again.");
+  const amount = confirmedTicketPrice(event, expectedAmount);
+  return allocateSeat(event, eventId, userId, { status: "pending", amount, paymentStatus: "pending" }, start);
+}
+
+/**
+ * A paid event's spot booked to pay later, while online payment is off (PAID_TICKET_BOOKING): confirmed
+ * at once with its price due, and the organizer sends the payment link to the member's WhatsApp number,
+ * kept in paymentRef. Returns the member's existing spot instead of taking a second seat. An unpaid hold
+ * from an earlier checkout becomes the reserved spot, at the price it was held at.
+ */
+export async function reserveTicket(userId: string, eventId: string, expectedAmount: number, contact: { name: string; phone: string }): Promise<RSVP> {
+  documentIdSchema.parse(userId);
+  const event = await getEvent(eventId);
+  const { start } = eventWindow(event);
+  if (Date.now() >= start) throw new HttpError(409, "EVENT_STARTED", "Ticket sales have closed for this event");
+  const id = rsvpDocumentId(eventId, userId);
+  const existing = await getAppwriteDocument<TicketRow>(collections.rsvps, id);
+  if (existing?.status === "confirmed") return rsvpDto(existing);
+  const fields = { status: "confirmed" as const, paymentStatus: "pending" as const, paymentRef: whatsappPaymentRef(contact.phone, contact.name) };
+  if (existing?.status === "pending" && existing.amount) {
+    try {
+      await updateAppwriteDocument(collections.rsvps, id, fields);
+      return rsvpDto({ ...existing, ...fields });
+    } catch (error) {
+      if (!isCode(error, 404)) throw error;
+      // Released to someone else a moment ago: take a new seat below.
+    }
   }
-  return allocateSeat(event, eventId, userId, { status: "pending", amount: pricing.amount, paymentStatus: "pending" }, start);
+  const amount = confirmedTicketPrice(event, expectedAmount);
+  return allocateSeat(event, eventId, userId, { ...fields, amount }, start);
 }
 
 /**
@@ -377,7 +423,7 @@ export async function confirmTicketPayment(eventId: string, userId: string, amou
     throw new HttpError(409, "DUPLICATE_PAYMENT", "This ticket was already paid for");
   }
   await updateAppwriteDocument(collections.rsvps, id, { status: "confirmed", paymentStatus: "paid", paymentRef: ref });
-  return rsvpDto({ ...ticket, status: "confirmed", paymentStatus: "paid" });
+  return rsvpDto({ ...ticket, status: "confirmed", paymentStatus: "paid", paymentRef: ref });
 }
 
 function secret(): string {

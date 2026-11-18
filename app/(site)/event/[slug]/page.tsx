@@ -14,14 +14,14 @@ import { eventIsUpcoming, eventTimestamp } from "@/components/discovery/filter";
 import { listingMetadata } from "@/components/discovery/metadata";
 import { getActivities, getEventBySlug } from "@/lib/data";
 import { CATEGORY_LABELS, formatDate, SITE_CONFIG } from "@/lib/config";
-import { formatInr, parseEventPrice } from "@/lib/pricing";
+import { formatInr, PAID_TICKET_BOOKING, parseEventPrice } from "@/lib/pricing";
 import { seeYouLabel } from "@/lib/calendar";
 import { getUserRsvp } from "@/lib/services/participation";
 import { isPayuConfigured } from "@/lib/payments/payu";
 import { savedPaymentPhone } from "@/lib/appwrite/auth";
 import { getCurrentAppwriteUser } from "@/lib/appwrite/server";
 
-type Props = { params: Promise<{ slug: string }>; searchParams: Promise<{ payment?: string | string[] }> };
+type Props = { params: Promise<{ slug: string }>; searchParams: Promise<{ payment?: string | string[]; booked?: string | string[] }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const event = await getEventBySlug((await params).slug);
@@ -31,7 +31,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function EventPage({ params, searchParams }: Props) {
   const event = await getEventBySlug((await params).slug);
-  const { payment } = await searchParams;
+  const { payment, booked } = await searchParams;
   if (!event) notFound();
   const activities = await getActivities();
   const activity = activities.find((item) => item.id === event.activityId || item.slug === event.activityId) ?? activities.find((item) => item.slug === event.category);
@@ -39,21 +39,26 @@ export default async function EventPage({ params, searchParams }: Props) {
   const start = eventTimestamp(event);
   const end = eventTimestamp(event, true);
   const pricing = parseEventPrice(event.price);
-  // Demo listings never take real money.
-  const payOnline = pricing.kind === "paid" && !event.demo && isPayuConfigured();
+  // Demo listings never take real money, or a booking that asks for it.
+  const ticketed = pricing.kind === "paid" && !event.demo;
+  const payOnline = ticketed && PAID_TICKET_BOOKING === "online" && isPayuConfigured();
+  // While online payment is off, a spot is booked with a WhatsApp number and the payment link is sent there.
+  const payOnWhatsapp = ticketed && PAID_TICKET_BOOKING === "whatsapp";
   const outcome = typeof payment === "string" ? payment : undefined;
+  // Back from PayU with a confirmed ticket, or just booked to pay on WhatsApp: celebrate it with the real details.
+  const celebrate = outcome === "paid" || booked === "1";
   // The navbar already read the account this request.
-  const viewer = payOnline || outcome === "paid" ? await getCurrentAppwriteUser() : null;
-  // The number the member last paid with pre-fills checkout.
-  const savedPhone = payOnline ? savedPaymentPhone(viewer?.prefs) : undefined;
-  // Back from PayU with a confirmed ticket: celebrate it with the real details.
-  const booked = outcome === "paid" && viewer ? await getUserRsvp(event.id, viewer.$id).catch(() => null) : null;
-  const ticket: BookedTicket | null = booked?.status === "confirmed" ? {
+  const viewer = payOnline || payOnWhatsapp || celebrate ? await getCurrentAppwriteUser() : null;
+  // The number the member last gave pre-fills checkout.
+  const savedPhone = payOnline || payOnWhatsapp ? savedPaymentPhone(viewer?.prefs) : undefined;
+  const rsvp = celebrate && viewer ? await getUserRsvp(event.id, viewer.$id).catch(() => null) : null;
+  const ticket: BookedTicket | null = rsvp?.status === "confirmed" ? {
     eventId: event.id, eventSlug: event.slug, title: event.title, date: event.date, dateLabel: formatDate(event.date), startTime: event.startTime, endTime: event.endTime,
     venueName: event.venueName, sector: event.sector, communityName: event.communityName, category: event.category, image: event.coverImageUrl ?? event.imageUrl,
-    seatNumber: booked.seatNumber, kind: booked.paymentStatus === "gift" ? "gift" : "paid", priceLabel: booked.amount ? formatInr(booked.amount) : pricing.label,
-    holder: viewer?.name || undefined, countdown: seeYouLabel(event.date, event.startTime),
+    seatNumber: rsvp.seatNumber, kind: rsvp.paymentStatus === "gift" ? "gift" : rsvp.paymentStatus === "paid" ? "paid" : "reserved", priceLabel: rsvp.amount ? formatInr(rsvp.amount) : pricing.label,
+    holder: rsvp.whatsapp?.name || viewer?.name || undefined, whatsapp: rsvp.whatsapp?.phone, countdown: seeYouLabel(event.date, event.startTime),
   } : null;
+  const account = { savedPhone, savedName: viewer?.name || undefined, accountEmail: viewer?.email || undefined };
   const when = `${formatDate(event.date)} · ${event.startTime}`;
   const jsonLd = {
     "@context": "https://schema.org", "@type": "SportsEvent", name: event.title, description: event.description,
@@ -81,7 +86,7 @@ export default async function EventPage({ params, searchParams }: Props) {
       </DetailHero>
       <div className="event-detail-layout mx-auto grid max-w-7xl gap-10 px-4 py-10 sm:px-6 sm:py-14 lg:grid-cols-[minmax(0,1fr)_350px] lg:px-8">
         <div className="min-w-0 space-y-8">
-          {ticket ? <TicketConfirmation ticket={ticket} clearParam="payment" /> : <PaymentReturnNotice outcome={outcome} />}
+          {ticket ? <TicketConfirmation ticket={ticket} clearParam={booked === "1" ? "booked" : "payment"} /> : <PaymentReturnNotice outcome={outcome} />}
           {!upcoming && <p role="status" className="rounded-lg border border-border-strong bg-surface px-4 py-3 text-sm text-text-secondary">{event.status === "cancelled" ? "This gathering has been cancelled." : "This gathering has ended."} Check the host community for other sessions.</p>}
           <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {[["Date", formatDate(event.date)], ["Time · IST", `${event.startTime} – ${event.endTime}`], ["Cost", event.price], ["Level", event.level ?? "Ask the host"]].map(([label, value]) => <div key={label} className="min-w-0 rounded-lg border border-border-subtle bg-surface p-4"><dt className="font-mono text-[10px] uppercase tracking-widest text-text-secondary">{label}</dt><dd className="mt-2 break-words text-sm font-semibold">{value}</dd></div>)}
@@ -94,7 +99,7 @@ export default async function EventPage({ params, searchParams }: Props) {
           <section aria-labelledby="event-actions-heading" className="rounded-xl border border-border-strong bg-surface p-5">
             <h2 id="event-actions-heading" className="eyebrow mb-4">{event.demo ? "Try participation" : "Your next step"}</h2>
             {event.demo && <p className="mb-4 text-xs leading-relaxed text-text-secondary">Saving or RSVPing stores a real account record for this demo. It does not book a real session or take a payment.</p>}
-            {upcoming ? <EventActions eventId={event.id} eventSlug={event.slug} title={event.title} date={event.date} startTime={event.startTime} endTime={event.endTime} venueName={event.venueName} communityName={event.communityName} price={event.price} when={when} payOnline={payOnline} savedPhone={savedPhone} /> : <div className="flex flex-wrap gap-2"><SaveButton itemType="event" itemId={event.id} /><ShareButton title={event.title} /></div>}
+            {upcoming ? <EventActions eventId={event.id} eventSlug={event.slug} title={event.title} date={event.date} startTime={event.startTime} endTime={event.endTime} venueName={event.venueName} communityName={event.communityName} price={event.price} when={when} payOnline={payOnline} payOnWhatsapp={payOnWhatsapp} {...account} /> : <div className="flex flex-wrap gap-2"><SaveButton itemType="event" itemId={event.id} /><ShareButton title={event.title} /></div>}
           </section>
           <section aria-labelledby="meeting-heading" className="rounded-xl border border-border-subtle bg-surface p-5">
             <h2 id="meeting-heading" className="eyebrow">Meeting point</h2><p className="mt-3 font-bold">{event.venueName}</p><p className="mt-1 text-sm text-text-secondary">{event.sector}</p>
@@ -103,7 +108,7 @@ export default async function EventPage({ params, searchParams }: Props) {
           <Link href={`/community/${event.communitySlug}`} className="block rounded-xl border border-border-subtle bg-surface p-5 hover:border-border-strong"><p className="eyebrow">Host community</p><p className="mt-2 font-bold">{event.communityName}</p><p className="mt-1 text-sm text-velocity">View schedule →</p></Link>
         </aside>
       </div>
-      {upcoming && <EventBookingBar eventId={event.id} title={event.title} date={event.date} startTime={event.startTime} venueName={event.venueName} price={event.price} when={when} spotsLeft={typeof event.capacity === "number" ? Math.max(0, event.capacity - event.attendeesCount) : undefined} payOnline={payOnline} savedPhone={savedPhone} />}
+      {upcoming && <EventBookingBar eventId={event.id} title={event.title} date={event.date} startTime={event.startTime} venueName={event.venueName} price={event.price} when={when} spotsLeft={typeof event.capacity === "number" ? Math.max(0, event.capacity - event.attendeesCount) : undefined} payOnline={payOnline} payOnWhatsapp={payOnWhatsapp} {...account} />}
     </div>
   );
 }

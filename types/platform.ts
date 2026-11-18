@@ -14,6 +14,8 @@ export interface RSVP {
   /** Paid events only: the ticket price in paise, fixed when the ticket was taken. */
   amount?: number;
   paymentStatus?: PaymentStatus;
+  /** A spot reserved to pay later: the payment link goes to this WhatsApp number, for this name. */
+  whatsapp?: { name: string; phone: string };
 }
 
 export interface CheckIn {

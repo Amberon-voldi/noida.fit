@@ -9,7 +9,7 @@ import {
 import { HttpError } from "@/lib/http";
 import { ticketHoldEndsAt } from "@/lib/pricing";
 import { giftGuests, giftLinkLabels } from "@/lib/services/gifts";
-import { eventWindow, isAdminUser, isGuestHolder } from "@/lib/services/participation";
+import { eventWindow, isAdminUser, isGuestHolder, whatsappContactOf } from "@/lib/services/participation";
 import type { AuthUser } from "@/lib/auth";
 import type { Event } from "@/types/event";
 import type { OrganizerAttendee, OrganizerEventSummary, CheckInWindowState } from "@/types/organizer";
@@ -67,7 +67,9 @@ async function listForIds<T extends object>(collection: string, field: string, i
  * Organizer-scoped attendance data. User IDs, email addresses and profile
  * visibility settings never leave this server-side DTO. A guest who claimed a
  * gift without an account gave the organizer their name and mobile number,
- * so those, and their pass for checking in by hand, are included.
+ * so those, and their pass for checking in by hand, are included. So are the
+ * name and WhatsApp number a member gave when booking to pay later, which is
+ * where the organizer sends their payment link.
  *
  * A Worker invocation may make only a limited number of subrequests, so the
  * whole workspace loads with a fixed handful of batched queries, never one
@@ -103,13 +105,15 @@ export async function getOrganizerEventSummaries(
       const giftLinkId = rsvp.paymentStatus === "gift" && rsvp.paymentRef?.startsWith("gift:") ? rsvp.paymentRef.slice(5) : undefined;
       const giftLabel = giftLinkId ? giftLabels.get(giftLinkId) : undefined;
       const guest = isGuestHolder(rsvp.userId) ? guests.get(rsvp.userId) : undefined;
+      const whatsapp = rsvp.amount ? whatsappContactOf(rsvp.paymentRef) : undefined;
       return {
-        displayName: guest ? safeDisplayName(guest.name) : isGuestHolder(rsvp.userId) ? "Guest" : safeDisplayName(names.get(rsvp.userId)),
+        displayName: guest ? safeDisplayName(guest.name) : isGuestHolder(rsvp.userId) ? "Guest" : safeDisplayName(whatsapp?.name ?? names.get(rsvp.userId)),
         rsvpStatus: "confirmed",
         ...(Number.isSafeInteger(rsvp.seatNumber) ? { seatNumber: rsvp.seatNumber } : {}),
         ...(rsvp.amount ? { ticket: { amount: rsvp.amount, paid: rsvp.paymentStatus === "paid" } } : {}),
         ...(giftLinkId ? { gift: { linkId: giftLinkId, ...(giftLabel ? { label: giftLabel } : {}) } } : {}),
         ...(guest ? { guest: { pass: guest.pass, phone: guest.phone } } : {}),
+        ...(whatsapp ? { whatsapp: whatsapp.phone } : {}),
         checkInStatus: checkin ? "checked_in" : "not_checked_in",
         ...(checkin ? { checkedInAt: checkin.timestamp } : {}),
       };

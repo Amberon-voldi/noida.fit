@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ArrowUpRight, Check, Copy, CopyPlus, Download, Gift, LayoutDashboard, LoaderCircle, Pencil, Phone, ScanLine, Search, Share2, UsersRound, type LucideIcon } from "lucide-react";
-import type { GiftLink, OrganizerEventSummary } from "@/types/organizer";
+import { ArrowLeft, ArrowUpRight, Check, Copy, CopyPlus, Download, Gift, LayoutDashboard, LoaderCircle, MessageCircle, Pencil, Phone, ScanLine, Search, Share2, UsersRound, type LucideIcon } from "lucide-react";
+import type { GiftLink, OrganizerAttendee, OrganizerEventSummary } from "@/types/organizer";
 import { OrganizerCheckInForm } from "@/components/participation/OrganizerCheckInForm";
 import { formatDate, SITE_CONFIG } from "@/lib/config";
 import { guestListCsv, guestTicketLabel } from "@/lib/guest-csv";
+import { formatIndianMobile } from "@/lib/phone";
 import { formatInr, parseEventPrice, TICKET_HOLD_MINUTES } from "@/lib/pricing";
 import { checkInLabel, type DashboardTab } from "./labels";
 import { GiftLinks } from "./GiftLinks";
@@ -19,7 +20,7 @@ const tabs: Array<{ id: DashboardTab; label: string; Icon: LucideIcon }> = [
   { id: "gifts", label: "Gift links", Icon: Gift },
 ];
 
-type Filter = "all" | "waiting" | "in" | "paid" | "gift";
+type Filter = "all" | "waiting" | "in" | "paid" | "due" | "gift";
 const timeFormatter = new Intl.DateTimeFormat("en-IN", { hour: "numeric", minute: "2-digit", timeZone: "Asia/Kolkata" });
 
 function Stat({ label, value, detail, accent = false, percent }: { label: string; value: string; detail: string; accent?: boolean; percent?: number }) {
@@ -49,15 +50,23 @@ export function EventDashboard({ summary, giftLinks, guestPasses, initialTab }: 
   const capacity = summary.capacityRemaining === null ? null : summary.confirmedRsvps + summary.capacityRemaining;
   const showUp = summary.confirmedRsvps ? Math.round((summary.checkedIn / summary.confirmedRsvps) * 100) : 0;
   const paidCount = attendees.filter(attendee => attendee.ticket?.paid).length;
+  const dueCount = attendees.filter(attendee => attendee.ticket?.paid === false).length;
   const activeGiftLinks = giftLinks?.filter(link => link.status === "active").length ?? 0;
   const visible = useMemo(() => {
     const needle = query.trim().toLowerCase();
     const digits = needle.replace(/\D/g, "");
     return attendees.filter(attendee => {
-      const match = filter === "all" ? true : filter === "in" ? attendee.checkInStatus === "checked_in" : filter === "waiting" ? attendee.checkInStatus !== "checked_in" : filter === "paid" ? attendee.ticket?.paid === true : Boolean(attendee.gift);
-      return match && (!needle || attendee.displayName.toLowerCase().includes(needle) || attendee.gift?.label?.toLowerCase().includes(needle) || (digits.length >= 3 && attendee.guest?.phone.includes(digits)));
+      const match = filter === "all" ? true : filter === "in" ? attendee.checkInStatus === "checked_in" : filter === "waiting" ? attendee.checkInStatus !== "checked_in" : filter === "paid" ? attendee.ticket?.paid === true : filter === "due" ? attendee.ticket?.paid === false : Boolean(attendee.gift);
+      return match && (!needle || attendee.displayName.toLowerCase().includes(needle) || attendee.gift?.label?.toLowerCase().includes(needle) || (digits.length >= 3 && Boolean(attendee.guest?.phone.includes(digits) || attendee.whatsapp?.includes(digits))));
     });
   }, [attendees, filter, query]);
+
+  /** A WhatsApp chat with a member who booked to pay later, opened with a message to paste their payment link into. */
+  function whatsappChat(attendee: OrganizerAttendee & { whatsapp: string }): string {
+    const spot = attendee.seatNumber === undefined ? "spot" : `spot #${attendee.seatNumber}`;
+    const amount = attendee.ticket && !attendee.ticket.paid ? ` Here’s your link to pay ${formatInr(attendee.ticket.amount)}: ` : "";
+    return `https://wa.me/91${attendee.whatsapp}?text=${encodeURIComponent(`Hi ${attendee.displayName}, your ${spot} for ${event.title} on ${formatDate(event.date)} is confirmed.${amount}`)}`;
+  }
 
   /** Guests without an account can be checked in from the list too, e.g. when their phone is flat. */
   async function checkInGuest(pass: string): Promise<void> {
@@ -105,6 +114,7 @@ export function EventDashboard({ summary, giftLinks, guestPasses, initialTab }: 
 
   const filters: Array<[Filter, string]> = [["all", `All ${summary.confirmedRsvps}`], ["waiting", `To arrive ${waiting}`], ["in", `In ${summary.checkedIn}`]];
   if (paidCount) filters.push(["paid", `Paid ${paidCount}`]);
+  if (dueCount) filters.push(["due", `Payment due ${dueCount}`]);
   if (summary.giftsClaimed) filters.push(["gift", `Gifts ${summary.giftsClaimed}`]);
 
   return <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-10 lg:px-8">
@@ -135,7 +145,7 @@ export function EventDashboard({ summary, giftLinks, guestPasses, initialTab }: 
       <dl className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         <Stat label="Going" value={capacity === null ? String(summary.confirmedRsvps) : `${summary.confirmedRsvps} / ${capacity}`} detail={capacity === null ? "No capacity limit" : summary.capacityRemaining ? `${summary.capacityRemaining} spot${summary.capacityRemaining === 1 ? "" : "s"} left` : "Full"} percent={capacity ? (summary.confirmedRsvps / capacity) * 100 : undefined} />
         <Stat label="Checked in" value={String(summary.checkedIn)} detail={summary.confirmedRsvps ? `${showUp}% of guests` : "No guests yet"} accent percent={summary.confirmedRsvps ? showUp : undefined} />
-        {pricing.kind === "paid" || summary.revenue ? <Stat label="Ticket revenue" value={formatInr(summary.revenue)} detail={`${paidCount} paid ticket${paidCount === 1 ? "" : "s"}${summary.payingNow ? ` · ${summary.payingNow} paying now` : ""}`} />
+        {pricing.kind === "paid" || summary.revenue ? <Stat label="Ticket revenue" value={formatInr(summary.revenue)} detail={`${paidCount} paid ticket${paidCount === 1 ? "" : "s"}${dueCount ? ` · ${dueCount} payment${dueCount === 1 ? "" : "s"} due` : ""}${summary.payingNow ? ` · ${summary.payingNow} paying now` : ""}`} />
           : <Stat label="Still to arrive" value={String(waiting)} detail="Free session" />}
         <Stat label="Gifted spots" value={String(summary.giftsClaimed)} detail={giftLinks === null ? "Gift links are off" : `${activeGiftLinks} active link${activeGiftLinks === 1 ? "" : "s"}`} />
       </dl>
@@ -189,6 +199,7 @@ export function EventDashboard({ summary, giftLinks, guestPasses, initialTab }: 
               <span className="block text-xs text-text-secondary">
                 {[attendee.seatNumber !== undefined && `Spot #${attendee.seatNumber}`, (attendee.ticket || attendee.gift) && guestTicketLabel(attendee)].filter(Boolean).join(" · ")}
                 {attendee.guest && <> · <a href={`tel:+91${attendee.guest.phone}`} className="inline-flex items-center gap-1 font-medium text-velocity hover:text-velocity-glow"><Phone size={11} aria-hidden="true" />{attendee.guest.phone.replace(/^(\d{5})(\d{5})$/, "$1 $2")}</a></>}
+                {attendee.whatsapp && <> · <a href={whatsappChat({ ...attendee, whatsapp: attendee.whatsapp })} target="_blank" rel="noopener noreferrer" aria-label={`WhatsApp ${attendee.displayName} at ${formatIndianMobile(attendee.whatsapp)}`} className="inline-flex items-center gap-1 font-medium text-velocity hover:text-velocity-glow"><MessageCircle size={11} aria-hidden="true" />{formatIndianMobile(attendee.whatsapp)}</a></>}
               </span>
             </span>
             <span className="flex shrink-0 items-center gap-2">
@@ -203,7 +214,7 @@ export function EventDashboard({ summary, giftLinks, guestPasses, initialTab }: 
           {checkError && checkError.pass === attendee.guest?.pass && <p role="alert" className="mt-1 text-xs text-rose-200">{checkError.message}</p>}
         </li>)}
       </ul> : <p className="mt-3 rounded-xl border border-dashed border-border-strong p-5 text-sm text-text-secondary">{summary.confirmedRsvps ? "No guests match." : "No one is going yet. Share the session, or invite people with a gift link."}</p>}
-      <p className="mt-3 text-xs text-text-secondary">Members’ contact details and account IDs stay private. Guests who claimed a gift without an account gave you their mobile number; it isn’t in the CSV export.</p>
+      <p className="mt-3 text-xs text-text-secondary">Members’ contact details and account IDs stay private. Guests who claimed a gift without an account gave you their mobile number, and members who booked to pay later gave you their WhatsApp number for the payment link: tap it to message them. Neither is in the CSV export.</p>
     </section>}
 
     {tab === "checkin" && <section id="panel-checkin" role="tabpanel" aria-labelledby="tab-checkin" className="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1fr)]">

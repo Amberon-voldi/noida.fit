@@ -13,6 +13,8 @@ export interface OrganizerAttendee {
   gift?: { linkId: string; label?: string };
   /** Claimed through a gift link without an account: their guest pass ID (to check them in by hand) and the mobile number they gave. */
   guest?: { pass: string; phone: string };
+  /** Booked to pay later: the WhatsApp number the member gave for their payment link. */
+  whatsapp?: string;
   checkInStatus: "not_checked_in" | "checked_in";
   checkedInAt?: string;
 }

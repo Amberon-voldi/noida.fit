@@ -145,6 +145,60 @@ test("the guest list and check-in desk count only paid tickets, never account ID
   assert.equal((await service.checkInParticipant(operator, "paid", token)).amountDue, 19900);
 });
 
+test("a spot booked to pay on WhatsApp is confirmed at once with its price due, and its number reaches only its owner and the organizer", async t => {
+  t.mock.method(console, "info", () => {}); reset();
+  const contact = { name: "Asha Rao", phone: "9876543210" };
+  await assert.rejects(service.reserveTicket(member, "paid", 14900, contact), { code: "PRICE_CHANGED" });
+  await assert.rejects(service.reserveTicket(member, "free", 19900, contact), { code: "PRICE_CHANGED" });
+  assert.equal(writes.length, 0);
+  const spot = await service.reserveTicket(member, "paid", 19900, contact);
+  assert.deepEqual({ status: spot.status, amount: spot.amount, paymentStatus: spot.paymentStatus, seatNumber: spot.seatNumber, whatsapp: spot.whatsapp }, { status: "confirmed", amount: 19900, paymentStatus: "pending", seatNumber: 1, whatsapp: contact });
+  assert.equal(ticketRow("paid")!.paymentRef, "whatsapp:9876543210:Asha Rao");
+  assert.deepEqual(await service.reserveTicket(member, "paid", 19900, { name: "Someone else", phone: "9123456789" }), spot, "a retry returns the same spot unchanged");
+  assert.equal(writes.length, 1);
+  assert.deepEqual((await service.getParticipationControls(member)).rsvps[0].whatsapp, contact);
+
+  const organizer = await import("../lib/services/organizer");
+  const event = { id: "paid", slug: "paid", title: "Synthetic paid session", status: "published", organizerUserId: operator.id, capacity: 2, startsAt: rows.get("events/paid")!.startsAt, endsAt: rows.get("events/paid")!.endsAt } as unknown as import("../types/event").Event;
+  const summary = await organizer.getOrganizerEventSummary(operator, event);
+  assert.deepEqual(summary.attendees, [{ displayName: "Asha Rao", rsvpStatus: "confirmed", seatNumber: 1, ticket: { amount: 19900, paid: false }, whatsapp: "9876543210", checkInStatus: "not_checked_in" }]);
+  assert.equal(summary.revenue, 0, "an unpaid spot is no revenue");
+  assert.ok(!JSON.stringify(summary).includes(member));
+  const { token } = await service.createParticipantCheckInToken(member);
+  assert.equal((await service.checkInParticipant(operator, "paid", token)).amountDue, 19900, "the desk is told what is still due");
+
+  // Capacity holds as for any ticket, and an unpaid spot can be let go.
+  assert.equal((await service.reserveTicket("other-member", "paid", 19900, contact)).seatNumber, 2);
+  await assert.rejects(service.reserveTicket("third-member", "paid", 19900, contact), { code: "EVENT_FULL" });
+  await service.cancelRsvp("other-member", "paid");
+  assert.equal(ticketRow("paid", "other-member"), undefined);
+  // Paid later online, the WhatsApp contact gives way to the payment's reference.
+  const paid = await service.confirmTicketPayment("paid", member, 19900, "pay_synthetic");
+  assert.deepEqual({ paymentStatus: paid.paymentStatus, whatsapp: paid.whatsapp }, { paymentStatus: "paid", whatsapp: undefined });
+});
+
+test("an unpaid hold becomes the spot booked to pay on WhatsApp, at the price it was held at", async t => {
+  t.mock.method(console, "info", () => {}); reset();
+  const hold = await service.holdTicket(member, "paid", 19900);
+  rows.get("events/paid")!.payload = JSON.stringify({ price: "₹249" });
+  const spot = await service.reserveTicket(member, "paid", 24900, { name: "Asha Rao", phone: "9876543210" });
+  assert.deepEqual({ status: spot.status, amount: spot.amount, seatNumber: spot.seatNumber }, { status: "confirmed", amount: 19900, seatNumber: hold.seatNumber });
+});
+
+test("booking to pay on WhatsApp needs a name and an Indian mobile number, and never books a demo listing", async t => {
+  t.mock.method(console, "info", () => {}); reset();
+  const payments = await import("../lib/services/ticket-payments");
+  rows.set("events/demo", { ...rows.get("events/paid")!, $id: "demo", payload: JSON.stringify({ price: "₹199", demo: true }) });
+  const reserve = (input: { eventId?: string; name: string; phone: string }) => payments.reserveTicketOnWhatsapp({ id: member }, { eventId: "paid", amount: 19900, ...input });
+  await assert.rejects(reserve({ name: " A ", phone: "9876543210" }), { code: "NAME_REQUIRED" });
+  await assert.rejects(reserve({ name: "Asha Rao", phone: "12345" }), { code: "PHONE_INVALID" });
+  await assert.rejects(reserve({ eventId: "demo", name: "Asha Rao", phone: "9876543210" }), { code: "DEMO_EVENT" });
+  assert.equal(writes.length, 0);
+  const spot = await reserve({ name: "  Asha\n\t Rao ", phone: "+91 98765-43210" });
+  assert.deepEqual(spot.whatsapp, { name: "Asha Rao", phone: "9876543210" });
+  assert.throws(() => payments.ticketReservationInputSchema.parse({ eventId: "paid", amount: 19900, name: "Asha", phone: "9876543210", userId: "spoofed" }));
+});
+
 test("organizers price a session as FREE or a rupee amount, never free-form text", async () => {
   const { organizerEventInputSchema } = await import("../lib/services/organizer-events");
   const input = { title: "Synthetic session", description: "A synthetic session used only by this test.", date: "2026-12-01", startTime: "06:00 AM", endTime: "07:00 AM", venueSlug: "stadium", capacity: 20, status: "published" };

@@ -5,6 +5,7 @@ import { useEffect, useId, useRef, useState, type ReactNode } from "react";
 import { CalendarPlus, Check, Share2, X } from "lucide-react";
 import { ListingImage } from "@/components/discovery/ListingImage";
 import { createIcs } from "@/lib/calendar";
+import { formatIndianMobile } from "@/lib/phone";
 
 /** What the member just booked, as printed on their ticket. */
 export interface BookedTicket {
@@ -22,10 +23,12 @@ export interface BookedTicket {
   category?: string;
   image?: string;
   seatNumber?: number;
-  /** "paid" shows the price stamped PAID; "gift" stamps it GIFTED. */
-  kind: "paid" | "gift";
+  /** "paid" shows the price stamped PAID; "gift" stamps it GIFTED; "reserved" (booked to pay on WhatsApp) stamps it CONFIRMED. */
+  kind: "paid" | "gift" | "reserved";
   /** The price, e.g. "₹99". */
   priceLabel?: string;
+  /** A reserved spot's WhatsApp number, where its payment link goes. */
+  whatsapp?: string;
   /** The ticket holder's name. */
   holder?: string;
   /** "See you tomorrow at 06:00 AM", computed where the time is known. */
@@ -109,7 +112,7 @@ export function downloadTicketCalendar(ticket: BookedTicket): boolean {
 
 /** The printed ticket: the session up top, a tear-off stub with the holder below. `qr` replaces the stub's barcode with a real check-in QR. */
 export function TicketCard({ ticket, qr }: { ticket: BookedTicket; qr?: ReactNode }) {
-  const stamp = ticket.kind === "gift" ? "Gifted" : `${ticket.priceLabel ?? ""} paid`.trim();
+  const stamp = ticket.kind === "gift" ? "Gifted" : ticket.kind === "reserved" ? "Confirmed" : `${ticket.priceLabel ?? ""} paid`.trim();
   return <>
     <article className={qr ? "ticket ticket-pass" : "ticket"} aria-label={`Your ticket for ${ticket.title}`}>
       <div className="ticket-main">
@@ -217,8 +220,13 @@ export function TicketConfirmation({ ticket, open = true, onClose, clearParam, g
     <div className="ticket-dialog-body" tabIndex={-1} autoFocus>
       <button type="button" aria-label="Close" onClick={close} className="ticket-close"><X className="h-5 w-5" aria-hidden="true" /></button>
       <div className="ticket-check" aria-hidden="true"><Check strokeWidth={3} /></div>
-      <h2 id={titleId} className="ticket-headline">You’re <span>in!</span></h2>
-      <p className="ticket-lede">{ticket.kind === "gift" ? "Your gifted spot is confirmed." : "Payment received. Your ticket is confirmed."} {ticket.countdown}.</p>
+      {ticket.kind === "reserved" ? <>
+        <h2 id={titleId} className="ticket-headline">Spot <span>confirmed!</span></h2>
+        <p className="ticket-lede">Congratulations! We’ll share your {ticket.priceLabel ? `${ticket.priceLabel} ` : ""}payment link on WhatsApp{ticket.whatsapp ? <> at <strong className="whitespace-nowrap text-white">{formatIndianMobile(ticket.whatsapp)}</strong></> : null}. {ticket.countdown}.</p>
+      </> : <>
+        <h2 id={titleId} className="ticket-headline">You’re <span>in!</span></h2>
+        <p className="ticket-lede">{ticket.kind === "gift" ? "Your gifted spot is confirmed." : "Payment received. Your ticket is confirmed."} {ticket.countdown}.</p>
+      </>}
 
       <TicketCard ticket={ticket} />
 

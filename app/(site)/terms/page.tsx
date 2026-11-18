@@ -41,6 +41,7 @@ export default function TermsPage() {
           <section aria-labelledby="terms-tickets">
             <h2 id="terms-tickets" className="text-xl font-bold text-white">Tickets and payments</h2>
             <p className="mt-3">A paid session shows its ticket price before you pay. When you start checkout, your spot is held for {TICKET_HOLD_MINUTES} minutes while you pay online through our payment partner, PayU. Your ticket is confirmed only once PayU confirms the payment, and you then see it in your account.</p>
+            <p className="mt-3">While online checkout is off, you can instead book a paid session&apos;s spot with your name and WhatsApp number. Your spot is confirmed when you book, and you receive a link on WhatsApp to pay the ticket price.</p>
             <p className="mt-3">You pay on PayU&apos;s secure pages: NOIDA.FIT never sees or stores your card, UPI or bank details. PayU asks for your mobile number, which you give at checkout.</p>
             <p className="mt-3">Each session is run by its organizer, who is responsible for delivering it. Cancellations and refunds follow our <Link href="/refund-policy" className="font-semibold text-velocity underline hover:text-velocity-glow">Refund &amp; Cancellation Policy</Link>. Organizers may also give free spots through gift links; a gifted spot needs no payment.</p>
           </section>
