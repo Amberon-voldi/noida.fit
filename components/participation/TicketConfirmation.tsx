@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useId, useRef, useState, type ReactNode } from "react";
-import { CalendarPlus, Check, Share2, X } from "lucide-react";
+import { CalendarPlus, Check, MessageCircle, Share2, X } from "lucide-react";
 import { ListingImage } from "@/components/discovery/ListingImage";
 import { createIcs } from "@/lib/calendar";
 import { formatIndianMobile } from "@/lib/phone";
@@ -222,7 +222,14 @@ export function TicketConfirmation({ ticket, open = true, onClose, clearParam, g
       <div className="ticket-check" aria-hidden="true"><Check strokeWidth={3} /></div>
       {ticket.kind === "reserved" ? <>
         <h2 id={titleId} className="ticket-headline">Spot <span>confirmed!</span></h2>
-        <p className="ticket-lede">Congratulations! We’ll share your {ticket.priceLabel ? `${ticket.priceLabel} ` : ""}payment link on WhatsApp{ticket.whatsapp ? <> at <strong className="whitespace-nowrap text-white">{formatIndianMobile(ticket.whatsapp)}</strong></> : null}. {ticket.countdown}.</p>
+        <p className="ticket-lede">Congratulations! {ticket.countdown}.</p>
+        <div className="ticket-whatsapp">
+          <span className="ticket-whatsapp-icon" aria-hidden="true"><MessageCircle /></span>
+          <div className="min-w-0">
+            <p className="ticket-whatsapp-title">Payment link coming on WhatsApp</p>
+            <p className="ticket-whatsapp-text">We’ll send your {ticket.priceLabel ? `${ticket.priceLabel} ` : ""}payment link to {ticket.whatsapp ? <strong>{formatIndianMobile(ticket.whatsapp)}</strong> : "your WhatsApp number"}. Keep an eye on your chats.</p>
+          </div>
+        </div>
       </> : <>
         <h2 id={titleId} className="ticket-headline">You’re <span>in!</span></h2>
         <p className="ticket-lede">{ticket.kind === "gift" ? "Your gifted spot is confirmed." : "Payment received. Your ticket is confirmed."} {ticket.countdown}.</p>

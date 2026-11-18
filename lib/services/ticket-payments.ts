@@ -6,7 +6,8 @@ import { HttpError } from "@/lib/http";
 import { normalizeIndianMobile } from "@/lib/phone";
 import { MAX_TICKET_RUPEES, PAID_TICKET_BOOKING } from "@/lib/pricing";
 import { assertPayuConfigured, newTxnId, payuCheckoutForm, verifyPayuTransaction, type PayuCheckoutForm } from "@/lib/payments/payu";
-import { confirmTicketPayment, documentIdSchema, getTicketEvent, holdTicket, reserveTicket, type RSVP } from "@/lib/services/participation";
+import { sendSpotConfirmedEmail } from "@/lib/services/booking-emails";
+import { confirmTicketPayment, documentIdSchema, getTicketEvent, getUserRsvp, holdTicket, reserveTicket, type RSVP } from "@/lib/services/participation";
 
 /** `amount` (paise) is the price the member confirmed: the page price for a new ticket, the issued price for a held one. */
 export const ticketPaymentInputSchema = z.object({
@@ -53,8 +54,9 @@ function contactName(value: string): string {
 
 /**
  * While online payment is off (PAID_TICKET_BOOKING is "whatsapp"), confirms the member's spot with its price
- * due (reserveTicket); the organizer sends the payment link to the WhatsApp number they give. Demo listings
- * never take a booking that asks for money.
+ * due (reserveTicket); the organizer sends the payment link to the WhatsApp number they give. A newly booked
+ * spot is emailed to the member (best effort); a repeat tap on a spot they already hold sends nothing.
+ * Demo listings never take a booking that asks for money.
  */
 export async function reserveTicketOnWhatsapp(user: Pick<AuthUser, "id">, input: z.infer<typeof ticketReservationInputSchema>): Promise<RSVP> {
   if (PAID_TICKET_BOOKING !== "whatsapp") throw new HttpError(409, "PAY_ONLINE", "Tickets for this event are paid online. Reload the page to pay.");
@@ -64,7 +66,10 @@ export async function reserveTicketOnWhatsapp(user: Pick<AuthUser, "id">, input:
   if (name.length < 2) throw new HttpError(400, "NAME_REQUIRED", "Enter your name");
   const event = await getTicketEvent(input.eventId);
   if (event.demo) throw new HttpError(409, "DEMO_EVENT", "This is a demo listing, so it can’t take a booking");
-  return reserveTicket(user.id, input.eventId, input.amount, { name, phone });
+  const before = await getUserRsvp(input.eventId, user.id);
+  const rsvp = await reserveTicket(user.id, input.eventId, input.amount, { name, phone });
+  if (before?.status !== "confirmed" && rsvp.status === "confirmed") await sendSpotConfirmedEmail(user.id, rsvp);
+  return rsvp;
 }
 
 export type PaymentOutcome = "paid" | "failed" | "pending" | "refund";

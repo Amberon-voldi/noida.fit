@@ -10,6 +10,14 @@ function backendDetails(error: unknown): { status: number; type: string } {
   return { status, type };
 }
 
+/** Appwrite's error type (e.g. "user_unauthorized"), else its HTTP status or the error's name; never its message. */
+export function appwriteErrorCause(error: unknown): string {
+  const { status, type } = backendDetails(error);
+  if (type !== "unknown") return type;
+  if (status) return `HTTP ${status}`;
+  return error instanceof Error ? error.name : "unknown";
+}
+
 // Only this response from Appwrite means that the supplied password was rejected.
 export function isInvalidCredentials(error: unknown): boolean {
   const { status, type } = backendDetails(error);

@@ -7,6 +7,9 @@ const originalFetch = globalThis.fetch;
 let rows = new Map<string, Record<string, unknown>>();
 let writes: { method: string; collection: string; data?: Record<string, unknown> }[] = [];
 let ticketSchema = true;
+/** Emails sent through Appwrite Messaging; `emailDown` makes the provider fail. */
+let emails: Record<string, unknown>[] = [];
+let emailDown = false;
 const member = "ticket-member";
 const fitnessId = "NF-0123456789ABCDEF";
 const operator = { id: "assigned-operator", labels: [] };
@@ -18,6 +21,11 @@ before(async () => {
     const method = init?.method ?? "GET";
     const body = init?.body ? JSON.parse(String(init.body)) : {};
     if (url.pathname === `/v1/users/${member}`) return Response.json({ $id: member, status: true });
+    if (url.pathname === "/v1/messaging/messages/email") {
+      if (emailDown) return Response.json({ code: 401, type: "general_unauthorized_scope", message: "missing scope" }, { status: 401 });
+      emails.push(body);
+      return Response.json({ $id: body.messageId, status: "processing" }, { status: 201 });
+    }
     const match = /collections\/([^/]+)\/documents(?:\/([^/]+))?$/.exec(url.pathname); assert.ok(match, url.pathname);
     const [, collection, id] = match;
     const key = `${collection}/${id ?? body.documentId}`;
@@ -41,7 +49,7 @@ before(async () => {
 after(() => { globalThis.fetch = originalFetch; });
 
 function reset() {
-  rows = new Map(); writes = []; ticketSchema = true;
+  rows = new Map(); writes = []; ticketSchema = true; emails = []; emailDown = false;
   const schedule = { status: "published", activityId: "running", capacity: 2, organizerUserId: operator.id, startsAt: new Date(Date.now() + 10 * 60_000).toISOString(), endsAt: new Date(Date.now() + 70 * 60_000).toISOString() };
   rows.set("events/paid", { $id: "paid", title: "Synthetic paid session", ...schedule, payload: JSON.stringify({ price: "₹199" }) });
   rows.set("events/free", { $id: "free", title: "Synthetic free session", ...schedule, payload: JSON.stringify({ price: "FREE" }) });
@@ -218,6 +226,33 @@ test("booking to pay on WhatsApp needs a name and an Indian mobile number, and n
   const spot = await reserve({ name: "  Asha\n\t Rao ", phone: "+91 98765-43210" });
   assert.deepEqual(spot.whatsapp, { name: "Asha Rao", phone: "9876543210" });
   assert.throws(() => payments.ticketReservationInputSchema.parse({ eventId: "paid", amount: 19900, name: "Asha", phone: "9876543210", userId: "spoofed" }));
+});
+
+test("a newly booked spot is emailed to its member once; a failed email never fails the booking", async t => {
+  t.mock.method(console, "info", () => {}); reset();
+  const logged = t.mock.method(console, "error", () => {});
+  const payments = await import("../lib/services/ticket-payments");
+  const startsAt = String(rows.get("events/paid")!.startsAt);
+  const date = new Date(Date.parse(startsAt) + 330 * 60_000).toISOString().slice(0, 10);
+  rows.get("events/paid")!.payload = JSON.stringify({ price: "₹199", slug: "sunrise-5k", date, startTime: "06:00 AM", endTime: "07:00 AM", venueName: "Noida Stadium", sector: "Sector 21A", communityName: "Dawn Runners" });
+  const reserve = (userId: string) => payments.reserveTicketOnWhatsapp({ id: userId }, { eventId: "paid", amount: 19900, name: "Asha Rao", phone: "9876543210" });
+  await reserve(member);
+  assert.equal(emails.length, 1);
+  const [email] = emails as Array<{ subject: string; content: string; users: string[]; html: boolean }>;
+  assert.deepEqual(email.users, [member], "addressed by account, so Appwrite sends it to the account's own email");
+  assert.equal(email.html, true);
+  assert.match(email.subject, /You’re in! Spot #1 confirmed for Synthetic paid session/);
+  assert.match(email.content, /Payment details coming on WhatsApp/);
+  assert.match(email.content, /₹199<\/strong> payment link to <strong[^>]*>\+91 98765 43210<\/strong> on WhatsApp/);
+  assert.match(email.content, /https:\/\/noida\.fit\/event\/sunrise-5k/);
+  await reserve(member);
+  assert.equal(emails.length, 1, "a repeat tap on a spot they hold sends no second email");
+  emailDown = true;
+  const booked = await reserve("other-member");
+  assert.deepEqual({ status: booked.status, seatNumber: booked.seatNumber }, { status: "confirmed", seatNumber: 2 }, "the booking stands without its email");
+  assert.equal(logged.mock.callCount(), 1);
+  assert.deepEqual(logged.mock.calls[0].arguments[1], { cause: "general_unauthorized_scope" });
+  assert.ok(!JSON.stringify(logged.mock.calls).includes("9876543210"), "no contact details in the log");
 });
 
 test("a club's organizers work the check-in desk for its sessions, which strangers cannot", async t => {

@@ -529,6 +529,13 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { border-color
 .ticket-headline { margin-top: 16px; font-size: clamp(2.5rem, 11vw, 3.25rem); font-weight: 900; line-height: 1; letter-spacing: -.03em; }
 .ticket-headline span { color: var(--accent-velocity); }
 .ticket-lede { margin-top: 10px; font-size: .95rem; line-height: 1.5; color: rgb(248 250 252 / .82); }
+/* A spot booked to pay on WhatsApp: where its payment link is coming, the one thing to remember. */
+.ticket-whatsapp { display: flex; align-items: center; gap: 12px; margin-top: 16px; padding: 12px 14px; border: 1px solid rgb(37 211 102 / .6); border-radius: 16px; text-align: left; background: rgb(37 211 102 / .13); box-shadow: 0 0 24px rgb(37 211 102 / .14); }
+.ticket-whatsapp-icon { display: grid; flex-shrink: 0; place-items: center; width: 42px; height: 42px; border-radius: 999px; color: #fff; background: #25d366; }
+.ticket-whatsapp-icon svg { width: 22px; height: 22px; }
+.ticket-whatsapp-title { font-size: 1rem; font-weight: 800; line-height: 1.25; color: #fff; }
+.ticket-whatsapp-text { margin-top: 2px; font-size: .9rem; line-height: 1.4; color: rgb(248 250 252 / .85); }
+.ticket-whatsapp-text strong { font-weight: 800; color: #fff; white-space: nowrap; }
 
 /* Two pieces with half-circle notches cut where they meet; drop-shadow follows the cut-outs. */
 .ticket { --notch: 13px; position: relative; margin-top: 22px; text-align: left; filter: drop-shadow(0 26px 40px rgb(0 0 0 / .55)) drop-shadow(0 0 28px rgb(157 220 46 / .16)); }
@@ -568,6 +575,9 @@ input:focus-visible, select:focus-visible, textarea:focus-visible { border-color
   .ticket-dialog[open] .ticket-check::after { content: ""; position: absolute; inset: 0; border-radius: inherit; border: 2px solid var(--accent-velocity); animation: ticket-ring 900ms ease-out 300ms both; }
   .ticket-dialog[open] .ticket-headline { animation: ticket-rise 520ms var(--ease-out) 200ms both; }
   .ticket-dialog[open] .ticket-lede { animation: ticket-rise 520ms var(--ease-out) 300ms both; }
+  /* Rises with the lede, then glows twice once the ticket has landed, to draw the eye to WhatsApp. */
+  .ticket-dialog[open] .ticket-whatsapp { animation: ticket-rise 520ms var(--ease-out) 340ms both, ticket-whatsapp-glow 900ms ease-in-out 1500ms 2; }
+  @keyframes ticket-whatsapp-glow { 50% { box-shadow: 0 0 0 5px rgb(37 211 102 / .28), 0 0 34px rgb(37 211 102 / .4); } }
   .ticket-dialog[open] .ticket { animation: ticket-drop 820ms cubic-bezier(.18, 1.25, .4, 1) 380ms both, ticket-thump 260ms ease-out 1180ms; }
   .ticket-dialog[open] .ticket-stamp { animation: ticket-stamp 280ms cubic-bezier(.5, 0, .9, .4) 900ms both; }
   .ticket-dialog[open] .ticket-actions { animation: ticket-rise 520ms var(--ease-out) 1250ms both; }
