@@ -26,7 +26,7 @@ test("links and images in the email are absolute, and an upload goes as its smal
   const { html } = spotConfirmedEmail(booking);
   assert.match(html, /href="https:\/\/noida\.fit\/event\/bcc-run-rave-2026-11-22"/);
   assert.match(html, /src="https:\/\/noida\.fit\/media\/banner123\/share"/);
-  assert.match(html, /src="https:\/\/noida\.fit\/images\/logo\.png"/);
+  assert.match(html, /src="https:\/\/noida\.fit\/images\/email-logo\.png"/, "the logo on its own dark badge reads in light and dark mail");
   // 06:30–10:00 IST is 01:00–04:30 UTC.
   assert.match(html, /calendar\.google\.com\/calendar\/render\?action=TEMPLATE&amp;text=BCC\+Run\+%26\+Rave&amp;dates=20261122T010000Z%2F20261122T043000Z/);
   assert.match(spotConfirmedEmail({ ...booking, event: { ...event, coverImageUrl: "https://images.example.com/run.jpg" } }).html, /src="https:\/\/images\.example\.com\/run\.jpg"/);

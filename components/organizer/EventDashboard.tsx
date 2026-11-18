@@ -43,6 +43,8 @@ export function EventDashboard({ summary, giftLinks, guestPasses, initialTab }: 
   const [copied, setCopied] = useState(false);
   const [checking, setChecking] = useState<string | null>(null);
   const [checkError, setCheckError] = useState<{ pass: string; message: string } | null>(null);
+  const [paying, setPaying] = useState<number | null>(null);
+  const [payError, setPayError] = useState<{ seat: number; message: string } | null>(null);
   const pricing = parseEventPrice(event.price);
   const published = event.status === "published";
   const publicUrl = `${SITE_CONFIG.url}/event/${event.slug}`;
@@ -80,6 +82,21 @@ export function EventDashboard({ summary, giftLinks, guestPasses, initialTab }: 
       setCheckError({ pass, message: "Nothing was recorded. Check the connection and try again." });
     } finally {
       setChecking(null);
+    }
+  }
+
+  /** Marks a guest's ticket paid (e.g. through the WhatsApp link) or back to still due, by its spot. */
+  async function setPaid(seatNumber: number, paid: boolean): Promise<void> {
+    setPaying(seatNumber); setPayError(null);
+    try {
+      const response = await fetch(`/api/organizer/events/${encodeURIComponent(event.id)}/payments`, { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ seatNumber, paid }) });
+      const data = await response.json().catch(() => null) as { paid?: boolean; error?: string } | null;
+      if (!response.ok || data?.paid !== paid) { setPayError({ seat: seatNumber, message: data?.error || "The payment status didn’t save. Try again." }); return; }
+      router.refresh();
+    } catch {
+      setPayError({ seat: seatNumber, message: "Nothing was saved. Check the connection and try again." });
+    } finally {
+      setPaying(null);
     }
   }
 
@@ -202,8 +219,17 @@ export function EventDashboard({ summary, giftLinks, guestPasses, initialTab }: 
                 {attendee.whatsapp && <> · <a href={whatsappChat({ ...attendee, whatsapp: attendee.whatsapp })} target="_blank" rel="noopener noreferrer" aria-label={`WhatsApp ${attendee.displayName} at ${formatIndianMobile(attendee.whatsapp)}`} className="inline-flex items-center gap-1 font-medium text-velocity hover:text-velocity-glow"><MessageCircle size={11} aria-hidden="true" />{formatIndianMobile(attendee.whatsapp)}</a></>}
               </span>
             </span>
-            <span className="flex shrink-0 items-center gap-2">
+            <span className="flex shrink-0 flex-wrap items-center justify-end gap-2">
               {attendee.gift && <Gift size={15} className="text-velocity" aria-label="Gifted spot" />}
+              {attendee.ticket && !attendee.ticket.online && attendee.seatNumber !== undefined && (() => {
+                const seat = attendee.seatNumber;
+                const paid = attendee.ticket.paid;
+                return <button type="button" onClick={() => setPaid(seat, !paid)} disabled={paying !== null} aria-pressed={paid}
+                  aria-label={paid ? `${attendee.displayName} has paid. Mark as still due` : `Mark ${attendee.displayName} as paid`} title={paid ? "Paid. Tap to mark as still due" : "Tap once they’ve paid"}
+                  className={`inline-flex min-h-9 items-center gap-1.5 rounded-full px-3 text-xs font-bold disabled:opacity-60 ${paid ? "bg-velocity text-slate-950" : "border border-velocity text-velocity hover:bg-velocity/10"}`}>
+                  {paying === seat ? <LoaderCircle size={13} className="animate-spin" aria-hidden="true" /> : paid && <Check size={13} aria-hidden="true" />}{paid ? "Paid" : "Mark paid"}
+                </button>;
+              })()}
               {attendee.checkInStatus === "checked_in"
                 ? <span className="rounded-full bg-velocity/15 px-2.5 py-1 text-xs font-semibold text-velocity">In{attendee.checkedInAt ? ` · ${timeFormatter.format(new Date(attendee.checkedInAt))}` : ""}</span>
                 : attendee.guest && summary.checkInWindow === "open"
@@ -212,8 +238,10 @@ export function EventDashboard({ summary, giftLinks, guestPasses, initialTab }: 
             </span>
           </div>
           {checkError && checkError.pass === attendee.guest?.pass && <p role="alert" className="mt-1 text-xs text-rose-200">{checkError.message}</p>}
+          {payError && payError.seat === attendee.seatNumber && <p role="alert" className="mt-1 text-xs text-rose-200">{payError.message}</p>}
         </li>)}
       </ul> : <p className="mt-3 rounded-xl border border-dashed border-border-strong p-5 text-sm text-text-secondary">{summary.confirmedRsvps ? "No guests match." : "No one is going yet. Share the session, or invite people with a gift link."}</p>}
+      {attendees.some(attendee => attendee.ticket && !attendee.ticket.online) && <p className="mt-3 text-xs text-text-secondary">Tap <strong className="text-white">Mark paid</strong> once a guest has paid, e.g. through the WhatsApp link: revenue counts it and the check-in desk stops asking them to pay. Tap <strong className="text-white">Paid</strong> to set it back to due.</p>}
       <p className="mt-3 text-xs text-text-secondary">Members’ contact details and account IDs stay private. Guests who claimed a gift without an account gave you their mobile number, and members who booked to pay later gave you their WhatsApp number for the payment link: tap it to message them. Neither is in the CSV export.</p>
     </section>}
 

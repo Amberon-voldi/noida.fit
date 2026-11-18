@@ -19,13 +19,15 @@ const ESCAPES: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;"
 /** Every value from a member or an organizer is escaped before it goes into the HTML. */
 const escape = (value: string) => value.replace(/[&<>"']/g, character => ESCAPES[character]);
 
+// One ink, one accent. Light paper reads the same in every mail app, and dark-mode apps invert it evenly.
 const SANS = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif";
 const MONO = "'SFMono-Regular',Menlo,Consolas,'Liberation Mono',monospace";
+const INK = "#0b0f14";
+const BODY = "#3f4753";
+const MUTED = "#6b7280";
+const LINE = "#e5e7eb";
+const PAPER = "#f1f2f4";
 const LIME = "#b5f043";
-const INK = "#07090d";
-const CARD = "#121822";
-const LINE = "#253041";
-const MUTED = "#9aa4b2";
 
 /**
  * Images in email need an absolute HTTPS address. An upload (/media/<id>) goes as its share version: a
@@ -63,16 +65,23 @@ function calendarLink(event: SpotConfirmedInput["event"], times: { start: Date; 
 }
 
 function detail(label: string, value: string): string {
-  return `<td class="nf-stack" valign="top" width="50%" style="padding:0 0 16px;">
-    <div style="font-family:${MONO};font-size:10px;letter-spacing:2px;text-transform:uppercase;color:${MUTED};">${label}</div>
-    <div style="margin-top:4px;font-family:${SANS};font-size:16px;font-weight:700;line-height:1.35;color:#ffffff;">${value}</div>
+  return `<td class="nf-stack" valign="top" width="50%" style="padding:0 12px 18px 0;">
+    <div style="font-family:${MONO};font-size:10px;font-weight:700;letter-spacing:1.6px;text-transform:uppercase;color:${MUTED};">${label}</div>
+    <div style="margin-top:5px;font-family:${SANS};font-size:15px;font-weight:700;line-height:1.4;color:${INK};">${value}</div>
   </td>`;
 }
 
+function step(number: number, text: string, last = false): string {
+  return `<tr>
+    <td width="34" valign="top" style="padding:0 0 ${last ? 0 : 14}px;"><div style="width:24px;height:24px;border-radius:12px;background:${INK};font-family:${SANS};font-size:12px;font-weight:800;line-height:24px;text-align:center;color:#ffffff;">${number}</div></td>
+    <td valign="top" style="padding:2px 0 ${last ? 0 : 14}px;font-family:${SANS};font-size:15px;line-height:1.5;color:${BODY};">${text}</td>
+  </tr>`;
+}
+
 /**
- * The email a member gets the moment their spot is confirmed: the ticket, and, before anything else,
- * that the payment details are coming on WhatsApp. Table layout and inline styles, so it holds together
- * in Gmail, Outlook and Apple Mail; it still reads when images are blocked.
+ * The email a member gets the moment their spot is confirmed: before anything else, that the payment
+ * details are coming on WhatsApp; then the ticket and what to do on the day. Table layout and inline styles
+ * so it holds together in Gmail, Outlook and Apple Mail, and still reads with images blocked.
  */
 export function spotConfirmedEmail({ event, seatNumber, name, phone, amount }: SpotConfirmedInput): { subject: string; preheader: string; html: string } {
   const price = formatInr(amount);
@@ -93,99 +102,98 @@ export function spotConfirmedEmail({ event, seatNumber, name, phone, amount }: S
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="color-scheme" content="dark">
-<meta name="supported-color-schemes" content="dark">
+<meta name="color-scheme" content="light">
+<meta name="supported-color-schemes" content="light">
 <title>${escape(subject)}</title>
 <style>
   @media (max-width:620px) {
-    .nf-pad { padding-left:20px !important; padding-right:20px !important; }
-    .nf-h1 { font-size:32px !important; }
+    .nf-pad { padding-left:22px !important; padding-right:22px !important; }
+    .nf-h1 { font-size:30px !important; }
     .nf-stack { display:block !important; width:100% !important; }
   }
-  a { color:${LIME}; }
 </style>
 </head>
-<body style="margin:0;padding:0;background:${INK};-webkit-text-size-adjust:100%;">
+<body style="margin:0;padding:0;background:${PAPER};-webkit-text-size-adjust:100%;">
 <div style="display:none;max-height:0;max-width:0;overflow:hidden;opacity:0;mso-hide:all;">${escape(preheader)}&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;&#8203;&nbsp;</div>
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${INK};background-image:radial-gradient(circle at 50% 0%,#1d2b0c 0%,${INK} 55%);">
-<tr><td align="center" style="padding:32px 12px 24px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${PAPER}" style="background:${PAPER};">
+<tr><td align="center" style="padding:28px 12px 32px;">
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;">
 
-  <tr><td align="center" style="padding:0 0 30px;">
-    <a href="${SITE_CONFIG.url}" style="text-decoration:none;"><img src="${SITE_CONFIG.url}/images/logo.png" width="156" alt="noida.fit" style="display:block;width:156px;max-width:156px;height:auto;border:0;color:#ffffff;font-family:${SANS};font-size:24px;font-weight:800;"></a>
+  <tr><td align="center" style="padding:0 0 20px;">
+    <a href="${SITE_CONFIG.url}" style="text-decoration:none;"><img src="${SITE_CONFIG.url}/images/email-logo.png" width="150" height="48" alt="noida.fit" style="display:block;width:150px;height:48px;border:0;font-family:${SANS};font-size:22px;font-weight:800;color:${INK};"></a>
   </td></tr>
 
-  <tr><td align="center" class="nf-pad" style="padding:0 32px;">
-    <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
-      <td align="center" valign="middle" width="64" height="64" style="width:64px;height:64px;border-radius:32px;background:${LIME};box-shadow:0 0 0 8px rgba(181,240,67,0.16);font-family:${SANS};font-size:32px;font-weight:900;line-height:64px;color:${INK};">&#10003;</td>
-    </tr></table>
-    <div style="margin-top:22px;font-family:${MONO};font-size:12px;font-weight:700;letter-spacing:3px;text-transform:uppercase;color:${LIME};">Spot confirmed</div>
-    <h1 class="nf-h1" style="margin:10px 0 0;font-family:${SANS};font-size:40px;font-weight:900;line-height:1.05;letter-spacing:-1px;color:#ffffff;">You’re in, ${escape(firstName)}! 🎉</h1>
-    <p style="margin:14px 0 0;font-family:${SANS};font-size:16px;line-height:1.55;color:#d6dce4;">Congratulations, your spot for <strong style="color:#ffffff;">${escape(event.title)}</strong> is locked in. See you on ${escape(day)} at ${escape(event.startTime)}.</p>
+  <tr><td>
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="background:#ffffff;border:1px solid ${LINE};border-radius:20px;">
+
+    <tr><td align="center" class="nf-pad" style="padding:36px 40px 4px;">
+      <span style="display:inline-block;padding:7px 14px;border-radius:999px;background:${LIME};font-family:${MONO};font-size:11px;font-weight:800;letter-spacing:1.8px;text-transform:uppercase;color:${INK};">&#10003;&nbsp; Spot confirmed</span>
+      <h1 class="nf-h1" style="margin:18px 0 0;font-family:${SANS};font-size:36px;font-weight:900;line-height:1.1;letter-spacing:-0.8px;color:${INK};">You’re in, ${escape(firstName)}! 🎉</h1>
+      <p style="margin:12px 0 0;font-family:${SANS};font-size:16px;line-height:1.6;color:${BODY};">Congratulations, your spot for <strong style="color:${INK};">${escape(event.title)}</strong> is locked in. See you on ${escape(day)} at ${escape(event.startTime)}.</p>
+    </td></tr>
+
+    <tr><td class="nf-pad" style="padding:28px 40px 0;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${INK}" style="background:${INK};border-radius:16px;">
+        <tr>
+          <td width="64" valign="top" style="padding:20px 0 20px 20px;">
+            <div style="width:44px;height:44px;border-radius:22px;background:${LIME};font-size:22px;line-height:44px;text-align:center;">💬</div>
+          </td>
+          <td valign="top" style="padding:19px 22px 20px 14px;">
+            <div style="font-family:${SANS};font-size:17px;font-weight:800;line-height:1.3;color:#ffffff;">Payment details coming on WhatsApp</div>
+            <div style="margin-top:6px;font-family:${SANS};font-size:15px;line-height:1.55;color:#c7ccd4;">We’ll send your <strong style="color:#ffffff;">${price}</strong> payment link to <strong style="color:#ffffff;white-space:nowrap;">${escape(number)}</strong> on WhatsApp. Keep an eye on your chats and pay through that link.</div>
+          </td>
+        </tr>
+      </table>
+    </td></tr>
+
+    <tr><td class="nf-pad" style="padding:24px 40px 0;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid ${LINE};border-radius:16px;">
+        ${banner ? `<tr><td style="padding:0;line-height:0;"><img src="${escape(banner)}" width="518" alt="" style="display:block;width:100%;height:auto;border:0;border-radius:15px 15px 0 0;"></td></tr>` : ""}
+        <tr><td style="padding:20px 22px 4px;">
+          ${event.communityName ? `<div style="font-family:${MONO};font-size:11px;font-weight:700;letter-spacing:1.6px;text-transform:uppercase;color:${MUTED};">${escape(event.communityName)}</div>` : ""}
+          <div style="margin-top:4px;font-family:${SANS};font-size:22px;font-weight:800;line-height:1.2;letter-spacing:-0.3px;color:${INK};">${escape(event.title)}</div>
+        </td></tr>
+        <tr><td style="padding:16px 22px 0;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+            <tr>${detail("Date", escape(day))}${detail("Time · IST", `${escape(event.startTime)} – ${escape(event.endTime)}`)}</tr>
+            <tr>${detail("Where", `${escape(event.venueName)}, ${escape(event.sector)}`)}${detail("To pay", `${price} <span style="font-weight:500;color:${MUTED};">· WhatsApp link</span>`)}</tr>
+          </table>
+        </td></tr>
+        <tr><td style="padding:0 22px;"><div style="border-top:2px dashed ${LINE};font-size:0;line-height:0;">&nbsp;</div></td></tr>
+        <tr><td style="padding:16px 22px 18px;">
+          <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+            <td valign="middle">
+              <div style="font-family:${MONO};font-size:11px;font-weight:700;letter-spacing:1.2px;text-transform:uppercase;white-space:nowrap;color:${MUTED};">Admit one · ${escape(spot)}</div>
+              <div style="margin-top:3px;font-family:${SANS};font-size:18px;font-weight:800;line-height:1.25;color:${INK};">${escape(name)}</div>
+            </td>
+            <td align="right" valign="middle" style="padding-left:12px;">
+              <span style="display:inline-block;padding:5px 9px;border:2px solid ${INK};border-radius:8px;font-family:${MONO};font-size:11px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;color:${INK};white-space:nowrap;">Confirmed</span>
+            </td>
+          </tr></table>
+        </td></tr>
+      </table>
+    </td></tr>
+
+    <tr><td align="center" class="nf-pad" style="padding:28px 40px 0;">
+      <a href="${eventUrl}" style="display:inline-block;padding:15px 32px;border-radius:999px;background:${INK};font-family:${SANS};font-size:15px;font-weight:800;color:#ffffff;text-decoration:none;">View your ticket &rarr;</a>
+      ${times ? `<div style="margin-top:14px;font-family:${SANS};font-size:14px;"><a href="${escape(calendarLink(event, times))}" style="color:${INK};font-weight:700;text-decoration:underline;">Add to Google Calendar</a></div>` : ""}
+    </td></tr>
+
+    <tr><td class="nf-pad" style="padding:30px 40px 36px;">
+      <div style="border-top:1px solid ${LINE};padding-top:24px;font-family:${SANS};font-size:16px;font-weight:800;color:${INK};">On the day</div>
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:14px;">
+        ${step(1, "Pay through the link we send on WhatsApp.")}
+        ${step(2, `Open your <a href="${SITE_CONFIG.url}/account" style="color:${INK};font-weight:700;">.fit ID</a> and flip it to the check-in QR.`)}
+        ${step(3, `Show it at the desk at ${escape(event.venueName)}.${bring.length ? ` Bring: ${bring.map(escape).join(", ")}.` : ""}`, true)}
+      </table>
+    </td></tr>
+
+  </table>
   </td></tr>
 
-  <tr><td style="padding:28px 0 0;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#0d2a17;border:1px solid #25d366;border-radius:20px;">
-      <tr>
-        <td width="68" valign="top" style="padding:20px 0 20px 20px;">
-          <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr><td align="center" valign="middle" width="48" height="48" style="width:48px;height:48px;border-radius:24px;background:#25d366;font-size:24px;line-height:48px;">💬</td></tr></table>
-        </td>
-        <td valign="top" style="padding:20px 22px 20px 14px;">
-          <div style="font-family:${SANS};font-size:18px;font-weight:800;line-height:1.3;color:#ffffff;">Payment details coming on WhatsApp</div>
-          <div style="margin-top:6px;font-family:${SANS};font-size:15px;line-height:1.55;color:#cfeedd;">We’ll send your <strong style="color:#ffffff;">${price}</strong> payment link to <strong style="color:#ffffff;white-space:nowrap;">${escape(number)}</strong> on WhatsApp. Keep an eye on your chats and pay through that link.</div>
-        </td>
-      </tr>
-    </table>
-  </td></tr>
-
-  <tr><td style="padding:24px 0 0;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${CARD};border:1px solid ${LINE};border-bottom:0;border-radius:22px 22px 0 0;">
-      ${banner ? `<tr><td style="padding:0;line-height:0;"><img src="${escape(banner)}" width="600" alt="" style="display:block;width:100%;max-width:600px;height:auto;max-height:240px;object-fit:cover;border:0;border-radius:22px 22px 0 0;"></td></tr>` : ""}
-      <tr><td class="nf-pad" style="padding:24px 28px 8px;">
-        ${event.communityName ? `<div style="font-family:${MONO};font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:${LIME};">${escape(event.communityName)}</div>` : ""}
-        <div style="margin-top:6px;font-family:${SANS};font-size:26px;font-weight:800;line-height:1.15;letter-spacing:-0.4px;color:#ffffff;">${escape(event.title)}</div>
-      </td></tr>
-      <tr><td class="nf-pad" style="padding:14px 28px 6px;">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-          <tr>${detail("Date", escape(day))}${detail("Time · IST", `${escape(event.startTime)} – ${escape(event.endTime)}`)}</tr>
-          <tr>${detail("Where", `${escape(event.venueName)}, ${escape(event.sector)}`)}${detail("To pay", `${price} <span style="font-size:13px;font-weight:600;color:#25d366;">via WhatsApp link</span>`)}</tr>
-        </table>
-      </td></tr>
-    </table>
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${LIME};border-radius:0 0 22px 22px;border-top:2px dashed ${INK};">
-      <tr>
-        <td class="nf-pad" valign="middle" style="padding:18px 28px 20px;">
-          <div style="font-family:${MONO};font-size:11px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:#2a3a0a;">Admit one · ${escape(spot)}</div>
-          <div style="margin-top:4px;font-family:${SANS};font-size:20px;font-weight:900;line-height:1.2;color:${INK};">${escape(name)}</div>
-        </td>
-        <td align="right" valign="middle" style="padding:18px 28px 20px 0;">
-          <span style="display:inline-block;padding:7px 12px;border:2px solid ${INK};border-radius:10px;font-family:${MONO};font-size:13px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:${INK};white-space:nowrap;">Confirmed</span>
-        </td>
-      </tr>
-    </table>
-  </td></tr>
-
-  <tr><td align="center" style="padding:30px 0 0;">
-    <a href="${eventUrl}" style="display:inline-block;padding:16px 34px;border-radius:999px;background:${LIME};font-family:${SANS};font-size:16px;font-weight:800;color:${INK};text-decoration:none;">View your ticket &rarr;</a>
-    ${times ? `<div style="margin-top:16px;font-family:${SANS};font-size:14px;"><a href="${escape(calendarLink(event, times))}" style="color:${LIME};font-weight:700;text-decoration:none;">&#65291; Add to Google Calendar</a></div>` : ""}
-  </td></tr>
-
-  <tr><td style="padding:30px 0 0;">
-    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${CARD};border:1px solid ${LINE};border-radius:20px;">
-      <tr><td class="nf-pad" style="padding:22px 28px;">
-        <div style="font-family:${SANS};font-size:17px;font-weight:800;color:#ffffff;">On the day</div>
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:12px;">
-          <tr><td width="30" valign="top" style="padding:0 0 10px;font-family:${MONO};font-size:13px;font-weight:800;color:${LIME};">01</td><td valign="top" style="padding:0 0 10px;font-family:${SANS};font-size:15px;line-height:1.5;color:#d6dce4;">Pay through the link we send on WhatsApp.</td></tr>
-          <tr><td width="30" valign="top" style="padding:0 0 10px;font-family:${MONO};font-size:13px;font-weight:800;color:${LIME};">02</td><td valign="top" style="padding:0 0 10px;font-family:${SANS};font-size:15px;line-height:1.5;color:#d6dce4;">Open your <a href="${SITE_CONFIG.url}/account" style="color:${LIME};font-weight:700;text-decoration:none;">.fit ID</a> and flip it to the check-in QR.</td></tr>
-          <tr><td width="30" valign="top" style="padding:0;font-family:${MONO};font-size:13px;font-weight:800;color:${LIME};">03</td><td valign="top" style="padding:0;font-family:${SANS};font-size:15px;line-height:1.5;color:#d6dce4;">Show it at the desk at ${escape(event.venueName)}.${bring.length ? ` Bring: ${bring.map(escape).join(", ")}.` : ""}</td></tr>
-        </table>
-      </td></tr>
-    </table>
-  </td></tr>
-
-  <tr><td align="center" style="padding:34px 20px 0;font-family:${SANS};font-size:12px;line-height:1.7;color:#6b7686;">
+  <tr><td align="center" style="padding:24px 20px 0;font-family:${SANS};font-size:12px;line-height:1.7;color:${MUTED};">
     You’re getting this because you booked a spot on NOIDA.FIT with this email address.<br>
-    <a href="${SITE_CONFIG.url}/refund-policy" style="color:${MUTED};">Refund &amp; cancellation</a> &nbsp;·&nbsp; <a href="${SITE_CONFIG.url}/privacy" style="color:${MUTED};">Privacy</a> &nbsp;·&nbsp; <a href="${SITE_CONFIG.url}/terms" style="color:${MUTED};">Terms</a><br>
+    <a href="${SITE_CONFIG.url}/refund-policy" style="color:${BODY};">Refund &amp; cancellation</a> &nbsp;·&nbsp; <a href="${SITE_CONFIG.url}/privacy" style="color:${BODY};">Privacy</a> &nbsp;·&nbsp; <a href="${SITE_CONFIG.url}/terms" style="color:${BODY};">Terms</a><br>
     NOIDA.FIT is owned and operated by Ambuj Pandey, a sole proprietor, trading as Dot Fit Network, Noida, Uttar Pradesh 201301, India.
   </td></tr>
 

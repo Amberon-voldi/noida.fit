@@ -7,8 +7,8 @@ export interface OrganizerAttendee {
   displayName: string;
   rsvpStatus: "confirmed";
   seatNumber?: number;
-  /** Paid events only. `amount` is in paise. */
-  ticket?: { amount: number; paid: boolean };
+  /** Paid events only. `amount` is in paise. `online`: paid on PayU, so only PayU changes it; otherwise the organizer marks it paid or due. */
+  ticket?: { amount: number; paid: boolean; online?: boolean };
   /** A spot claimed through one of the organizer's gift links; `label` is who the link was for. */
   gift?: { linkId: string; label?: string };
   /** Claimed through a gift link without an account: their guest pass ID (to check them in by hand) and the mobile number they gave. */

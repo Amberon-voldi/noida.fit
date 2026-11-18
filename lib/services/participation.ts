@@ -296,6 +296,26 @@ export async function reserveTicket(userId: string, eventId: string, expectedAmo
   return allocateSeat(event, eventId, userId, { ...fields, amount }, start);
 }
 
+/** A ticket PayU confirmed carries this reference prefix (lib/services/ticket-payments.ts); only PayU changes it. */
+export const isPaidOnline = (paymentRef: string | undefined) => Boolean(paymentRef?.startsWith("payu:"));
+
+/**
+ * An event's organizer records a ticket's payment by hand: paid (e.g. through the WhatsApp link) or still
+ * due. The ticket is found by its spot, so no account ID reaches the organizer. Only paymentStatus changes:
+ * the WhatsApp contact stays for the organizer, and a ticket paid on PayU is left to PayU.
+ */
+export async function setTicketPaid(operator: Pick<AuthUser, "id" | "labels">, eventId: string, seatNumber: number, paid: boolean): Promise<{ seatNumber: number; paid: boolean }> {
+  const event = await getEvent(eventId, false);
+  if (!(await managesEvent(operator, { organizerIds: organizerIdsOf(event), communitySlug: event.communitySlug }))) {
+    throw new HttpError(403, "ORGANIZER_REQUIRED", "Only this session’s organizers or an administrator can update its payments");
+  }
+  const [row] = await listAppwriteDocuments<TicketRow>(collections.rsvps, [Query.equal("eventId", event.$id), Query.equal("seatNumber", seatNumber), Query.limit(1)]);
+  if (!row || row.status !== "confirmed" || !row.amount) throw new HttpError(404, "TICKET_NOT_FOUND", "No ticket holds that spot");
+  if (isPaidOnline(row.paymentRef)) throw new HttpError(409, "PAID_ONLINE", "This ticket was paid online through PayU, so its payment can’t be changed here");
+  if ((row.paymentStatus === "paid") !== paid) await updateAppwriteDocument(collections.rsvps, row.$id, { paymentStatus: paid ? "paid" : "pending" });
+  return { seatNumber, paid };
+}
+
 /** Still waiting on its WhatsApp payment link: a confirmed spot booked to pay later, not yet paid. */
 const awaitingWhatsappPayment = (row: TicketRow) => row.status === "confirmed" && Boolean(row.amount) && row.paymentStatus !== "paid" ? whatsappContactOf(row.paymentRef) : undefined;
 

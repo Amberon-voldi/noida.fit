@@ -10,7 +10,7 @@ import { HttpError } from "@/lib/http";
 import { ticketHoldEndsAt } from "@/lib/pricing";
 import { giftGuests, giftLinkLabels } from "@/lib/services/gifts";
 import { allClubOrganizers, organizerIdsOf, runsEvent } from "@/lib/services/organizers";
-import { eventWindow, isAdminUser, isGuestHolder, whatsappContactOf } from "@/lib/services/participation";
+import { eventWindow, isAdminUser, isGuestHolder, isPaidOnline, whatsappContactOf } from "@/lib/services/participation";
 import type { AuthUser } from "@/lib/auth";
 import type { Event } from "@/types/event";
 import type { OrganizerAttendee, OrganizerEventSummary, CheckInWindowState } from "@/types/organizer";
@@ -113,7 +113,7 @@ export async function getOrganizerEventSummaries(
         displayName: guest ? safeDisplayName(guest.name) : isGuestHolder(rsvp.userId) ? "Guest" : safeDisplayName(whatsapp?.name ?? names.get(rsvp.userId)),
         rsvpStatus: "confirmed",
         ...(Number.isSafeInteger(rsvp.seatNumber) ? { seatNumber: rsvp.seatNumber } : {}),
-        ...(rsvp.amount ? { ticket: { amount: rsvp.amount, paid: rsvp.paymentStatus === "paid" } } : {}),
+        ...(rsvp.amount ? { ticket: { amount: rsvp.amount, paid: rsvp.paymentStatus === "paid", ...(isPaidOnline(rsvp.paymentRef) ? { online: true } : {}) } } : {}),
         ...(giftLinkId ? { gift: { linkId: giftLinkId, ...(giftLabel ? { label: giftLabel } : {}) } } : {}),
         ...(guest ? { guest: { pass: guest.pass, phone: guest.phone } } : {}),
         ...(whatsapp ? { whatsapp: whatsapp.phone } : {}),

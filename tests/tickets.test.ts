@@ -206,6 +206,36 @@ test("a new number in settings moves only the member's own unpaid WhatsApp booki
   assert.equal(ticketRow("paid")!.paymentRef, "pay_synthetic");
 });
 
+test("organizers mark a ticket paid or still due by its spot; a ticket paid on PayU stays PayU's", async t => {
+  t.mock.method(console, "info", () => {}); reset();
+  await service.reserveTicket(member, "paid", 19900, { name: "Asha Rao", phone: "9876543210" });
+  const organizer = await import("../lib/services/organizer");
+  const event = { id: "paid", slug: "paid", title: "Synthetic paid session", status: "published", organizerUserId: operator.id, capacity: 2, startsAt: rows.get("events/paid")!.startsAt, endsAt: rows.get("events/paid")!.endsAt } as unknown as import("../types/event").Event;
+  await assert.rejects(service.setTicketPaid({ id: "someone-else", labels: [] }, "paid", 1, true), { code: "ORGANIZER_REQUIRED" });
+  await assert.rejects(service.setTicketPaid(operator, "paid", 2, true), { code: "TICKET_NOT_FOUND" }, "an empty spot");
+  writes = [];
+  assert.deepEqual(await service.setTicketPaid(operator, "paid", 1, true), { seatNumber: 1, paid: true });
+  assert.deepEqual(writes.map(write => write.data), [{ paymentStatus: "paid" }], "only the payment status changes");
+  assert.equal(ticketRow("paid")!.paymentRef, "whatsapp:9876543210:Asha Rao", "the WhatsApp contact stays");
+  const summary = await organizer.getOrganizerEventSummary(operator, event);
+  assert.deepEqual(summary.attendees[0].ticket, { amount: 19900, paid: true });
+  assert.equal(summary.revenue, 19900);
+  const { token } = await service.createParticipantCheckInToken(member);
+  assert.equal("amountDue" in await service.checkInParticipant(operator, "paid", token), false, "the desk no longer asks them to pay");
+  writes = [];
+  await service.setTicketPaid(operator, "paid", 1, true);
+  assert.equal(writes.length, 0, "marking it paid again writes nothing");
+  await service.setTicketPaid(operator, "paid", 1, false);
+  assert.equal(ticketRow("paid")!.paymentStatus, "pending", "and back to still due");
+  // A free RSVP has no ticket to pay, and PayU's payments are PayU's to record.
+  await service.createRsvp(member, "free");
+  await assert.rejects(service.setTicketPaid(operator, "free", 1, true), { code: "TICKET_NOT_FOUND" });
+  ticketRow("paid")!.paymentRef = "payu:NF0123456789abcdef0123:403993715531";
+  ticketRow("paid")!.paymentStatus = "paid";
+  await assert.rejects(service.setTicketPaid(operator, "paid", 1, false), { code: "PAID_ONLINE" });
+  assert.equal((await organizer.getOrganizerEventSummary(operator, event)).attendees[0].ticket?.online, true);
+});
+
 test("an unpaid hold becomes the spot booked to pay on WhatsApp, at the price it was held at", async t => {
   t.mock.method(console, "info", () => {}); reset();
   const hold = await service.holdTicket(member, "paid", 19900);
@@ -216,6 +246,8 @@ test("an unpaid hold becomes the spot booked to pay on WhatsApp, at the price it
 
 test("booking to pay on WhatsApp needs a name and an Indian mobile number, and never books a demo listing", async t => {
   t.mock.method(console, "info", () => {}); reset();
+  // This bare event can't fill a confirmation email; the booking stands regardless (tested below).
+  t.mock.method(console, "error", () => {});
   const payments = await import("../lib/services/ticket-payments");
   rows.set("events/demo", { ...rows.get("events/paid")!, $id: "demo", payload: JSON.stringify({ price: "₹199", demo: true }) });
   const reserve = (input: { eventId?: string; name: string; phone: string }) => payments.reserveTicketOnWhatsapp({ id: member }, { eventId: "paid", amount: 19900, ...input });
