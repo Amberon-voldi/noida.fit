@@ -388,6 +388,7 @@ export async function checkInGuest(operator: Actor, eventId: string, passId: str
   const row = guestPassIdSchema.safeParse(passId).success && isGuestPassesConfigured()
     ? await withGuestTable(table => getAppwriteDocument<GuestRow>(table, passId))
     : null;
-  const result = await checkInGuestHolder(operator, eventId, row?.eventId === eventId ? guestHolderId(row.eventId, row.phone) : null);
+  const mine = row?.eventId === eventId ? row : null;
+  const result = await checkInGuestHolder(operator, eventId, mine ? guestHolderId(mine.eventId, mine.phone) : null, mine?.name || "This guest");
   return { ...result, displayName: row?.name || "Guest", guest: true };
 }

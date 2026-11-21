@@ -2,14 +2,13 @@
 
 import { useId, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertTriangle, CheckCircle2, Clock3, UserX } from "lucide-react";
+import { AlertTriangle, CheckCircle2, Clock3, IndianRupee, UserX } from "lucide-react";
 import type { CheckInWindowState } from "@/types/organizer";
 import { checkInCodeFromQr } from "@/lib/check-in-qr";
-import { formatInr } from "@/lib/pricing";
 import { CheckInScanner } from "./CheckInScanner";
 
 export interface OperatorEvent { id: string; title: string; checkInWindow: CheckInWindowState; checkedIn?: number; confirmedRsvps?: number; }
-type Outcome = "checked-in" | "already" | "not-on-list" | "expired" | "error";
+type Outcome = "checked-in" | "already" | "not-on-list" | "unpaid" | "expired" | "error";
 interface ScanResult { id: number; outcome: Outcome; title: string; detail: string; at: string; }
 
 const timeFormatter = new Intl.DateTimeFormat("en-IN", { hour: "numeric", minute: "2-digit", second: "2-digit", timeZone: "Asia/Kolkata" });
@@ -18,6 +17,7 @@ const outcomeStyle: Record<Outcome, { box: string; text: string; label: string; 
   "checked-in": { box: "border-velocity bg-velocity/10", text: "text-velocity", label: "Checked in", Icon: CheckCircle2 },
   already: { box: "border-sky-400/60 bg-sky-400/10", text: "text-sky-300", label: "Already in", Icon: CheckCircle2 },
   "not-on-list": { box: "border-rose-400/70 bg-rose-400/10", text: "text-rose-300", label: "Not on list", Icon: UserX },
+  unpaid: { box: "border-amber-400/70 bg-amber-400/10", text: "text-amber-300", label: "Not paid", Icon: IndianRupee },
   expired: { box: "border-amber-400/60 bg-amber-400/10", text: "text-amber-300", label: "QR expired", Icon: Clock3 },
   error: { box: "border-rose-400/70 bg-rose-400/10", text: "text-rose-300", label: "Failed", Icon: AlertTriangle },
 };
@@ -26,6 +26,9 @@ const outcomeStyle: Record<Outcome, { box: string; text: string; label: string; 
 function failure(code: string | undefined, message: string): Pick<ScanResult, "outcome" | "title" | "detail"> {
   switch (code) {
     case "RSVP_REQUIRED": return { outcome: "not-on-list", title: "Not on the RSVP list", detail: message };
+    // Their ticket is unpaid: once it's marked paid on the guest list, the next scan checks them in.
+    case "PAYMENT_DUE": return { outcome: "unpaid", title: "Not paid yet", detail: message };
+    case "PAYMENT_PENDING": return { outcome: "unpaid", title: "Payment not finished", detail: message };
     case "CHECKIN_TOKEN_EXPIRED": return { outcome: "expired", title: "QR expired", detail: "Ask them to refresh the check-in QR on their .fit ID, then scan again." };
     case "CHECKIN_TOKEN_INVALID": return { outcome: "error", title: "Not a valid check-in QR", detail: "Ask them to open their .fit ID and show the check-in side of the card, or open their guest pass." };
     case "CHECKIN_CLOSED": return { outcome: "error", title: "Check-in is closed", detail: "New check-ins open 30 minutes before the start and close an hour after the end." };
@@ -62,14 +65,14 @@ export function OrganizerCheckInForm({ event }: { event: OperatorEvent }) {
       }
       const response = await fetch("/api/check-in/organizer", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ eventId: event.id, ...code }) });
       if (response.status === 401) { router.push(`/login?callbackUrl=/organizer/events/${encodeURIComponent(event.id)}`); return; }
-      const data = await response.json().catch(() => null) as { checkedIn?: boolean; displayName?: string; checkedInAt?: string; alreadyCheckedIn?: boolean; amountDue?: number; guest?: boolean; error?: string; code?: string } | null;
+      const data = await response.json().catch(() => null) as { checkedIn?: boolean; displayName?: string; checkedInAt?: string; alreadyCheckedIn?: boolean; guest?: boolean; error?: string; code?: string } | null;
       if (!response.ok || !data?.checkedIn || !data.displayName) {
         push(failure(data?.code, data?.error || "Participant check-in could not be completed. Try again."));
         return;
       }
       push(data.alreadyCheckedIn
         ? { outcome: "already", title: data.displayName, detail: `Already checked in at ${data.checkedInAt ? timeFormatter.format(new Date(data.checkedInAt)) : "an earlier scan"}.` }
-        : { outcome: "checked-in", title: data.displayName, detail: data.guest ? "Checked in with their guest pass." : data.amountDue ? `Checked in. Collect ${formatInr(data.amountDue)} for their ticket.` : "Checked in. Attendance is on their .fit ID." });
+        : { outcome: "checked-in", title: data.displayName, detail: data.guest ? "Checked in with their guest pass." : "Checked in. Attendance is on their .fit ID." });
       setInput("");
       router.refresh();
     } catch {

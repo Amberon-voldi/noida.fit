@@ -18,6 +18,8 @@ before(async () => {
     const url = new URL(String(input)); assert.equal(url.origin, "https://appwrite.test");
     const method = init?.method ?? "GET";
     const body = init?.body ? JSON.parse(String(init.body)) : {};
+    // Members scanned at the desk: their account is active.
+    if (url.pathname.startsWith("/v1/users/")) return Response.json({ $id: url.pathname.slice(10), status: true });
     const match = /collections\/([^/]+)\/documents(?:\/([^/]+))?$/.exec(url.pathname); assert.ok(match, url.pathname);
     const [, collection, id] = match;
     const key = `${collection}/${id ?? body.documentId}`;
@@ -211,6 +213,60 @@ test("the desk checks a guest in from their pass, and the guest list names them 
   await rejects(gifts.checkInGuest(organizerUser, "paid", "p".padEnd(25, "x")), "RSVP_REQUIRED");
   const { guestTicketLabel } = await import("../lib/guest-csv");
   assert.equal(guestTicketLabel(summary.attendees[0]), "Gift (Asha), guest pass");
+});
+
+test("on a paid session, every paid or gifted spot checks in, and an unpaid one only once it's marked paid", async () => {
+  reset({ capacity: 10 });
+  const start = Date.now() + 10 * 60_000;
+  Object.assign(rows.get("events/paid")!, { startsAt: new Date(start).toISOString(), endsAt: new Date(start + 60 * 60_000).toISOString() });
+  const memberQr = async (userId: string, publicId: string) => {
+    rows.set(`fitness_ids/${userId}`, { $id: userId, userId, publicId, status: "active" });
+    rows.set(`profiles/${userId}`, { $id: userId, displayName: userId });
+    return (await participation.createParticipantCheckInToken(userId)).token;
+  };
+  // A guest without an account added to the list as paid, the way an organizer's paid guests are.
+  const listedGuest = async (name: string, phone: string, paid: boolean) => {
+    const passId = `p${name.padEnd(24, "x").slice(0, 24)}`;
+    rows.set(`gift_guests/${passId}`, { $id: passId, eventId: "paid", linkId: "manual-paid", name, phone, createdAt: new Date().toISOString() });
+    const spot = await participation.reserveTicket(gifts.guestHolderId("paid", phone), "paid", 29900, { name, phone });
+    if (paid) await participation.setTicketPaid(organizerUser, "paid", spot.seatNumber, true);
+    return { passId, seatNumber: spot.seatNumber };
+  };
+
+  // A member who paid (WhatsApp, marked paid).
+  const paidToken = await memberQr("paid-member", "NF-00000000000000A1");
+  const paidSpot = await participation.reserveTicket("paid-member", "paid", 29900, { name: "Paid member", phone: "9000000001" });
+  await participation.setTicketPaid(organizerUser, "paid", paidSpot.seatNumber, true);
+  assert.equal((await participation.checkInParticipant(organizerUser, "paid", paidToken)).alreadyCheckedIn, false);
+  // A member who claimed a gift link: nothing to pay.
+  const giftToken = await memberQr(guest.id, "NF-00000000000000A2");
+  await gifts.claimGift(guest, (await create({ label: "Riya" })).id);
+  assert.equal((await participation.checkInParticipant(organizerUser, "paid", giftToken)).alreadyCheckedIn, false);
+  // A guest pass from a gift link that needs no account.
+  const { passId: giftPass } = await gifts.claimGiftAsGuest((await create({ allowGuests: true, label: "Asha" })).id, { phone: "9876543210" });
+  assert.equal((await gifts.checkInGuest(organizerUser, "paid", giftPass)).alreadyCheckedIn, false);
+  // A paid guest without an account.
+  const kabir = await listedGuest("Kabir", "9000000011", true);
+  assert.deepEqual(await gifts.checkInGuest(organizerUser, "paid", kabir.passId).then(result => [result.displayName, result.alreadyCheckedIn]), ["Kabir", false]);
+
+  // Payment due: refused with who and how much, whether member or guest, and nothing is recorded.
+  const dueToken = await memberQr("due-member", "NF-00000000000000A3");
+  const dueSpot = await participation.reserveTicket("due-member", "paid", 29900, { name: "Due member", phone: "9000000002" });
+  await rejects(participation.checkInParticipant(organizerUser, "paid", dueToken), "PAYMENT_DUE");
+  await assert.rejects(participation.checkInParticipant(organizerUser, "paid", dueToken), /due-member hasn’t paid ₹299/);
+  const dueGuest = await listedGuest("Meera", "9000000012", false);
+  await assert.rejects(gifts.checkInGuest(organizerUser, "paid", dueGuest.passId), (error: { code?: string; status?: number; message?: string }) => error.code === "PAYMENT_DUE" && error.status === 402 && /^Meera hasn’t paid ₹299/.test(error.message ?? ""));
+  assert.equal(rows.has(`checkins/${participation.checkInDocumentId("paid", "due-member")}`), false);
+  assert.equal(rows.has(`checkins/${participation.checkInDocumentId("paid", gifts.guestHolderId("paid", "9000000012"))}`), false);
+  // They pay on the spot and are marked paid: the very next scan lets them in.
+  await participation.setTicketPaid(organizerUser, "paid", dueSpot.seatNumber, true);
+  await participation.setTicketPaid(organizerUser, "paid", dueGuest.seatNumber, true);
+  assert.equal((await participation.checkInParticipant(organizerUser, "paid", dueToken)).alreadyCheckedIn, false);
+  assert.equal((await gifts.checkInGuest(organizerUser, "paid", dueGuest.passId)).alreadyCheckedIn, false);
+
+  const event = { ...(await (await import("../lib/data")).getEventAnyStatus("paid"))!, organizerUserIds: [organizerUser.id] };
+  const summary = await organizer.getOrganizerEventSummary(organizerUser, event);
+  assert.deepEqual({ going: summary.confirmedRsvps, checkedIn: summary.checkedIn }, { going: 6, checkedIn: 6 });
 });
 
 test("the desk tells a guest pass QR from a .fit ID check-in QR", async () => {

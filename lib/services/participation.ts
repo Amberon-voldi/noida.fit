@@ -9,7 +9,7 @@ import {
   type AppwriteDocument,
 } from "@/lib/appwrite/database";
 import { HttpError } from "@/lib/http";
-import { MAX_TICKET_RUPEES, parseEventPrice, ticketHoldEndsAt } from "@/lib/pricing";
+import { formatInr, MAX_TICKET_RUPEES, parseEventPrice, ticketHoldEndsAt } from "@/lib/pricing";
 import type { AuthUser } from "@/lib/auth";
 import { getAdminServices } from "@/lib/appwrite/server";
 import { clubOrganizerIds, organizerIdsOf } from "@/lib/services/organizers";
@@ -595,6 +595,17 @@ async function getOperatedEvent(operator: Pick<AuthUser, "id" | "labels">, event
   return event;
 }
 
+/**
+ * A spot whose price is still due (booked to pay on WhatsApp, not yet marked paid) isn't let in: the desk says
+ * so, collects, and marks it paid on the guest list. Every scan reads the ticket afresh, so the next scan after
+ * that checks them in. Gift spots and free RSVPs have nothing to pay.
+ */
+function requirePaid(rsvp: Pick<RSVP, "amount" | "paymentStatus">, who: string): void {
+  if (rsvp.amount && rsvp.paymentStatus !== "paid") {
+    throw new HttpError(402, "PAYMENT_DUE", `${who} hasn’t paid ${formatInr(rsvp.amount)} for this session yet. Collect it, tap Mark paid on the guest list, then check them in again.`);
+  }
+}
+
 /** Operator-scanned attendance. Possessing a participant QR never authorizes its holder to write attendance. */
 export async function checkInParticipant(organizer: Pick<AuthUser, "id" | "labels">, eventId: string, token: string) {
   const event = await getOperatedEvent(organizer, eventId);
@@ -628,22 +639,21 @@ export async function checkInParticipant(organizer: Pick<AuthUser, "id" | "label
   // The participant showed this card to the desk, so naming them here reveals nothing new.
   if (rsvp?.status === "pending") throw new HttpError(403, "PAYMENT_PENDING", `${displayName} hasn’t finished paying for a ticket, so they aren’t confirmed yet`);
   if (rsvp?.status !== "confirmed") throw new HttpError(403, "RSVP_REQUIRED", `${displayName} is not on the RSVP list for this event`);
+  requirePaid(rsvp, displayName);
   const checkin = checkinDto(await createOnce<Row<CheckIn>>(collections.checkins, id, {
     eventId: event.$id, userId, timestamp: new Date().toISOString(), verificationMethod: "organizer_qr",
   }, userId));
   await ensureVerifiedParticipation(userId, event, checkin);
-  // Only tickets issued before online payment can be confirmed unpaid; the desk is told what to collect.
-  const amountDue = rsvp.amount && rsvp.paymentStatus !== "paid" ? rsvp.amount : undefined;
-  return { eventId: event.$id, displayName, checkedInAt: checkin.timestamp, alreadyCheckedIn: false, ...(amountDue ? { amountDue } : {}) };
+  return { eventId: event.$id, displayName, checkedInAt: checkin.timestamp, alreadyCheckedIn: false };
 }
 
 /**
  * Checks in a guest who claimed a gift spot without an account, from their guest pass (lib/services/gifts.ts).
  * The same rules as a member: this event's operator or an admin, inside the check-in window, with a confirmed
- * spot. A guest has no .fit ID, so no passport record follows. `holderId` is null for a pass that isn't for
- * this event.
+ * spot, paid if it has a price. A guest has no .fit ID, so no passport record follows. `holderId` is null for a
+ * pass that isn't for this event; `name` is the name on the pass.
  */
-export async function checkInGuestHolder(operator: Pick<AuthUser, "id" | "labels">, eventId: string, holderId: string | null) {
+export async function checkInGuestHolder(operator: Pick<AuthUser, "id" | "labels">, eventId: string, holderId: string | null, name = "This guest") {
   const event = await getOperatedEvent(operator, eventId);
   const window = validateCheckInEvent(event);
   if (!holderId || !isGuestHolder(holderId)) throw new HttpError(403, "RSVP_REQUIRED", "This guest pass isn’t for this session");
@@ -653,7 +663,9 @@ export async function checkInGuestHolder(operator: Pick<AuthUser, "id" | "labels
   if (event.status !== "published") throw new HttpError(409, "EVENT_UNAVAILABLE", "This event is not available for new check-ins");
   const now = Date.now();
   if (now < window.opensAt || now >= window.closesAt) throw new HttpError(409, "CHECKIN_CLOSED", "Check-in is outside the event window");
-  if ((await getUserRsvp(event.$id, holderId))?.status !== "confirmed") throw new HttpError(403, "RSVP_REQUIRED", "This guest’s spot is no longer on the list for this session");
+  const rsvp = await getUserRsvp(event.$id, holderId);
+  if (rsvp?.status !== "confirmed") throw new HttpError(403, "RSVP_REQUIRED", "This guest’s spot is no longer on the list for this session");
+  requirePaid(rsvp, name);
   const checkin = await createOnce<Row<CheckIn>>(collections.checkins, id, {
     eventId: event.$id, userId: holderId, timestamp: new Date().toISOString(), verificationMethod: "guest_pass",
   }, holderId);

@@ -146,11 +146,14 @@ test("the guest list and check-in desk count only paid tickets, never account ID
   const summary = await organizer.getOrganizerEventSummary(operator, event);
   assert.deepEqual(summary.attendees, [{ displayName: "Ticket holder", rsvpStatus: "confirmed", seatNumber: 1, ticket: { amount: 19900, paid: true }, checkInStatus: "not_checked_in" }]);
   assert.ok(!JSON.stringify(summary).includes(member));
-  assert.equal("amountDue" in await service.checkInParticipant(operator, "paid", token), false);
-  // A ticket issued before online payment (confirmed, unpaid) still admits its holder; the desk is told what to collect.
+  assert.equal((await service.checkInParticipant(operator, "paid", token)).alreadyCheckedIn, false);
+  // A confirmed ticket still unpaid is refused at the desk, and the next scan after it's marked paid checks them in.
   reset();
   rows.set(`rsvps/${service.rsvpDocumentId("paid", member)}`, { $id: service.rsvpDocumentId("paid", member), eventId: "paid", userId: member, status: "confirmed", seatNumber: 1, createdAt: new Date().toISOString(), amount: 19900, paymentStatus: "pending" });
-  assert.equal((await service.checkInParticipant(operator, "paid", token)).amountDue, 19900);
+  await assert.rejects(service.checkInParticipant(operator, "paid", token), (error: { code?: string; status?: number; message?: string }) => error.code === "PAYMENT_DUE" && error.status === 402 && /Ticket holder hasn’t paid ₹199/.test(error.message ?? ""));
+  assert.equal(rows.has(`checkins/${service.checkInDocumentId("paid", member)}`), false, "no attendance for an unpaid ticket");
+  await service.setTicketPaid(operator, "paid", 1, true);
+  assert.equal((await service.checkInParticipant(operator, "paid", token)).alreadyCheckedIn, false, "paid on the spot: the same QR now checks in");
 });
 
 test("a spot booked to pay on WhatsApp is confirmed at once with its price due, and its number reaches only its owner and the organizer", async t => {
@@ -173,7 +176,7 @@ test("a spot booked to pay on WhatsApp is confirmed at once with its price due, 
   assert.equal(summary.revenue, 0, "an unpaid spot is no revenue");
   assert.ok(!JSON.stringify(summary).includes(member));
   const { token } = await service.createParticipantCheckInToken(member);
-  assert.equal((await service.checkInParticipant(operator, "paid", token)).amountDue, 19900, "the desk is told what is still due");
+  await assert.rejects(service.checkInParticipant(operator, "paid", token), { code: "PAYMENT_DUE" }, "not let in until it's paid");
 
   // Capacity holds as for any ticket, and an unpaid spot can be let go.
   assert.equal((await service.reserveTicket("other-member", "paid", 19900, contact)).seatNumber, 2);
@@ -221,7 +224,7 @@ test("organizers mark a ticket paid or still due by its spot; a ticket paid on P
   assert.deepEqual(summary.attendees[0].ticket, { amount: 19900, paid: true });
   assert.equal(summary.revenue, 19900);
   const { token } = await service.createParticipantCheckInToken(member);
-  assert.equal("amountDue" in await service.checkInParticipant(operator, "paid", token), false, "the desk no longer asks them to pay");
+  assert.equal((await service.checkInParticipant(operator, "paid", token)).alreadyCheckedIn, false, "marked paid: the desk lets them in");
   writes = [];
   await service.setTicketPaid(operator, "paid", 1, true);
   assert.equal(writes.length, 0, "marking it paid again writes nothing");

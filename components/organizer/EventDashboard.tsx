@@ -241,7 +241,7 @@ export function EventDashboard({ summary, giftLinks, guestPasses, initialTab }: 
           {payError && payError.seat === attendee.seatNumber && <p role="alert" className="mt-1 text-xs text-rose-200">{payError.message}</p>}
         </li>)}
       </ul> : <p className="mt-3 rounded-xl border border-dashed border-border-strong p-5 text-sm text-text-secondary">{summary.confirmedRsvps ? "No guests match." : "No one is going yet. Share the session, or invite people with a gift link."}</p>}
-      {attendees.some(attendee => attendee.ticket && !attendee.ticket.online) && <p className="mt-3 text-xs text-text-secondary">Tap <strong className="text-white">Mark paid</strong> once a guest has paid, e.g. through the WhatsApp link: revenue counts it and the check-in desk stops asking them to pay. Tap <strong className="text-white">Paid</strong> to set it back to due.</p>}
+      {attendees.some(attendee => attendee.ticket && !attendee.ticket.online) && <p className="mt-3 text-xs text-text-secondary">Tap <strong className="text-white">Mark paid</strong> once a guest has paid, e.g. through the WhatsApp link: revenue counts it and the check-in desk lets them in. Until then, check-in tells the desk they haven’t paid. Tap <strong className="text-white">Paid</strong> to set it back to due.</p>}
       <p className="mt-3 text-xs text-text-secondary">Members’ contact details and account IDs stay private. Guests who claimed a gift without an account gave you their mobile number, and members who booked to pay later gave you their WhatsApp number for the payment link: tap it to message them. Neither is in the CSV export.</p>
     </section>}
 
