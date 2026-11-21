@@ -1,7 +1,8 @@
 export const LEGAL_ENTITY_NAME = "Ambuj Pandey";
 export const TRADING_NAME = "Dot Fit Network";
 export const LEGAL_ENTITY_DESCRIPTION = "a sole proprietor";
-export const REGISTERED_ADDRESS = "Noida, Uttar Pradesh 201301, India";
+export const REGISTERED_ADDRESS = "Flat no 203, Central Apartment, Sarfabad, Sector 73, Noida, 201301, Uttar Pradesh, India";
+export const LEGAL_PHONE = "9873225236";
 export const DATA_STORAGE_REGION = "Kolkata, India";
 export const PRIVACY_CONTACT = "hello@noida.fit";
 export const EFFECTIVE_DATE = "17 November 2026";

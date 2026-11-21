@@ -5,6 +5,7 @@ import {
   EFFECTIVE_DATE,
   LEGAL_ENTITY_DESCRIPTION,
   LEGAL_ENTITY_NAME,
+  LEGAL_PHONE,
   PRIVACY_CONTACT,
   REGISTERED_ADDRESS,
   TRADING_NAME,
@@ -145,7 +146,7 @@ export default function PrivacyPage() {
           <section aria-labelledby="privacy-law">
             <h2 id="privacy-law" className="text-xl font-bold text-white">13. Governing law and contact</h2>
             <p className="mt-3">This policy is governed by the laws of India. Courts in Noida, Gautam Buddha Nagar, Uttar Pradesh have jurisdiction, subject to your legal rights.</p>
-            <p className="mt-3">Contact: {LEGAL_ENTITY_NAME}, {LEGAL_ENTITY_DESCRIPTION}, trading as {TRADING_NAME}, {REGISTERED_ADDRESS}; <a className="font-semibold text-velocity underline hover:text-velocity-glow" href={`mailto:${PRIVACY_CONTACT}`}>{PRIVACY_CONTACT}</a>.</p>
+            <p className="mt-3">Contact: {LEGAL_ENTITY_NAME}, {LEGAL_ENTITY_DESCRIPTION}, trading as {TRADING_NAME}, {REGISTERED_ADDRESS}; <a className="font-semibold text-velocity underline hover:text-velocity-glow" href={`mailto:${PRIVACY_CONTACT}`}>{PRIVACY_CONTACT}</a>; <a className="font-semibold text-velocity underline hover:text-velocity-glow" href={`tel:+91${LEGAL_PHONE}`}>+91 {LEGAL_PHONE}</a>.</p>
           </section>
         </div>
       </article>
