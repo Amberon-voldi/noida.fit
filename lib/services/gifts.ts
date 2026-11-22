@@ -386,9 +386,9 @@ export async function getGuestPass(passId: string): Promise<GuestPassView | null
 /** The check-in desk scanning a guest pass QR, or checking a guest in from the guest list. Operator or admin only. */
 export async function checkInGuest(operator: Actor, eventId: string, passId: string) {
   const row = guestPassIdSchema.safeParse(passId).success && isGuestPassesConfigured()
-    ? await withGuestTable(table => getAppwriteDocument<GuestRow>(table, passId))
-    : null;
-  const mine = row?.eventId === eventId ? row : null;
-  const result = await checkInGuestHolder(operator, eventId, mine ? guestHolderId(mine.eventId, mine.phone) : null, mine?.name || "This guest");
-  return { ...result, displayName: row?.name || "Guest", guest: true };
+    ? withGuestTable(table => getAppwriteDocument<GuestRow>(table, passId))
+    : Promise.resolve(null);
+  const pass = row.then(found => found?.eventId === eventId ? { holderId: guestHolderId(found.eventId, found.phone), name: found.name } : null);
+  const result = await checkInGuestHolder(operator, eventId, pass);
+  return { ...result, displayName: (await pass)?.name || "Guest", guest: true };
 }

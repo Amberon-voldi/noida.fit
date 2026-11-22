@@ -603,13 +603,26 @@ export function verifyParticipantCheckInToken(token: string) {
   return parsed;
 }
 
-async function ensureVerifiedParticipation(userId: string, event: AppwriteDocument<EventRecord>, checkin: CheckIn): Promise<void> {
+/**
+ * `fresh`: attendance was recorded just now, so the passport record almost never exists yet: it is created
+ * straight away, one database trip instead of two. A record that does exist (a lost race) falls through to
+ * the repair below.
+ */
+async function ensureVerifiedParticipation(userId: string, event: AppwriteDocument<EventRecord>, checkin: CheckIn, fresh = false): Promise<void> {
   const id = participationDocumentId(event.$id, userId);
   const data = {
     userId, eventId: event.$id, activityId: event.activityId, title: event.title.slice(0, 200),
     occurredAt: checkin.timestamp, source: "organizer_checkin", status: "verified",
   } satisfies Row<Participation>;
   try {
+    if (fresh) {
+      try {
+        await createAppwriteDocument<Row<Participation>>(collections.participations, data, id, userDocumentPermissions(userId));
+        return;
+      } catch (error) {
+        if (!isCode(error, 409)) throw error;
+      }
+    }
     const existing = await getAppwriteDocument<Row<Participation>>(collections.participations, id);
     if (existing) {
       if (existing.status !== "verified" || existing.source !== "organizer_checkin" || existing.occurredAt !== checkin.timestamp) {
@@ -667,12 +680,16 @@ export async function checkInParticipant(organizer: Pick<AuthUser, "id" | "label
     throw new HttpError(403, "FITNESS_ID_UNAVAILABLE", "This participant’s .fit ID is not active");
   }
   const userId = documentIdSchema.parse(identity.userId);
-  const member = await getAdminServices().users.get({ userId });
-  if (!member.status) throw new HttpError(403, "MEMBER_UNAVAILABLE", "This participant’s account is not active");
-  const profile = await getAppwriteDocument<{ displayName?: string }>(collections.profiles, userId);
-  const displayName = profile?.displayName?.trim().slice(0, 120) || "NOIDA.FIT member";
   const id = checkInDocumentId(event.$id, userId);
-  const existing = await getAppwriteDocument<Row<CheckIn>>(collections.checkins, id);
+  // Independent reads, all at once: each is a full database round trip, and they were most of a scan's wait.
+  const [member, profile, existing, rsvp] = await Promise.all([
+    getAdminServices().users.get({ userId }),
+    getAppwriteDocument<{ displayName?: string }>(collections.profiles, userId),
+    getAppwriteDocument<Row<CheckIn>>(collections.checkins, id),
+    getUserRsvp(event.$id, userId),
+  ]);
+  if (!member.status) throw new HttpError(403, "MEMBER_UNAVAILABLE", "This participant’s account is not active");
+  const displayName = profile?.displayName?.trim().slice(0, 120) || "NOIDA.FIT member";
   if (existing) {
     if (existing.userId !== userId || existing.eventId !== event.$id) throw new HttpError(409, "CHECKIN_DATA_INVALID", "The stored attendance needs administrator review");
     // A validly signed, expired identity QR can repair prior trusted attendance,
@@ -685,7 +702,6 @@ export async function checkInParticipant(organizer: Pick<AuthUser, "id" | "label
   if (event.status !== "published") throw new HttpError(409, "EVENT_UNAVAILABLE", "This event is not available for new check-ins");
   const now = Date.now();
   if (now < window.opensAt || now >= window.closesAt) throw new HttpError(409, "CHECKIN_CLOSED", "Check-in is outside the event window");
-  const rsvp = await getUserRsvp(event.$id, userId);
   // The participant showed this card to the desk, so naming them here reveals nothing new.
   if (rsvp?.status === "pending") throw new HttpError(403, "PAYMENT_PENDING", `${displayName} hasn’t finished paying for a ticket, so they aren’t confirmed yet`);
   if (rsvp?.status !== "confirmed") throw new HttpError(403, "RSVP_REQUIRED", `${displayName} is not on the RSVP list for this event`);
@@ -693,27 +709,32 @@ export async function checkInParticipant(organizer: Pick<AuthUser, "id" | "label
   const checkin = checkinDto(await createOnce<Row<CheckIn>>(collections.checkins, id, {
     eventId: event.$id, userId, timestamp: new Date().toISOString(), verificationMethod: "organizer_qr",
   }, userId));
-  await ensureVerifiedParticipation(userId, event, checkin);
+  await ensureVerifiedParticipation(userId, event, checkin, true);
   return { eventId: event.$id, displayName, checkedInAt: checkin.timestamp, alreadyCheckedIn: false };
 }
 
 /**
  * Checks in a guest who claimed a gift spot without an account, from their guest pass (lib/services/gifts.ts).
  * The same rules as a member: this event's operator or an admin, inside the check-in window, with a confirmed
- * spot, paid if it has a price. A guest has no .fit ID, so no passport record follows. `holderId` is null for a
- * pass that isn't for this event; `name` is the name on the pass.
+ * spot, paid if it has a price. A guest has no .fit ID, so no passport record follows. `pass` resolves to the
+ * seat holder and the name on the pass, or null for a pass that isn't for this event. It is read while the
+ * operator is authorized, to save the desk a round trip; an authorization failure still wins, and nothing about
+ * the pass is used until it passes.
  */
-export async function checkInGuestHolder(operator: Pick<AuthUser, "id" | "labels">, eventId: string, holderId: string | null, name = "This guest") {
-  const event = await getOperatedEvent(operator, eventId);
+export async function checkInGuestHolder(operator: Pick<AuthUser, "id" | "labels">, eventId: string, pass: Promise<{ holderId: string; name: string } | null>) {
+  const [operated, read] = await Promise.allSettled([getOperatedEvent(operator, eventId), pass]);
+  if (operated.status === "rejected") throw operated.reason;
+  if (read.status === "rejected") throw read.reason;
+  const event = operated.value;
   const window = validateCheckInEvent(event);
+  const holderId = read.value?.holderId, name = read.value?.name || "This guest";
   if (!holderId || !isGuestHolder(holderId)) throw new HttpError(403, "RSVP_REQUIRED", "This guest pass isn’t for this session");
   const id = checkInDocumentId(event.$id, holderId);
-  const existing = await getAppwriteDocument<Row<CheckIn>>(collections.checkins, id);
+  const [existing, rsvp] = await Promise.all([getAppwriteDocument<Row<CheckIn>>(collections.checkins, id), getUserRsvp(event.$id, holderId)]);
   if (existing) return { eventId: event.$id, checkedInAt: existing.timestamp, alreadyCheckedIn: true };
   if (event.status !== "published") throw new HttpError(409, "EVENT_UNAVAILABLE", "This event is not available for new check-ins");
   const now = Date.now();
   if (now < window.opensAt || now >= window.closesAt) throw new HttpError(409, "CHECKIN_CLOSED", "Check-in is outside the event window");
-  const rsvp = await getUserRsvp(event.$id, holderId);
   if (rsvp?.status !== "confirmed") throw new HttpError(403, "RSVP_REQUIRED", "This guest’s spot is no longer on the list for this session");
   requirePaid(rsvp, name);
   const checkin = await createOnce<Row<CheckIn>>(collections.checkins, id, {

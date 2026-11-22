@@ -192,3 +192,22 @@ test("the scanner survives the browser leaving full screen for the camera prompt
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(start).toBeFocused();
 });
+
+test("the desk answers the instant a QR is read, then clears the result so the next person never sees someone else's", async ({ page }) => {
+  await mount(page, true, { event: { ...event, checkedIn: 4, confirmedRsvps: 10 } });
+  let release: () => void = () => {};
+  const answered = new Promise<void>(resolve => { release = resolve; });
+  await page.route("**/api/check-in/organizer", async route => {
+    await answered;
+    await route.fulfill({ json: { checkedIn: true, displayName: "Synthetic first runner", checkedInAt: new Date().toISOString(), alreadyCheckedIn: false } });
+  });
+  await paste(page, token);
+  // Before the server answers: the desk already says the QR was read.
+  await expect(page.locator("[data-outcome=checking]")).toContainText("QR read · Checking…");
+  release();
+  await expect(page.locator("[data-outcome=checked-in]")).toContainText("Synthetic first runner");
+  await expect(page.locator("[data-outcome=checking]")).toHaveCount(0);
+  // The result clears itself, so it can't be read as the next person's.
+  await expect(page.locator("[data-outcome=checked-in]")).toHaveCount(0, { timeout: 9_000 });
+  await expect(page.getByRole("region", { name: "Recent scans" }).or(page.getByLabel("Recent scans"))).toContainText("Synthetic first runner");
+});
