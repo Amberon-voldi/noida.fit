@@ -164,7 +164,8 @@ export function CheckInScanner({ onToken, disabled = false, continuous = false, 
     let stage: "camera" | "preview" | "decoder" = "camera";
 
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" } }, audio: false });
+      // HD where the camera has it: the default is often 640×480, too coarse to read a phone screen at arm's length.
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
       if (!isCurrent()) {
         stream.getTracks().forEach(track => track.stop());
         return;
@@ -201,7 +202,7 @@ export function CheckInScanner({ onToken, disabled = false, continuous = false, 
         const context = canvas.getContext("2d", { willReadFrequently: true });
         if (!context) throw new Error("Camera frame processing is unavailable");
         fallback = source => {
-          const scale = Math.min(1, 640 / Math.max(source.videoWidth, source.videoHeight));
+          const scale = Math.min(1, 960 / Math.max(source.videoWidth, source.videoHeight));
           canvas.width = Math.max(1, Math.round(source.videoWidth * scale));
           canvas.height = Math.max(1, Math.round(source.videoHeight * scale));
           context.drawImage(source, 0, 0, canvas.width, canvas.height);

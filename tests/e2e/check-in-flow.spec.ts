@@ -7,7 +7,8 @@ import { join } from "node:path";
 
 // Real presentation and requests, synthetic already-authorized fixtures; not hosted auth/physical-camera evidence.
 let script: string, stylesheet: string;
-const token = `synthetic_participant_payload.${"A".repeat(43)}`;
+// The compact participant code (lib/services/participation.ts): 47 base32 characters, a 29×29 QR.
+const token = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567ABCDEFGHIJKLMNO";
 test.beforeAll(async () => {
   const output = await build({ stdin: { loader: "tsx", resolveDir: process.cwd(), contents: `
     import React from 'react'; import { createRoot } from 'react-dom/client';

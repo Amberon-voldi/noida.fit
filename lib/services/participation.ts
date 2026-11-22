@@ -491,6 +491,58 @@ const tokenSchema = z.object({ v: z.literal(1), purpose: z.literal("participant-
 interface FitnessIdRecord { userId: string; publicId: string; status: string; }
 export const CHECKIN_TOKEN_TTL = 15 * 60_000;
 
+/*
+ * The participant QR's code: the .fit ID and its expiry, signed with an HMAC cut to 128 bits, written in
+ * base32 so the QR packs it in alphanumeric mode. 47 characters make a 29×29 QR (version 3, like a guest
+ * pass) that desk cameras read at arm's length. The first format, signed JSON of about 200 characters, made
+ * a 57×57 QR the desk had to zoom into; it is still accepted, so a QR opened before the switch still scans.
+ */
+const COMPACT_TOKEN = /^[A-Z2-7]{47}$/;
+const BASE32 = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+const COMPACT_VERSION = 2;
+
+function toBase32(bytes: Buffer): string {
+  let bits = 0, value = 0, out = "";
+  for (const byte of bytes) {
+    value = (value << 8) | byte; bits += 8;
+    while (bits >= 5) { out += BASE32[(value >>> (bits - 5)) & 31]; bits -= 5; }
+  }
+  return bits ? out + BASE32[(value << (5 - bits)) & 31] : out;
+}
+
+function fromBase32(text: string): Buffer {
+  const bytes: number[] = [];
+  let bits = 0, value = 0;
+  for (const char of text) {
+    value = (value << 5) | BASE32.indexOf(char); bits += 5;
+    if (bits >= 8) { bytes.push((value >>> (bits - 8)) & 255); bits -= 8; }
+  }
+  return Buffer.from(bytes);
+}
+
+/** Version byte, the .fit ID's 8 bytes and the expiry in seconds: what the compact code signs. */
+const compactSignature = (body: Buffer) => createHmac("sha256", secret()).update("participant-checkin:v2:").update(body).digest().subarray(0, 16);
+
+function compactToken(fitnessId: string, expSeconds: number): string {
+  const body = Buffer.alloc(13);
+  body[0] = COMPACT_VERSION;
+  Buffer.from(fitnessId.slice(3), "hex").copy(body, 1);
+  body.writeUInt32BE(expSeconds, 9);
+  return toBase32(Buffer.concat([body, compactSignature(body)]));
+}
+
+function decodeCompactToken(token: string): { fitnessId: string; exp: number } {
+  const bytes = fromBase32(token);
+  // One spelling per code: the unused trailing bits must be zero.
+  if (bytes.length !== 29 || toBase32(bytes) !== token || bytes[0] !== COMPACT_VERSION) throw new HttpError(400, "CHECKIN_TOKEN_INVALID", "Check-in code is invalid");
+  const body = bytes.subarray(0, 13);
+  if (!timingSafeEqual(bytes.subarray(13), compactSignature(body))) throw new HttpError(400, "CHECKIN_TOKEN_INVALID", "Check-in code is invalid");
+  const exp = body.readUInt32BE(9) * 1000;
+  // Never a longer life than the server issues.
+  if (exp > Date.now() + CHECKIN_TOKEN_TTL + 60_000) throw new HttpError(400, "CHECKIN_TOKEN_INVALID", "Check-in code is invalid");
+  return { fitnessId: `NF-${body.subarray(1, 9).toString("hex").toUpperCase()}`, exp };
+}
+
 export function isAdminUser(user: Pick<AuthUser, "labels">): boolean {
   return user.labels?.includes("admin") === true;
 }
@@ -520,15 +572,13 @@ export async function createParticipantCheckInToken(userId: string): Promise<{ t
   if (!identity || identity.userId !== userId || identity.status !== "active" || !fitnessIdSchema.safeParse(identity.publicId).success) {
     throw new HttpError(409, "FITNESS_ID_UNAVAILABLE", "Your active .fit ID could not be found. Sign in again to finish account setup.");
   }
-  const now = Date.now();
-  const exp = now + CHECKIN_TOKEN_TTL;
-  // No account ID, contact details, profile settings or private history in the QR payload.
-  const payload = Buffer.from(JSON.stringify({ v: 1, purpose: "participant-checkin", fitnessId: identity.publicId, iat: now, exp })).toString("base64url");
-  const signature = createHmac("sha256", secret()).update(payload).digest("base64url");
-  return { token: `${payload}.${signature}`, expiresAt: new Date(exp).toISOString() };
+  // No account ID, contact details, profile settings or private history in the QR: the .fit ID and expiry only.
+  const expSeconds = Math.floor((Date.now() + CHECKIN_TOKEN_TTL) / 1000);
+  return { token: compactToken(identity.publicId, expSeconds), expiresAt: new Date(expSeconds * 1000).toISOString() };
 }
 
-function decodeSignedToken(token: string) {
+function decodeSignedToken(token: string): { fitnessId: string; exp: number } {
+  if (COMPACT_TOKEN.test(token)) return decodeCompactToken(token);
   if (token.length > 2048 || !/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]{43}$/.test(token)) {
     throw new HttpError(400, "CHECKIN_TOKEN_INVALID", "Check-in code is invalid");
   }

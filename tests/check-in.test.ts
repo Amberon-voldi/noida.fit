@@ -56,13 +56,39 @@ const writes = () => calls.filter(call => ["POST", "PATCH"].includes(call.method
 test("participant QR is owner-issued, short-lived and contains no account/contact/private profile data", async t => {
   t.mock.method(console, "info", () => {}); reset();
   const result = await service.createParticipantCheckInToken(participantId);
-  const payload = JSON.parse(Buffer.from(result.token.split(".")[0], "base64url").toString());
-  assert.equal(payload.purpose, "participant-checkin"); assert.equal(payload.fitnessId, fitnessId);
-  assert.equal(payload.exp - payload.iat, service.CHECKIN_TOKEN_TTL);
-  assert.doesNotMatch(JSON.stringify(payload), /private-member|email|userId|biography|visibility/);
+  // 47 base32 characters: the QR packs them in alphanumeric mode, a 29×29 grid desk cameras read easily.
+  assert.match(result.token, /^[A-Z2-7]{47}$/);
+  const lifetime = Date.parse(result.expiresAt) - Date.now();
+  assert.ok(lifetime > service.CHECKIN_TOKEN_TTL - 2000 && lifetime <= service.CHECKIN_TOKEN_TTL, "valid for 15 minutes");
+  assert.deepEqual(service.verifyParticipantCheckInToken(result.token), { fitnessId, exp: Date.parse(result.expiresAt) }, "the .fit ID and expiry, nothing else");
   assert.equal(writes().length, 0);
   rows.get(`fitness_ids/${participantId}`)!.status = "revoked";
   await assert.rejects(service.createParticipantCheckInToken(participantId), /active .fit ID/);
+});
+
+test("the compact QR code refuses forged, altered, expired and over-long codes; a first-format QR still checks in", async t => {
+  t.mock.method(console, "info", () => {}); reset();
+  const token = await pass();
+  const flip = (index: number) => token.slice(0, index) + (token[index] === "A" ? "B" : "A") + token.slice(index + 1);
+  // Every character is signed: the .fit ID, the expiry and the signature itself.
+  for (const index of [2, 16, 30, 46]) assert.throws(() => service.verifyParticipantCheckInToken(flip(index)), { code: "CHECKIN_TOKEN_INVALID" }, `character ${index}`);
+  assert.throws(() => service.verifyParticipantCheckInToken(token.toLowerCase()), { code: "CHECKIN_TOKEN_INVALID" });
+  // A code signed with another key, or claiming a longer life than the server issues.
+  const forge = (signingKey: string, expSeconds: number) => {
+    const body = Buffer.alloc(13); body[0] = 2; Buffer.from(fitnessId.slice(3), "hex").copy(body, 1); body.writeUInt32BE(expSeconds, 9);
+    const bytes = Buffer.concat([body, createHmac("sha256", signingKey).update("participant-checkin:v2:").update(body).digest().subarray(0, 16)]);
+    let bits = 0, value = 0, out = "";
+    for (const byte of bytes) { value = (value << 8) | byte; bits += 8; while (bits >= 5) { out += "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"[(value >>> (bits - 5)) & 31]; bits -= 5; } }
+    return out + "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567"[(value << (5 - bits)) & 31];
+  };
+  const inFive = Math.floor(Date.now() / 1000) + 300;
+  assert.equal(service.verifyParticipantCheckInToken(forge(key, inFive)).fitnessId, fitnessId, "the test's own encoder matches the server's");
+  assert.throws(() => service.verifyParticipantCheckInToken(forge("another-key-".repeat(4), inFive)), { code: "CHECKIN_TOKEN_INVALID" });
+  assert.throws(() => service.verifyParticipantCheckInToken(forge(key, inFive + 24 * 3600)), { code: "CHECKIN_TOKEN_INVALID" });
+  assert.throws(() => service.verifyParticipantCheckInToken(forge(key, Math.floor(Date.now() / 1000) - 1)), { code: "CHECKIN_TOKEN_EXPIRED" });
+  // A first-format QR opened before the switch still checks in.
+  const firstFormat = signed({ v: 1, purpose: "participant-checkin", fitnessId, iat: Date.now() - 1000, exp: Date.now() + 60_000 });
+  assert.equal((await service.checkInParticipant(operator, "event", firstFormat)).alreadyCheckedIn, false);
 });
 
 test("assigned operator scans a private participant QR; trusted attendance/passport are duplicate-safe and owner-only", async t => {

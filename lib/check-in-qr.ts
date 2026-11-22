@@ -3,9 +3,11 @@ export const PARTICIPANT_QR_PREFIX = "NF-CHECKIN:";
 export function participantQrValue(token: string): string {
   return `${PARTICIPANT_QR_PREFIX}${token}`;
 }
+/** The compact code (47 base32 characters, lib/services/participation.ts), or the first, longer signed format. */
 export function participantTokenFromQr(value: string): string {
   const input = value.trim();
   const token = input.startsWith(PARTICIPANT_QR_PREFIX) ? input.slice(PARTICIPANT_QR_PREFIX.length) : input;
+  if (/^[A-Z2-7]{47}$/.test(token)) return token;
   if (token.length > 2048 || !/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]{43}$/.test(token)) {
     throw new Error("Scan the participant’s check-in QR from /check-in, not their public-profile QR or an old event code.");
   }
