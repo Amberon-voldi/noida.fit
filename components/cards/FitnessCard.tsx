@@ -74,7 +74,7 @@ function CheckInBack({ state }: { state: CheckInPassState }) {
     <span className="fitness-card-qr-layout">
       <span className={`fitness-card-qr-wrap${ready ? "" : " fitness-card-qr-placeholder"}`}>
         {ready
-          ? <QRCodeSVG value={participantQrValue(state.pass.token)} size={200} marginSize={4} level="M" bgColor="#ffffff" fgColor="#090a0f" role="img" aria-label="Your participant check-in QR code" />
+          ? <QRCodeSVG value={participantQrValue(state.pass.token)} size={200} marginSize={2} level="M" bgColor="#ffffff" fgColor="#090a0f" role="img" aria-label="Your participant check-in QR code" />
           : <QrCode size={40} aria-hidden="true" />}
       </span>
       <span className="fitness-card-qr-copy">
