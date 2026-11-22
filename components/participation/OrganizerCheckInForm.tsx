@@ -5,12 +5,18 @@ import { useRouter } from "next/navigation";
 import { AlertTriangle, CheckCircle2, Clock3, IndianRupee, LoaderCircle, UserX } from "lucide-react";
 import type { CheckInWindowState } from "@/types/organizer";
 import { checkInCodeFromQr } from "@/lib/check-in-qr";
+import { formatInr } from "@/lib/pricing";
 import { CheckInScanner } from "./CheckInScanner";
 import { scanCue, unlockScanSound } from "./scan-feedback";
 
 export interface OperatorEvent { id: string; title: string; checkInWindow: CheckInWindowState; checkedIn?: number; confirmedRsvps?: number; }
 type Outcome = "checked-in" | "already" | "not-on-list" | "unpaid" | "expired" | "error";
-interface ScanResult { id: number; outcome: Outcome; title: string; detail: string; at: string; }
+type CheckInCode = ReturnType<typeof checkInCodeFromQr>;
+/** What the desk sends: the scanned code, and what it did in hand (registered a walk-in, collected a payment). */
+type Submission = CheckInCode & { register?: true; collected?: number };
+/** A one-tap next step on a result: collect a due payment, or register a walk-in, and check them in. */
+interface DeskAction { label: string; submission: Submission }
+interface ScanResult { id: number; outcome: Outcome; title: string; detail: string; at: string; action?: DeskAction }
 
 /** A result stays up this long, then the desk shows it's ready: a past person's name never stands in for the next. */
 const RESULT_SHOWN_MS = 6_000;
@@ -29,17 +35,30 @@ const outcomeStyle: Record<Outcome, { box: string; text: string; label: string; 
 };
 
 /** Maps the server's stable error codes to what the person at the desk should do next. */
-function failure(code: string | undefined, message: string): Pick<ScanResult, "outcome" | "title" | "detail"> {
+function failure(code: string | undefined, message: string, details: { amountDue?: number; price?: number } | undefined, scanned: CheckInCode): Pick<ScanResult, "outcome" | "title" | "detail" | "action"> {
   switch (code) {
     case "RSVP_REQUIRED": return { outcome: "not-on-list", title: "Not on the RSVP list", detail: message };
-    // Their ticket is unpaid: once it's marked paid on the guest list, the next scan checks them in.
-    case "PAYMENT_DUE": return { outcome: "unpaid", title: "Not paid yet", detail: message };
+    // A walk-in on a session that takes late sign-ups: register them here, collecting the price first if it has one.
+    case "NOT_REGISTERED": {
+      const price = details?.price ?? 0;
+      return { outcome: "not-on-list", title: "Not registered", detail: message, action: price > 0
+        ? { label: `Collected ${formatInr(price)} · Register & check in`, submission: { ...scanned, register: true, collected: price } }
+        : { label: "Register & check in", submission: { ...scanned, register: true } } };
+    }
+    // Their ticket is unpaid: take it in hand and check them in with one tap.
+    case "PAYMENT_DUE": return { outcome: "unpaid", title: "Not paid yet", detail: message, ...(details?.amountDue ? { action: { label: `Collected ${formatInr(details.amountDue)} · Check in`, submission: { ...scanned, collected: details.amountDue } } } : {}) };
     case "PAYMENT_PENDING": return { outcome: "unpaid", title: "Payment not finished", detail: message };
     case "CHECKIN_TOKEN_EXPIRED": return { outcome: "expired", title: "QR expired", detail: "Ask them to refresh the check-in QR on their .fit ID, then scan again." };
     case "CHECKIN_TOKEN_INVALID": return { outcome: "error", title: "Not a valid check-in QR", detail: "Ask them to open their .fit ID and show the check-in side of the card, or open their guest pass." };
     case "CHECKIN_CLOSED": return { outcome: "error", title: "Check-in is closed", detail: "New check-ins open 30 minutes before the start and close an hour after the end." };
     default: return { outcome: "error", title: "Could not check in", detail: message };
   }
+}
+
+/** The one tap after collecting a payment or deciding to register a walk-in. */
+function DeskActionButton({ action, disabled, onRun }: { action: DeskAction; disabled: boolean; onRun: (action: DeskAction) => void }) {
+  return <button type="button" onClick={() => onRun(action)} disabled={disabled}
+    className="mt-3 inline-flex min-h-11 items-center justify-center rounded-full bg-velocity px-4 text-sm font-bold text-slate-950 disabled:opacity-60">{action.label}</button>;
 }
 
 /** One event's attendance desk. The scanner stays on so a queue moves without extra taps. */
@@ -60,7 +79,8 @@ export function OrganizerCheckInForm({ event }: { event: OperatorEvent }) {
   const current = latest && !(shownUntil.id === latest.id && shownUntil.expired) ? latest : undefined;
 
   useEffect(() => {
-    if (!latest) return;
+    // A result waiting on the desk (collect, register) stays until it's done or the next person is scanned.
+    if (!latest || latest.action) return;
     const timer = window.setTimeout(() => setShownUntil({ id: latest.id, expired: true }), RESULT_SHOWN_MS);
     return () => window.clearTimeout(timer);
   }, [latest]);
@@ -73,27 +93,37 @@ export function OrganizerCheckInForm({ event }: { event: OperatorEvent }) {
     scanCue(result.outcome === "checked-in" || result.outcome === "already" ? "ok" : "problem");
   }
 
-  async function record(value: string) {
+  const runAction = (action: DeskAction) => { void submit(action.submission); };
+
+  /** A scanned or pasted code. */
+  function record(value: string) {
+    if (busy.current) return;
+    let code: CheckInCode;
+    try { code = checkInCodeFromQr(value); } catch (reason) {
+      push({ outcome: "error", title: "Not a check-in QR", detail: reason instanceof Error ? reason.message : "Scan the check-in side of their .fit ID, or their guest pass." });
+      return;
+    }
+    // Heard and felt the moment the QR is read, before the server answers.
+    scanCue("read");
+    void submit(code);
+  }
+
+  async function submit(submission: Submission) {
     if (busy.current) return;
     busy.current = true; setPending(true);
     try {
-      let code: ReturnType<typeof checkInCodeFromQr>;
-      try { code = checkInCodeFromQr(value); } catch (reason) {
-        push({ outcome: "error", title: "Not a check-in QR", detail: reason instanceof Error ? reason.message : "Scan the check-in side of their .fit ID, or their guest pass." });
-        return;
-      }
-      // Heard and felt the moment the QR is read, before the server answers.
-      scanCue("read");
-      const response = await fetch("/api/check-in/organizer", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ eventId: event.id, ...code }) });
+      const response = await fetch("/api/check-in/organizer", { method: "POST", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ eventId: event.id, ...submission }) });
       if (response.status === 401) { router.push(`/login?callbackUrl=/organizer/events/${encodeURIComponent(event.id)}`); return; }
-      const data = await response.json().catch(() => null) as { checkedIn?: boolean; displayName?: string; checkedInAt?: string; alreadyCheckedIn?: boolean; guest?: boolean; error?: string; code?: string } | null;
+      const data = await response.json().catch(() => null) as { checkedIn?: boolean; displayName?: string; checkedInAt?: string; alreadyCheckedIn?: boolean; guest?: boolean; registered?: boolean; collected?: number; error?: string; code?: string; details?: { amountDue?: number; price?: number } } | null;
       if (!response.ok || !data?.checkedIn || !data.displayName) {
-        push(failure(data?.code, data?.error || "Participant check-in could not be completed. Try again."));
+        const scanned: CheckInCode = "guestPass" in submission ? { guestPass: submission.guestPass } : { token: submission.token };
+        push(failure(data?.code, data?.error || "Participant check-in could not be completed. Try again.", data?.details, scanned));
         return;
       }
+      const paidHere = data.collected ? ` ${formatInr(data.collected)} collected.` : "";
       push(data.alreadyCheckedIn
         ? { outcome: "already", title: data.displayName, detail: `Already checked in at ${data.checkedInAt ? timeFormatter.format(new Date(data.checkedInAt)) : "an earlier scan"}.` }
-        : { outcome: "checked-in", title: data.displayName, detail: data.guest ? "Checked in with their guest pass." : "Checked in. Attendance is on their .fit ID." });
+        : { outcome: "checked-in", title: data.displayName, detail: data.registered ? `Registered and checked in.${paidHere}` : data.guest ? `Checked in with their guest pass.${paidHere}` : `Checked in.${paidHere || " Attendance is on their .fit ID."}` });
       setInput("");
       if (!data.alreadyCheckedIn) setAdded(current => ({ base: event.checkedIn, count: (current.base === event.checkedIn ? current.count : 0) + 1 }));
       window.clearTimeout(refreshTimer.current);
@@ -110,6 +140,7 @@ export function OrganizerCheckInForm({ event }: { event: OperatorEvent }) {
       {large && <p className={`text-xs font-semibold uppercase tracking-widest ${style.text}`}>{style.label} · {timeFormatter.format(new Date(current.at))}</p>}
       <p className={`break-words font-bold ${large ? "mt-0.5 text-2xl" : "text-lg"} ${style.text}`}>{current.title}</p>
       <p className={`mt-1 text-sm ${large ? "text-white/85" : "text-text-secondary"}`}>{current.detail}</p>
+      {current.action && <DeskActionButton action={current.action} disabled={pending} onRun={runAction} />}
     </div>
   </div>;
   // Replaces the last result the instant a QR is read, so the person in front of the desk never sees someone else's.

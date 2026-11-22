@@ -14,6 +14,8 @@ export class HttpError extends Error {
     readonly code: string,
     message: string,
     readonly retryAfter?: number,
+    /** Facts the caller acts on, sent beside the message (e.g. the amount a desk should collect). */
+    readonly details?: Record<string, number | string | boolean>,
   ) {
     super(message);
     this.name = "HttpError";
@@ -27,7 +29,7 @@ export function jsonOk(body: unknown, status = 200): Response {
 /** Never forward Appwrite error messages, SDK responses, cookies or configuration. */
 export function jsonError(error: unknown, fallback = "Request could not be completed"): Response {
   if (error instanceof HttpError) {
-    return Response.json({ error: error.message, code: error.code }, {
+    return Response.json({ error: error.message, code: error.code, ...(error.details ? { details: error.details } : {}) }, {
       status: error.status,
       headers: { "Cache-Control": "private, no-store", ...(error.retryAfter ? { "Retry-After": String(error.retryAfter) } : {}) },
     });

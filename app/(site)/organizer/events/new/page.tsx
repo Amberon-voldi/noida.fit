@@ -32,7 +32,7 @@ async function copyOf(user: Parameters<typeof getManagedEventRecord>[0], eventId
       communitySlug: String(record.communitySlug), title: String(record.title), description: String(record.description), date,
       startTime: String(record.startTime), endTime: String(record.endTime), venueSlug: String(record.venueSlug),
       capacity: Number(record.capacity) || 20, price: String(record.price), status: "published",
-      level: text("level"), distance: text("distance"), pace: text("pace"), routeOverview: text("routeOverview"),
+      level: text("level"), distance: text("distance"), pace: text("pace"), routeOverview: text("routeOverview"), lateSignup: record.lateSignup === true,
       // Only an uploaded banner can be carried over; one the team set stays with its own session.
       ...(isMediaPath(banner) ? { coverImageUrl: banner } : {}),
       whatToBring: Array.isArray(record.whatToBring) ? record.whatToBring.map(String) : [],

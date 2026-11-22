@@ -31,6 +31,8 @@ export interface EventActionsProps {
   savedName?: string;
   accountEmail?: string;
   compact?: boolean;
+  /** When booking closes (ISO): the end for a session taking late sign-ups. Default: the start. */
+  signupClosesAt?: string;
 }
 
 function downloadCalendarEvent(props: EventActionsProps): void {

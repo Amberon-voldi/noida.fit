@@ -269,6 +269,82 @@ test("on a paid session, every paid or gifted spot checks in, and an unpaid one 
   assert.deepEqual({ going: summary.confirmedRsvps, checkedIn: summary.checkedIn }, { going: 6, checkedIn: 6 });
 });
 
+test("a session taking late sign-ups stays bookable until its end, and the desk registers walk-ins", async () => {
+  reset({ capacity: 4 });
+  // Started ten minutes ago, ends in fifty.
+  const start = Date.now() - 10 * 60_000;
+  const record = rows.get("events/paid")!;
+  Object.assign(record, { startsAt: new Date(start).toISOString(), endsAt: new Date(start + 60 * 60_000).toISOString() });
+  const lateSignup = (on: boolean) => { record.payload = JSON.stringify({ ...JSON.parse(String(record.payload)), lateSignup: on }); };
+  const memberQr = async (userId: string, publicId: string) => {
+    rows.set(`fitness_ids/${userId}`, { $id: userId, userId, publicId, status: "active" });
+    rows.set(`profiles/${userId}`, { $id: userId, displayName: userId });
+    return (await participation.createParticipantCheckInToken(userId)).token;
+  };
+  const contact = { name: "Late runner", phone: "9000000021" };
+
+  // Off: sign-ups close at the start, and someone not on the list is just not on the list.
+  lateSignup(false);
+  await rejects(participation.reserveTicket("late-member", "paid", 29900, contact), "EVENT_STARTED");
+  const walkIn = await memberQr("walk-in", "NF-00000000000000B1");
+  await rejects(participation.checkInParticipant(organizerUser, "paid", walkIn, { register: true, collected: 29900 }), "RSVP_REQUIRED");
+  assert.equal(ticket("walk-in"), undefined);
+
+  // On: booking stays open after the start.
+  lateSignup(true);
+  assert.equal((await participation.reserveTicket("late-member", "paid", 29900, contact)).status, "confirmed");
+  // A walk-in scanned at the desk: not registered, with the price to collect.
+  await assert.rejects(participation.checkInParticipant(organizerUser, "paid", walkIn), (error: { code?: string; status?: number; details?: { price?: number }; message?: string }) =>
+    error.code === "NOT_REGISTERED" && error.status === 403 && error.details?.price === 29900 && /walk-in hasn’t signed up for this session\. Collect ₹299/.test(error.message ?? ""));
+  assert.equal(ticket("walk-in"), undefined, "nothing is booked until the desk registers them");
+  // Registering a paid walk-in needs the full price in hand.
+  await rejects(participation.checkInParticipant(organizerUser, "paid", walkIn, { register: true }), "PRICE_CHANGED");
+  await rejects(participation.checkInParticipant(organizerUser, "paid", walkIn, { register: true, collected: 10000 }), "PRICE_CHANGED");
+  assert.equal(ticket("walk-in"), undefined);
+  const registered = await participation.checkInParticipant(organizerUser, "paid", walkIn, { register: true, collected: 29900 });
+  assert.deepEqual({ registered: registered.registered, collected: registered.collected, again: registered.alreadyCheckedIn }, { registered: true, collected: 29900, again: false });
+  assert.deepEqual({ status: ticket("walk-in")!.status, amount: ticket("walk-in")!.amount, paid: ticket("walk-in")!.paymentStatus, ref: ticket("walk-in")!.paymentRef }, { status: "confirmed", amount: 29900, paid: "paid", ref: `desk:${organizerUser.id}` });
+  assert.ok(rows.has(`checkins/${participation.checkInDocumentId("paid", "walk-in")}`));
+  assert.ok(rows.has(`participations/${participation.participationDocumentId("paid", "walk-in")}`), "attendance is on their .fit ID");
+  assert.equal((await participation.checkInParticipant(organizerUser, "paid", walkIn)).alreadyCheckedIn, true, "a second scan doesn't register them twice");
+
+  // Due: one tap collects it in hand and checks them in; the wrong amount changes nothing.
+  const lateToken = await memberQr("late-member", "NF-00000000000000B2");
+  await assert.rejects(participation.checkInParticipant(organizerUser, "paid", lateToken), (error: { code?: string; details?: { amountDue?: number } }) => error.code === "PAYMENT_DUE" && error.details?.amountDue === 29900);
+  await rejects(participation.checkInParticipant(organizerUser, "paid", lateToken, { collected: 100 }), "AMOUNT_MISMATCH");
+  assert.equal(ticket("late-member")!.paymentStatus, "pending");
+  const collected = await participation.checkInParticipant(organizerUser, "paid", lateToken, { collected: 29900 });
+  assert.deepEqual({ collected: collected.collected, paid: ticket("late-member")!.paymentStatus, ref: ticket("late-member")!.paymentRef }, { collected: 29900, paid: "paid", ref: "whatsapp:9000000021:Late runner" });
+  // A guest pass with payment due, the same way.
+  const passId = `p${"G".repeat(24)}`;
+  rows.set(`gift_guests/${passId}`, { $id: passId, eventId: "paid", linkId: "manual-paid", name: "Walk guest", phone: "9000000022" });
+  await participation.reserveTicket(gifts.guestHolderId("paid", "9000000022"), "paid", 29900, { name: "Walk guest", phone: "9000000022" });
+  await rejects(gifts.checkInGuest(organizerUser, "paid", passId), "PAYMENT_DUE");
+  assert.equal((await gifts.checkInGuest(organizerUser, "paid", passId, 29900)).collected, 29900);
+  // A full session can't take another walk-in.
+  const fourth = await memberQr("fourth", "NF-00000000000000B3");
+  await participation.checkInParticipant(organizerUser, "paid", fourth, { register: true, collected: 29900 });
+  const fifth = await memberQr("fifth", "NF-00000000000000B4");
+  await rejects(participation.checkInParticipant(organizerUser, "paid", fifth, { register: true, collected: 29900 }), "EVENT_FULL");
+  // After the end, sign-ups close even with late sign-ups on.
+  Object.assign(record, { startsAt: new Date(Date.now() - 90 * 60_000).toISOString(), endsAt: new Date(Date.now() - 30 * 60_000).toISOString() });
+  await rejects(participation.reserveTicket("too-late", "paid", 29900, contact), "EVENT_STARTED");
+});
+
+test("a free session registers a walk-in with nothing to collect", async () => {
+  reset({ capacity: 3, price: "FREE" });
+  const start = Date.now() - 5 * 60_000;
+  Object.assign(rows.get("events/paid")!, { startsAt: new Date(start).toISOString(), endsAt: new Date(start + 60 * 60_000).toISOString() });
+  rows.get("events/paid")!.payload = JSON.stringify({ ...JSON.parse(String(rows.get("events/paid")!.payload)), lateSignup: true });
+  rows.set("fitness_ids/free-walk-in", { $id: "free-walk-in", userId: "free-walk-in", publicId: "NF-00000000000000C1", status: "active" });
+  const token = (await participation.createParticipantCheckInToken("free-walk-in")).token;
+  await assert.rejects(participation.checkInParticipant(organizerUser, "paid", token), (error: { code?: string; details?: { price?: number } }) => error.code === "NOT_REGISTERED" && error.details?.price === 0);
+  const result = await participation.checkInParticipant(organizerUser, "paid", token, { register: true });
+  assert.equal(result.registered, true);
+  assert.deepEqual({ status: ticket("free-walk-in")!.status, amount: ticket("free-walk-in")!.amount }, { status: "confirmed", amount: undefined });
+  assert.equal((await participation.createRsvp("free-late-rsvp", "paid")).status, "confirmed", "an RSVP after the start");
+});
+
 test("the desk tells a guest pass QR from a .fit ID check-in QR", async () => {
   const qr = await import("../lib/check-in-qr");
   const pass = `p${"A".repeat(24)}`;

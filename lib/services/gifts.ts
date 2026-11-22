@@ -9,7 +9,7 @@ import { HttpError } from "@/lib/http";
 import { normalizeIndianMobile } from "@/lib/phone";
 import { ticketHoldEndsAt } from "@/lib/pricing";
 import { getManagedEventRecord } from "@/lib/services/organizer-events";
-import { checkInDocumentId, checkInGuestHolder, claimGiftTicket, documentIdSchema, getTicketEvent, getUserRsvp, GUEST_HOLDER_PREFIX } from "@/lib/services/participation";
+import { checkInDocumentId, checkInGuestHolder, claimGiftTicket, collectedSchema, documentIdSchema, getTicketEvent, getUserRsvp, GUEST_HOLDER_PREFIX } from "@/lib/services/participation";
 import type { AuthUser } from "@/lib/auth";
 import type { Event } from "@/types/event";
 import type { GiftLink } from "@/types/organizer";
@@ -46,7 +46,7 @@ export const guestClaimSchema = z.object({
   name: z.string().max(200).optional(),
 }).strict();
 /** The check-in desk scanning a guest pass, or checking a guest in from the guest list. */
-export const guestCheckInInputSchema = z.object({ eventId: documentIdSchema, guestPass: z.string().trim().max(64) }).strict();
+export const guestCheckInInputSchema = z.object({ eventId: documentIdSchema, guestPass: z.string().trim().max(64), collected: collectedSchema.optional() }).strict();
 
 const NOT_CONFIGURED = () => new HttpError(503, "GIFTS_NOT_CONFIGURED", "Gift links aren’t switched on yet.");
 const GIFT_NOT_FOUND = () => new HttpError(404, "GIFT_NOT_FOUND", "This gift link doesn’t exist. Check the link with whoever sent it.");
@@ -384,11 +384,12 @@ export async function getGuestPass(passId: string): Promise<GuestPassView | null
 }
 
 /** The check-in desk scanning a guest pass QR, or checking a guest in from the guest list. Operator or admin only. */
-export async function checkInGuest(operator: Actor, eventId: string, passId: string) {
+/** `collected`: the desk took the guest's due payment in hand (paise, the ticket's full price). */
+export async function checkInGuest(operator: Actor, eventId: string, passId: string, collected?: number) {
   const row = guestPassIdSchema.safeParse(passId).success && isGuestPassesConfigured()
     ? withGuestTable(table => getAppwriteDocument<GuestRow>(table, passId))
     : Promise.resolve(null);
   const pass = row.then(found => found?.eventId === eventId ? { holderId: guestHolderId(found.eventId, found.phone), name: found.name } : null);
-  const result = await checkInGuestHolder(operator, eventId, pass);
+  const result = await checkInGuestHolder(operator, eventId, pass, collected);
   return { ...result, displayName: (await pass)?.name || "Guest", guest: true };
 }

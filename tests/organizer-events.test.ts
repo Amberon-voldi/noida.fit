@@ -134,6 +134,16 @@ test("a new session takes a banner the organizer uploaded, and nothing else", as
   assert.equal("coverImageUrl" in eventRecord(plain.id), false);
 });
 
+test("an organizer switches late sign-ups on and off; off leaves nothing behind", async () => {
+  const created = await service.createOrganizerEvent(organizer, { ...form({ title: "Walk-in run", lateSignup: true }), communitySlug: "dawn-runners" });
+  assert.equal(eventRecord(created.id).lateSignup, true);
+  await service.updateOrganizerEvent(organizer, created.id, form({ title: "Walk-in run", lateSignup: false }), String(eventRow(created.id).$updatedAt));
+  assert.equal("lateSignup" in eventRecord(created.id), false, "off is the default, so it isn't stored");
+  await service.updateOrganizerEvent(organizer, created.id, form({ title: "Walk-in run", lateSignup: true }), String(eventRow(created.id).$updatedAt));
+  assert.equal(eventRecord(created.id).lateSignup, true);
+  await assert.rejects(service.createOrganizerEvent(organizer, { ...form({ title: "Bad flag", lateSignup: "yes" }), communitySlug: "dawn-runners" }), { code: "INVALID_EVENT" });
+});
+
 test("editing keeps a banner the team set until the organizer replaces or removes it", async () => {
   eventRow("existing").payload = JSON.stringify({ ...eventRecord("existing"), coverImageUrl: "https://images.unsplash.com/photo-team" });
   const version = () => String(eventRow("existing").$updatedAt);

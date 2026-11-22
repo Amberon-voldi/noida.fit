@@ -25,6 +25,8 @@ export interface EventBookingBarProps {
   /** The account's name and email, shown when booking to pay on WhatsApp. */
   savedName?: string;
   accountEmail?: string;
+  /** When booking closes (ISO): the end for a session taking late sign-ups. Default: the start. */
+  signupClosesAt?: string;
 }
 
 /** Below desktop width: the price, the essentials and the one action, always within reach.

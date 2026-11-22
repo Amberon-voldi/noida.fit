@@ -15,6 +15,8 @@ export interface EventBookingInput {
   payOnline?: boolean;
   /** Online payment is off: a paid event's spot is booked with a WhatsApp number, and the payment link is sent there. */
   payOnWhatsapp?: boolean;
+  /** When booking closes (ISO): the end for a session taking late sign-ups. Default: the start. */
+  signupClosesAt?: string;
 }
 
 /** Contact details from the ticket summary: the name on the ticket and the mobile number. */
@@ -43,7 +45,7 @@ function postToGateway(action: string, fields: Record<string, string>): void {
 }
 
 /** RSVP (free) or ticket (paid) state and actions for one event, shared by the action panel and the mobile bar. */
-export function useEventBooking({ eventId, date, startTime, price, payOnline = false, payOnWhatsapp = false }: EventBookingInput) {
+export function useEventBooking({ eventId, date, startTime, price, payOnline = false, payOnWhatsapp = false, signupClosesAt }: EventBookingInput) {
   const router = useRouter();
   const state = useParticipation();
   const pricing = parseEventPrice(price);
@@ -54,7 +56,9 @@ export function useEventBooking({ eventId, date, startTime, price, payOnline = f
   const holdUntil = hold ? new Date(ticketHoldEndsAt(hold.createdAt)).toLocaleTimeString("en-IN", { hour: "numeric", minute: "2-digit", timeZone: "Asia/Kolkata" }) : undefined;
   /** Unpaid amount (paise) on a ticket issued before online payment, when the organizer collected at the event. */
   const due = booking?.amount && booking.paymentStatus !== "paid" ? booking.amount : 0;
-  const started = state.loaded && indiaDateTime(date, startTime).getTime() <= state.observedAt;
+  // Booking closes at the start, or at the end for a session that takes late sign-ups.
+  const closesAt = Date.parse(signupClosesAt ?? "");
+  const started = state.loaded && (Number.isFinite(closesAt) ? closesAt : indiaDateTime(date, startTime).getTime()) <= state.observedAt;
   const [pending, setPending] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
   // Cancelling gives the spot away, so it takes a second, deliberate tap.

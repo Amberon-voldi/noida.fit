@@ -211,3 +211,40 @@ test("the desk answers the instant a QR is read, then clears the result so the n
   await expect(page.locator("[data-outcome=checked-in]")).toHaveCount(0, { timeout: 9_000 });
   await expect(page.getByRole("region", { name: "Recent scans" }).or(page.getByLabel("Recent scans"))).toContainText("Synthetic first runner");
 });
+
+test("a walk-in is registered and checked in with one tap once the desk has collected the price", async ({ page }) => {
+  await mount(page, true, { event });
+  const bodies: Record<string, unknown>[] = [];
+  await page.route("**/api/check-in/organizer", async route => {
+    const body = route.request().postDataJSON() as Record<string, unknown>;
+    bodies.push(body);
+    if (!body.register) return route.fulfill({ status: 403, json: { error: "Synthetic walk-in hasn’t signed up for this session. Collect ₹99, then register them here.", code: "NOT_REGISTERED", details: { price: 9900 } } });
+    return route.fulfill({ json: { checkedIn: true, displayName: "Synthetic walk-in", checkedInAt: new Date().toISOString(), alreadyCheckedIn: false, registered: true, collected: 9900 } });
+  });
+  await paste(page, token);
+  await expect(page.locator("[data-outcome=not-on-list]")).toContainText("Not registered");
+  const register = page.getByRole("button", { name: "Collected ₹99 · Register & check in" });
+  await expect(register).toBeVisible();
+  // It waits for the desk: an action result doesn't clear itself.
+  await page.waitForTimeout(6_500);
+  await expect(register).toBeVisible();
+  await register.click();
+  await expect(page.locator("[data-outcome=checked-in]")).toContainText("Registered and checked in. ₹99 collected.");
+  expect(bodies).toEqual([{ eventId: "event-two", token }, { eventId: "event-two", token, register: true, collected: 9900 }]);
+});
+
+test("a ticket still due is collected and checked in with one tap", async ({ page }) => {
+  await mount(page, true, { event });
+  const bodies: Record<string, unknown>[] = [];
+  await page.route("**/api/check-in/organizer", async route => {
+    const body = route.request().postDataJSON() as Record<string, unknown>;
+    bodies.push(body);
+    if (!body.collected) return route.fulfill({ status: 402, json: { error: "Synthetic member hasn’t paid ₹99 for this session yet. Collect it, then tap Collected to check them in.", code: "PAYMENT_DUE", details: { amountDue: 9900 } } });
+    return route.fulfill({ json: { checkedIn: true, displayName: "Synthetic member", checkedInAt: new Date().toISOString(), alreadyCheckedIn: false, collected: 9900 } });
+  });
+  await paste(page, token);
+  await expect(page.locator("[data-outcome=unpaid]")).toContainText("Not paid yet");
+  await page.getByRole("button", { name: "Collected ₹99 · Check in" }).click();
+  await expect(page.locator("[data-outcome=checked-in]")).toContainText("Checked in. ₹99 collected.");
+  expect(bodies[1]).toEqual({ eventId: "event-two", token, collected: 9900 });
+});

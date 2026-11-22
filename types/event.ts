@@ -32,6 +32,8 @@ export interface Event {
   /** Organizer views only (lib/data.ts getOrganizerEvents): the accounts assigned to run this event. */
   organizerUserIds?: string[];
   status?: "published" | "cancelled" | "draft";
+  /** Sign-ups stay open until the end, and the check-in desk can register walk-ins. */
+  lateSignup?: boolean;
   demo?: boolean;
   tags?: string[];
 }

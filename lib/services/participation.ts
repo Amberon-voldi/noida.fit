@@ -48,7 +48,13 @@ export const eventInputSchema = z.object({ eventId: documentIdSchema }).strict()
 export const rsvpInputSchema = z.object({ eventId: documentIdSchema, amount: z.number().int().positive().max(MAX_TICKET_RUPEES * 100).optional() }).strict();
 export const savedInputSchema = z.object({ itemType: z.enum(["event", "place", "community"]), itemId: documentIdSchema }).strict();
 export const followInputSchema = z.object({ communityId: documentIdSchema }).strict();
-export const checkInInputSchema = z.object({ eventId: documentIdSchema, token: z.string().trim().min(20).max(2048) }).strict();
+/** What the desk collected in hand (paise): the ticket's full price, to settle a spot still due or a walk-in's. */
+export const collectedSchema = z.number().int().min(1).max(MAX_TICKET_RUPEES * 100);
+/** `register`: the scanned member hasn't signed up and the session takes late sign-ups: give them a spot. */
+export const checkInInputSchema = z.object({ eventId: documentIdSchema, token: z.string().trim().min(20).max(2048), register: z.literal(true).optional(), collected: collectedSchema.optional() }).strict();
+
+/** What the desk did besides scanning: registered a walk-in, and/or took their payment in hand. */
+export interface DeskAction { register?: boolean; collected?: number }
 
 function idFor(...parts: string[]): string {
   return createHash("sha256").update(JSON.stringify(parts)).digest("hex").slice(0, 36);
@@ -100,7 +106,7 @@ async function getEvent(eventId: string, published = true) {
   return event;
 }
 
-function eventPayload(event: EventRecord): { price?: unknown; demo?: unknown } {
+function eventPayload(event: EventRecord): { price?: unknown; demo?: unknown; lateSignup?: unknown } {
   try {
     return JSON.parse(event.payload ?? "") ?? {};
   } catch {
@@ -109,6 +115,15 @@ function eventPayload(event: EventRecord): { price?: unknown; demo?: unknown } {
 }
 
 const eventPricing = (event: EventRecord) => parseEventPrice(eventPayload(event).price);
+
+/** The organizer lets people sign up after the start, and register walk-ins at the check-in desk. */
+const allowsLateSignup = (event: EventRecord) => eventPayload(event).lateSignup === true;
+
+/** When sign-ups close: at the start, or at the end for a session that takes late sign-ups. */
+function signupClosesAt(event: EventRecord): number {
+  const { start, end } = eventWindow(event);
+  return allowsLateSignup(event) ? end : start;
+}
 
 /** What a payment needs to name an event and link back to it. Demo listings never take real money. */
 export async function getTicketEvent(eventId: string): Promise<{ title: string; slug: string; demo: boolean }> {
@@ -219,13 +234,13 @@ export async function getUserRsvp(eventId: string, userId: string): Promise<RSVP
 export async function createRsvp(userId: string, eventId: string): Promise<RSVP> {
   documentIdSchema.parse(userId);
   const event = await getEvent(eventId);
-  const { start } = eventWindow(event);
-  if (Date.now() >= start) throw new HttpError(409, "EVENT_STARTED", "RSVP is closed for this event");
+  const closes = signupClosesAt(event);
+  if (Date.now() >= closes) throw new HttpError(409, "EVENT_STARTED", "RSVP is closed for this event");
   const existing = await getUserRsvp(eventId, userId);
   if (existing?.status === "confirmed") return existing;
   const pricing = eventPricing(event);
   if (pricing.kind === "paid") throw new HttpError(409, "PAYMENT_REQUIRED", `Tickets for this event are ${pricing.label}, confirmed once paid online.`);
-  return allocateSeat(event, eventId, userId, { status: "confirmed" }, start);
+  return allocateSeat(event, eventId, userId, { status: "confirmed" }, closes);
 }
 
 const holdEnded = (row: { createdAt?: string }, now = Date.now()) => !(ticketHoldEndsAt(String(row.createdAt)) > now);
@@ -248,8 +263,8 @@ function confirmedTicketPrice(event: EventRecord, expectedAmount: number): numbe
 export async function holdTicket(userId: string, eventId: string, expectedAmount: number): Promise<RSVP> {
   documentIdSchema.parse(userId);
   const event = await getEvent(eventId);
-  const { start } = eventWindow(event);
-  if (Date.now() >= start) throw new HttpError(409, "EVENT_STARTED", "Ticket sales have closed for this event");
+  const closes = signupClosesAt(event);
+  if (Date.now() >= closes) throw new HttpError(409, "EVENT_STARTED", "Ticket sales have closed for this event");
   const id = rsvpDocumentId(eventId, userId);
   const existing = await getAppwriteDocument<TicketRow>(collections.rsvps, id);
   if (existing?.status === "confirmed") return rsvpDto(existing);
@@ -265,7 +280,7 @@ export async function holdTicket(userId: string, eventId: string, expectedAmount
     }
   }
   const amount = confirmedTicketPrice(event, expectedAmount);
-  return allocateSeat(event, eventId, userId, { status: "pending", amount, paymentStatus: "pending" }, start);
+  return allocateSeat(event, eventId, userId, { status: "pending", amount, paymentStatus: "pending" }, closes);
 }
 
 /**
@@ -277,8 +292,8 @@ export async function holdTicket(userId: string, eventId: string, expectedAmount
 export async function reserveTicket(userId: string, eventId: string, expectedAmount: number, contact: { name: string; phone: string }): Promise<RSVP> {
   documentIdSchema.parse(userId);
   const event = await getEvent(eventId);
-  const { start } = eventWindow(event);
-  if (Date.now() >= start) throw new HttpError(409, "EVENT_STARTED", "Ticket sales have closed for this event");
+  const closes = signupClosesAt(event);
+  if (Date.now() >= closes) throw new HttpError(409, "EVENT_STARTED", "Ticket sales have closed for this event");
   const id = rsvpDocumentId(eventId, userId);
   const existing = await getAppwriteDocument<TicketRow>(collections.rsvps, id);
   if (existing?.status === "confirmed") return rsvpDto(existing);
@@ -293,7 +308,7 @@ export async function reserveTicket(userId: string, eventId: string, expectedAmo
     }
   }
   const amount = confirmedTicketPrice(event, expectedAmount);
-  return allocateSeat(event, eventId, userId, { ...fields, amount }, start);
+  return allocateSeat(event, eventId, userId, { ...fields, amount }, closes);
 }
 
 /** A ticket PayU confirmed carries this reference prefix (lib/services/ticket-payments.ts); only PayU changes it. */
@@ -356,8 +371,8 @@ export async function updateWhatsappNumber(userId: string, phone: string): Promi
 export async function claimGiftTicket(userId: string, eventId: string, giftRef: string): Promise<{ rsvp: RSVP; claimed: boolean }> {
   documentIdSchema.parse(userId);
   const event = await getEvent(eventId);
-  const { start } = eventWindow(event);
-  if (Date.now() >= start) throw new HttpError(409, "EVENT_STARTED", "This event has already started");
+  const closes = signupClosesAt(event);
+  if (Date.now() >= closes) throw new HttpError(409, "EVENT_STARTED", "This event has already started");
   const id = rsvpDocumentId(eventId, userId);
   const existing = await getAppwriteDocument<TicketRow>(collections.rsvps, id);
   if (existing?.status === "confirmed") return { rsvp: rsvpDto(existing), claimed: existing.paymentRef === giftRef };
@@ -371,7 +386,7 @@ export async function claimGiftTicket(userId: string, eventId: string, giftRef: 
       // Released to someone else a moment ago: take a new seat below.
     }
   }
-  return { rsvp: await allocateSeat(event, eventId, userId, fields, start), claimed: true };
+  return { rsvp: await allocateSeat(event, eventId, userId, fields, closes), claimed: true };
 }
 
 /**
@@ -665,12 +680,35 @@ async function getOperatedEvent(operator: Pick<AuthUser, "id" | "labels">, event
  */
 function requirePaid(rsvp: Pick<RSVP, "amount" | "paymentStatus">, who: string): void {
   if (rsvp.amount && rsvp.paymentStatus !== "paid") {
-    throw new HttpError(402, "PAYMENT_DUE", `${who} hasn’t paid ${formatInr(rsvp.amount)} for this session yet. Collect it, tap Mark paid on the guest list, then check them in again.`);
+    throw new HttpError(402, "PAYMENT_DUE", `${who} hasn’t paid ${formatInr(rsvp.amount)} for this session yet. Collect it, then tap Collected to check them in.`, undefined, { amountDue: rsvp.amount });
   }
 }
 
+/** A ticket the desk was paid for in hand. Like the guest list's Mark paid, only its payment status changes. */
+async function collectAtDesk(ticket: RSVP, collected: number): Promise<RSVP> {
+  if (collected !== ticket.amount) {
+    throw new HttpError(409, "AMOUNT_MISMATCH", `Their ticket is ${formatInr(ticket.amount ?? 0)}. Collect that, then check them in.`);
+  }
+  await updateAppwriteDocument(collections.rsvps, ticket.id, { paymentStatus: "paid" });
+  return { ...ticket, paymentStatus: "paid" };
+}
+
+/** A walk-in the desk registers, on a session that takes late sign-ups: a confirmed spot, paid in hand when it has a price. */
+async function registerAtDesk(operator: Pick<AuthUser, "id">, event: AppwriteDocument<EventRecord>, userId: string, collected: number | undefined, closesAt: number): Promise<RSVP> {
+  const pricing = eventPricing(event);
+  const fields = pricing.kind === "paid"
+    ? { status: "confirmed" as const, amount: pricing.amount, paymentStatus: "paid" as const, paymentRef: `desk:${operator.id}` }
+    : { status: "confirmed" as const };
+  if (pricing.kind === "paid" && collected !== pricing.amount) {
+    throw new HttpError(409, "PRICE_CHANGED", `This session is ${pricing.label}. Collect that, then register them.`);
+  }
+  const rsvp = await allocateSeat(event, event.$id, userId, fields, closesAt);
+  if (rsvp?.status !== "confirmed") throw new HttpError(409, "RETRY_REQUIRED", "Their spot changed a moment ago. Scan them again.");
+  return rsvp;
+}
+
 /** Operator-scanned attendance. Possessing a participant QR never authorizes its holder to write attendance. */
-export async function checkInParticipant(organizer: Pick<AuthUser, "id" | "labels">, eventId: string, token: string) {
+export async function checkInParticipant(organizer: Pick<AuthUser, "id" | "labels">, eventId: string, token: string, desk: DeskAction = {}) {
   const event = await getOperatedEvent(organizer, eventId);
   const window = validateCheckInEvent(event);
   const payload = decodeSignedToken(token);
@@ -704,13 +742,24 @@ export async function checkInParticipant(organizer: Pick<AuthUser, "id" | "label
   if (now < window.opensAt || now >= window.closesAt) throw new HttpError(409, "CHECKIN_CLOSED", "Check-in is outside the event window");
   // The participant showed this card to the desk, so naming them here reveals nothing new.
   if (rsvp?.status === "pending") throw new HttpError(403, "PAYMENT_PENDING", `${displayName} hasn’t finished paying for a ticket, so they aren’t confirmed yet`);
-  if (rsvp?.status !== "confirmed") throw new HttpError(403, "RSVP_REQUIRED", `${displayName} is not on the RSVP list for this event`);
-  requirePaid(rsvp, displayName);
+  let ticket = rsvp?.status === "confirmed" ? rsvp : null;
+  if (!ticket) {
+    if (!allowsLateSignup(event)) throw new HttpError(403, "RSVP_REQUIRED", `${displayName} is not on the RSVP list for this event`);
+    // A walk-in, on a session that takes late sign-ups: the desk can register them on the spot.
+    if (!desk.register) {
+      const pricing = eventPricing(event);
+      throw new HttpError(403, "NOT_REGISTERED", `${displayName} hasn’t signed up for this session.${pricing.kind === "paid" ? ` Collect ${pricing.label}, then register them here.` : " Register them here to check them in."}`, undefined, { price: pricing.kind === "paid" ? pricing.amount : 0 });
+    }
+    ticket = await registerAtDesk(organizer, event, userId, desk.collected, window.closesAt);
+  } else if (desk.collected !== undefined && ticket.amount && ticket.paymentStatus !== "paid") {
+    ticket = await collectAtDesk(ticket, desk.collected);
+  }
+  requirePaid(ticket, displayName);
   const checkin = checkinDto(await createOnce<Row<CheckIn>>(collections.checkins, id, {
     eventId: event.$id, userId, timestamp: new Date().toISOString(), verificationMethod: "organizer_qr",
   }, userId));
   await ensureVerifiedParticipation(userId, event, checkin, true);
-  return { eventId: event.$id, displayName, checkedInAt: checkin.timestamp, alreadyCheckedIn: false };
+  return { eventId: event.$id, displayName, checkedInAt: checkin.timestamp, alreadyCheckedIn: false, ...(desk.register ? { registered: true } : {}), ...(desk.collected !== undefined ? { collected: desk.collected } : {}) };
 }
 
 /**
@@ -721,7 +770,7 @@ export async function checkInParticipant(organizer: Pick<AuthUser, "id" | "label
  * operator is authorized, to save the desk a round trip; an authorization failure still wins, and nothing about
  * the pass is used until it passes.
  */
-export async function checkInGuestHolder(operator: Pick<AuthUser, "id" | "labels">, eventId: string, pass: Promise<{ holderId: string; name: string } | null>) {
+export async function checkInGuestHolder(operator: Pick<AuthUser, "id" | "labels">, eventId: string, pass: Promise<{ holderId: string; name: string } | null>, collected?: number) {
   const [operated, read] = await Promise.allSettled([getOperatedEvent(operator, eventId), pass]);
   if (operated.status === "rejected") throw operated.reason;
   if (read.status === "rejected") throw read.reason;
@@ -736,9 +785,10 @@ export async function checkInGuestHolder(operator: Pick<AuthUser, "id" | "labels
   const now = Date.now();
   if (now < window.opensAt || now >= window.closesAt) throw new HttpError(409, "CHECKIN_CLOSED", "Check-in is outside the event window");
   if (rsvp?.status !== "confirmed") throw new HttpError(403, "RSVP_REQUIRED", "This guest’s spot is no longer on the list for this session");
-  requirePaid(rsvp, name);
+  const ticket = collected !== undefined && rsvp.amount && rsvp.paymentStatus !== "paid" ? await collectAtDesk(rsvp, collected) : rsvp;
+  requirePaid(ticket, name);
   const checkin = await createOnce<Row<CheckIn>>(collections.checkins, id, {
     eventId: event.$id, userId: holderId, timestamp: new Date().toISOString(), verificationMethod: "guest_pass",
   }, holderId);
-  return { eventId: event.$id, checkedInAt: checkin.timestamp, alreadyCheckedIn: false };
+  return { eventId: event.$id, checkedInAt: checkin.timestamp, alreadyCheckedIn: false, ...(collected !== undefined ? { collected } : {}) };
 }

@@ -110,6 +110,8 @@ const eventFields = {
   pace: plainText(200).optional(),
   routeOverview: plainText(2000).optional(),
   whatToBring: z.array(plainText(200, 1)).max(30).optional(),
+  /** People can sign up after the start (until the end), and the check-in desk can register walk-ins. */
+  lateSignup: z.boolean().optional(),
 };
 
 const withId = <T extends z.ZodRawShape>(fields: T) => z.object({ id, ...fields }).strict();

@@ -13,6 +13,8 @@ export interface EditorValues {
   title: string; description: string; date: string; startTime: string; endTime: string;
   venueSlug: string; capacity: number; price: string; status: "draft" | "published" | "cancelled";
   level?: string; distance?: string; pace?: string; routeOverview?: string; whatToBring?: string[];
+  /** Sign-ups stay open until the end, and the check-in desk can register walk-ins. */
+  lateSignup?: boolean;
   /** The banner at the top of the session page: an uploaded /media path, or one the team set. */
   coverImageUrl?: string;
 }
@@ -92,6 +94,7 @@ export function EventEditor({ mode, clubs, venues, initial, eventId, expectedUpd
       venueSlug: values.venueSlug, capacity: Number(values.capacity), price: values.paid ? paidPrice(Number(values.amount)) : "FREE", status: values.status,
       level: values.level || undefined, distance: values.distance || undefined, pace: values.pace || undefined, routeOverview: values.routeOverview || undefined,
       whatToBring: values.whatToBring.split("\n").map(line => line.trim()).filter(Boolean),
+      lateSignup: values.lateSignup === true,
       // On edit, only a changed banner is sent ("" removes it), so one the team set is left alone.
       // A new session sends any banner, including one copied from the session it duplicates.
       ...((mode === "create" ? values.coverImageUrl : values.coverImageUrl !== (initial.coverImageUrl ?? "")) ? { coverImageUrl: values.coverImageUrl } : {}),
@@ -164,6 +167,10 @@ export function EventEditor({ mode, clubs, venues, initial, eventId, expectedUpd
             <label className={labelClass}>Price<select value={values.paid ? "paid" : "free"} onChange={change => set("paid", change.target.value === "paid")} className={field}><option value="free">Free</option><option value="paid">Paid ticket</option></select></label>
             {values.paid && <label className={`${labelClass} mt-3`}>Ticket price (₹)<input type="number" inputMode="numeric" required min={1} max={MAX_TICKET_RUPEES} step={1} value={values.amount} onChange={change => set("amount", change.target.value)} className={field} placeholder="199" /><span className={hint}>{initialPricing.kind === "info" ? `Was “${initial.price}”. Set an amount, or choose Free. ` : ""}Per person. {payOnline ? "People pay online through PayU when they book; a spot only counts once its payment goes through." : "Tickets go on sale once online payment is switched on; until then nobody can book this session."} People who already have a ticket keep the price they booked at.</span></label>}
           </div>
+          <label className="flex items-start gap-3 rounded-lg border border-border-subtle p-3 text-sm sm:col-span-2">
+            <input type="checkbox" checked={values.lateSignup === true} onChange={change => set("lateSignup", change.target.checked)} className="mt-0.5 size-5 shrink-0 accent-velocity" />
+            <span><span className="font-semibold text-white">Allow sign-ups after the start</span><span className={`${hint} block`}>People can still book until the session ends. At the check-in desk, scanning someone who hasn’t signed up offers to register them{values.paid ? " once you’ve collected the ticket price" : ""} and check them in.</span></span>
+          </label>
           <label className={labelClass}>Level <span className="font-normal text-text-secondary">(optional)</span><input maxLength={100} value={values.level ?? ""} onChange={change => set("level", change.target.value)} className={field} placeholder="All levels" /></label>
           <label className={labelClass}>Distance <span className="font-normal text-text-secondary">(optional)</span><input maxLength={100} value={values.distance ?? ""} onChange={change => set("distance", change.target.value)} className={field} placeholder="5 km" /></label>
         </div>

@@ -37,6 +37,8 @@ export const organizerEventInputSchema = z.object({
   routeOverview: text(2000).optional(),
   whatToBring: z.array(text(200, 1)).max(30).optional(),
   status: z.enum(["draft", "published", "cancelled"]),
+  /** Sign-ups stay open until the end, and the check-in desk can register walk-ins. */
+  lateSignup: z.boolean().optional(),
   /** The banner: an image uploaded through /api/organizer/media, or "" to remove it. Omitted on edit: unchanged. */
   coverImageUrl: z.union([z.literal(""), z.string().refine(isMediaPath, "Upload the banner image again")]).optional(),
 }).strict();
@@ -77,6 +79,7 @@ function clean(input: OrganizerEventInput) {
     capacity: input.capacity, price: input.price, status: input.status,
     level: optional(input.level), distance: optional(input.distance), pace: optional(input.pace), routeOverview: optional(input.routeOverview),
     whatToBring: input.whatToBring?.filter(Boolean),
+    lateSignup: input.lateSignup === true ? true : undefined,
   };
 }
 
@@ -151,7 +154,7 @@ async function update(user: Actor, eventId: string, value: unknown, expectedUpda
     : await venue(input.venueSlug);
   // Start from the stored record so team-owned fields (slug, club, images, featured) survive untouched.
   const next: Record<string, unknown> = { ...stored.record, ...clean(input), venueSlug: place.slug, venueName: place.name, sector: place.sector, ...schedule(input.date, input.startTime, input.endTime) };
-  for (const key of ["level", "distance", "pace", "routeOverview", "whatToBring"]) if (next[key] === undefined) delete next[key];
+  for (const key of ["level", "distance", "pace", "routeOverview", "whatToBring", "lateSignup"]) if (next[key] === undefined) delete next[key];
   // A banner the team set stays unless the organizer changed it.
   if (input.coverImageUrl) next.coverImageUrl = input.coverImageUrl;
   else if (input.coverImageUrl === "") delete next.coverImageUrl;

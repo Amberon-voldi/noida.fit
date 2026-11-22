@@ -60,6 +60,8 @@ export default async function EventPage({ params, searchParams }: Props) {
   } : null;
   const account = { savedPhone, savedName: viewer?.name || undefined, accountEmail: viewer?.email || undefined };
   const when = `${formatDate(event.date)} · ${event.startTime}`;
+  // Booking closes at the start, or at the end for a session that takes late sign-ups.
+  const signupClosesAt = event.lateSignup ? event.endsAt : event.startsAt;
   const jsonLd = {
     "@context": "https://schema.org", "@type": "SportsEvent", name: event.title, description: event.description,
     startDate: Number.isFinite(start) ? new Date(start).toISOString() : undefined,
@@ -99,7 +101,7 @@ export default async function EventPage({ params, searchParams }: Props) {
           <section aria-labelledby="event-actions-heading" className="rounded-xl border border-border-strong bg-surface p-5">
             <h2 id="event-actions-heading" className="eyebrow mb-4">{event.demo ? "Try participation" : "Your next step"}</h2>
             {event.demo && <p className="mb-4 text-xs leading-relaxed text-text-secondary">Saving or RSVPing stores a real account record for this demo. It does not book a real session or take a payment.</p>}
-            {upcoming ? <EventActions eventId={event.id} eventSlug={event.slug} title={event.title} date={event.date} startTime={event.startTime} endTime={event.endTime} venueName={event.venueName} communityName={event.communityName} price={event.price} when={when} payOnline={payOnline} payOnWhatsapp={payOnWhatsapp} {...account} /> : <div className="flex flex-wrap gap-2"><SaveButton itemType="event" itemId={event.id} /><ShareButton title={event.title} /></div>}
+            {upcoming ? <EventActions eventId={event.id} eventSlug={event.slug} title={event.title} date={event.date} startTime={event.startTime} endTime={event.endTime} venueName={event.venueName} communityName={event.communityName} price={event.price} when={when} payOnline={payOnline} payOnWhatsapp={payOnWhatsapp} signupClosesAt={signupClosesAt} {...account} /> : <div className="flex flex-wrap gap-2"><SaveButton itemType="event" itemId={event.id} /><ShareButton title={event.title} /></div>}
           </section>
           <section aria-labelledby="meeting-heading" className="rounded-xl border border-border-subtle bg-surface p-5">
             <h2 id="meeting-heading" className="eyebrow">Meeting point</h2><p className="mt-3 font-bold">{event.venueName}</p><p className="mt-1 text-sm text-text-secondary">{event.sector}</p>
@@ -108,7 +110,7 @@ export default async function EventPage({ params, searchParams }: Props) {
           <Link href={`/community/${event.communitySlug}`} className="block rounded-xl border border-border-subtle bg-surface p-5 hover:border-border-strong"><p className="eyebrow">Host community</p><p className="mt-2 font-bold">{event.communityName}</p><p className="mt-1 text-sm text-velocity">View schedule →</p></Link>
         </aside>
       </div>
-      {upcoming && <EventBookingBar eventId={event.id} title={event.title} date={event.date} startTime={event.startTime} venueName={event.venueName} price={event.price} when={when} spotsLeft={typeof event.capacity === "number" ? Math.max(0, event.capacity - event.attendeesCount) : undefined} payOnline={payOnline} payOnWhatsapp={payOnWhatsapp} {...account} />}
+      {upcoming && <EventBookingBar eventId={event.id} title={event.title} date={event.date} startTime={event.startTime} venueName={event.venueName} price={event.price} when={when} spotsLeft={typeof event.capacity === "number" ? Math.max(0, event.capacity - event.attendeesCount) : undefined} payOnline={payOnline} payOnWhatsapp={payOnWhatsapp} signupClosesAt={signupClosesAt} {...account} />}
     </div>
   );
 }
