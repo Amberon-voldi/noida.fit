@@ -345,6 +345,51 @@ test("a free session registers a walk-in with nothing to collect", async () => {
   assert.equal((await participation.createRsvp("free-late-rsvp", "paid")).status, "confirmed", "an RSVP after the start");
 });
 
+test("the organizer's closing time shuts tickets, RSVPs and gift claims, never later than the end", async () => {
+  reset({ capacity: 10 });
+  const record = rows.get("events/paid")!;
+  const start = Date.now() + 60 * 60_000;
+  Object.assign(record, { startsAt: new Date(start).toISOString(), endsAt: new Date(start + 60 * 60_000).toISOString() });
+  const closeAt = (iso: string | undefined) => { const payload = JSON.parse(String(record.payload)); delete payload.bookingClosesAt; record.payload = JSON.stringify({ ...payload, ...(iso ? { bookingClosesAt: iso } : {}) }); };
+  const memberLink = await create({ spots: 5, label: "Riya" });
+  const guestLink = await create({ spots: 5, allowGuests: true, label: "Asha" });
+  const contact = { name: "Early bird", phone: "9000000031" };
+
+  // Closes in ten minutes: still open.
+  closeAt(new Date(Date.now() + 10 * 60_000).toISOString());
+  assert.equal((await participation.reserveTicket("early", "paid", 29900, contact)).status, "confirmed");
+  assert.equal((await gifts.getGiftView(guestLink.id))?.state, "open");
+  // Closed a minute ago, an hour before the start: nobody books or claims, and the gift page says so.
+  closeAt(new Date(Date.now() - 60_000).toISOString());
+  await rejects(participation.reserveTicket("late", "paid", 29900, contact), "EVENT_STARTED");
+  await rejects(participation.holdTicket("late", "paid", 29900), "EVENT_STARTED");
+  await rejects(gifts.claimGift(friend, memberLink.id), "EVENT_STARTED");
+  await rejects(gifts.claimGiftAsGuest(guestLink.id, { phone: "9000000032" }), "EVENT_STARTED");
+  assert.equal((await gifts.getGiftView(guestLink.id))?.state, "closed");
+  assert.equal(ticket("late"), undefined);
+  assert.equal(ticket(friend.id), undefined);
+  // Unset again: open until the start.
+  closeAt(undefined);
+  assert.equal((await gifts.getGiftView(guestLink.id))?.state, "open");
+
+  const { bookingCloseTime } = await import("../lib/booking-window");
+  assert.equal(bookingCloseTime(1000, 2000, { bookingClosesAt: new Date(5000).toISOString() }), 2000, "never later than the end");
+  assert.equal(bookingCloseTime(1000, 2000, { lateSignup: true }), 2000);
+  assert.equal(bookingCloseTime(1000, 2000), 1000);
+});
+
+test("after sign-ups close, the desk can still register a walk-in on a session taking late sign-ups", async () => {
+  reset({ capacity: 5 });
+  const record = rows.get("events/paid")!;
+  const start = Date.now() - 5 * 60_000;
+  Object.assign(record, { startsAt: new Date(start).toISOString(), endsAt: new Date(start + 60 * 60_000).toISOString() });
+  record.payload = JSON.stringify({ ...JSON.parse(String(record.payload)), lateSignup: true, bookingClosesAt: new Date(Date.now() - 60_000).toISOString() });
+  await rejects(participation.reserveTicket("online", "paid", 29900, { name: "Online", phone: "9000000033" }), "EVENT_STARTED");
+  rows.set("fitness_ids/door", { $id: "door", userId: "door", publicId: "NF-00000000000000D1", status: "active" });
+  const token = (await participation.createParticipantCheckInToken("door")).token;
+  assert.equal((await participation.checkInParticipant(organizerUser, "paid", token, { register: true, collected: 29900 })).registered, true);
+});
+
 test("the desk tells a guest pass QR from a .fit ID check-in QR", async () => {
   const qr = await import("../lib/check-in-qr");
   const pass = `p${"A".repeat(24)}`;

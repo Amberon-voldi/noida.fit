@@ -144,6 +144,17 @@ test("an organizer switches late sign-ups on and off; off leaves nothing behind"
   await assert.rejects(service.createOrganizerEvent(organizer, { ...form({ title: "Bad flag", lateSignup: "yes" }), communitySlug: "dawn-runners" }), { code: "INVALID_EVENT" });
 });
 
+test("an organizer sets a closing time for sign-ups before the end, and clears it", async () => {
+  const closes = new Date(`${futureDate}T00:00:00Z`).toISOString();
+  const created = await service.createOrganizerEvent(organizer, { ...form({ title: "Closing run", bookingClosesAt: closes }), communitySlug: "dawn-runners" });
+  assert.equal(eventRecord(created.id).bookingClosesAt, closes);
+  // The session ends 01:45 UTC: a closing time at or after it is refused.
+  await assert.rejects(service.updateOrganizerEvent(organizer, created.id, form({ title: "Closing run", bookingClosesAt: new Date(`${futureDate}T01:45:00Z`).toISOString() }), String(eventRow(created.id).$updatedAt)), { message: /before the session ends/ });
+  await service.updateOrganizerEvent(organizer, created.id, form({ title: "Closing run", bookingClosesAt: "" }), String(eventRow(created.id).$updatedAt));
+  assert.equal("bookingClosesAt" in eventRecord(created.id), false, "cleared");
+  await assert.rejects(service.createOrganizerEvent(organizer, { ...form({ title: "Bad close", bookingClosesAt: "tomorrow" }), communitySlug: "dawn-runners" }), { code: "INVALID_EVENT" });
+});
+
 test("editing keeps a banner the team set until the organizer replaces or removes it", async () => {
   eventRow("existing").payload = JSON.stringify({ ...eventRecord("existing"), coverImageUrl: "https://images.unsplash.com/photo-team" });
   const version = () => String(eventRow("existing").$updatedAt);

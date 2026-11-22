@@ -10,6 +10,7 @@ import {
 } from "@/lib/appwrite/database";
 import { HttpError } from "@/lib/http";
 import { formatInr, MAX_TICKET_RUPEES, parseEventPrice, ticketHoldEndsAt } from "@/lib/pricing";
+import { bookingCloseTime } from "@/lib/booking-window";
 import type { AuthUser } from "@/lib/auth";
 import { getAdminServices } from "@/lib/appwrite/server";
 import { clubOrganizerIds, organizerIdsOf } from "@/lib/services/organizers";
@@ -106,7 +107,7 @@ async function getEvent(eventId: string, published = true) {
   return event;
 }
 
-function eventPayload(event: EventRecord): { price?: unknown; demo?: unknown; lateSignup?: unknown } {
+function eventPayload(event: EventRecord): { price?: unknown; demo?: unknown; lateSignup?: unknown; bookingClosesAt?: unknown } {
   try {
     return JSON.parse(event.payload ?? "") ?? {};
   } catch {
@@ -119,10 +120,11 @@ const eventPricing = (event: EventRecord) => parseEventPrice(eventPayload(event)
 /** The organizer lets people sign up after the start, and register walk-ins at the check-in desk. */
 const allowsLateSignup = (event: EventRecord) => eventPayload(event).lateSignup === true;
 
-/** When sign-ups close: at the start, or at the end for a session that takes late sign-ups. */
+/** When sign-ups and gift claims close: the organizer's closing time, else the start (the end with late sign-ups). */
 function signupClosesAt(event: EventRecord): number {
   const { start, end } = eventWindow(event);
-  return allowsLateSignup(event) ? end : start;
+  const closes = eventPayload(event).bookingClosesAt;
+  return bookingCloseTime(start, end, { lateSignup: allowsLateSignup(event), bookingClosesAt: typeof closes === "string" ? closes : undefined });
 }
 
 /** What a payment needs to name an event and link back to it. Demo listings never take real money. */
@@ -372,7 +374,7 @@ export async function claimGiftTicket(userId: string, eventId: string, giftRef: 
   documentIdSchema.parse(userId);
   const event = await getEvent(eventId);
   const closes = signupClosesAt(event);
-  if (Date.now() >= closes) throw new HttpError(409, "EVENT_STARTED", "This event has already started");
+  if (Date.now() >= closes) throw new HttpError(409, "EVENT_STARTED", "Sign-ups for this session have closed");
   const id = rsvpDocumentId(eventId, userId);
   const existing = await getAppwriteDocument<TicketRow>(collections.rsvps, id);
   if (existing?.status === "confirmed") return { rsvp: rsvpDto(existing), claimed: existing.paymentRef === giftRef };

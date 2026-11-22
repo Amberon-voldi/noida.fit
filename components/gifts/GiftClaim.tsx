@@ -13,7 +13,7 @@ const closedCopy: Record<Exclude<GiftState, "open" | "yours">, string> = {
   going: "You already have a spot at this session, so this gift stays free for someone else.",
   used: "This gift has already been claimed.",
   full: "This session is full right now, so the gift can’t be claimed.",
-  closed: "This session has started, ended or been cancelled, so the gift can’t be claimed.",
+  closed: "Sign-ups for this session have closed, or it was cancelled, so the gift can’t be claimed.",
   revoked: "The organizer has switched off this gift link.",
 };
 /** Server codes that settle what the page should say instead of the claim form. */

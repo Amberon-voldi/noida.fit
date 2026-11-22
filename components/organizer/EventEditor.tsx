@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ImagePlus, LoaderCircle } from "lucide-react";
 import { isMediaPath, MEDIA_ACCEPT, MEDIA_MAX_BYTES } from "@/lib/media";
+import { indiaLocalToIso, isoToIndiaLocal } from "@/lib/booking-window";
 import { MAX_TICKET_RUPEES, paidPrice, parseEventPrice } from "@/lib/pricing";
 
 export interface EditorOption { slug: string; name: string; detail?: string; }
@@ -15,6 +16,8 @@ export interface EditorValues {
   level?: string; distance?: string; pace?: string; routeOverview?: string; whatToBring?: string[];
   /** Sign-ups stay open until the end, and the check-in desk can register walk-ins. */
   lateSignup?: boolean;
+  /** Close sign-ups and gift claims at this time (ISO). */
+  bookingClosesAt?: string;
   /** The banner at the top of the session page: an uploaded /media path, or one the team set. */
   coverImageUrl?: string;
 }
@@ -54,7 +57,7 @@ export function EventEditor({ mode, clubs, venues, initial, eventId, expectedUpd
   const router = useRouter();
   const initialPricing = parseEventPrice(initial.price);
   // Free-form price text is no longer accepted, so it opens as "Paid" with the amount left to fill in.
-  const [values, setValues] = useState({ ...initial, startTime: to24(initial.startTime), endTime: to24(initial.endTime), whatToBring: (initial.whatToBring ?? []).join("\n"), paid: initialPricing.kind !== "free", amount: initialPricing.kind === "paid" ? String(initialPricing.amount / 100) : "", coverImageUrl: initial.coverImageUrl ?? "" });
+  const [values, setValues] = useState({ ...initial, startTime: to24(initial.startTime), endTime: to24(initial.endTime), whatToBring: (initial.whatToBring ?? []).join("\n"), paid: initialPricing.kind !== "free", amount: initialPricing.kind === "paid" ? String(initialPricing.amount / 100) : "", coverImageUrl: initial.coverImageUrl ?? "", bookingClosesAtLocal: isoToIndiaLocal(initial.bookingClosesAt) });
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const [uploading, setUploading] = useState(false);
@@ -95,6 +98,7 @@ export function EventEditor({ mode, clubs, venues, initial, eventId, expectedUpd
       level: values.level || undefined, distance: values.distance || undefined, pace: values.pace || undefined, routeOverview: values.routeOverview || undefined,
       whatToBring: values.whatToBring.split("\n").map(line => line.trim()).filter(Boolean),
       lateSignup: values.lateSignup === true,
+      bookingClosesAt: indiaLocalToIso(values.bookingClosesAtLocal) ?? "",
       // On edit, only a changed banner is sent ("" removes it), so one the team set is left alone.
       // A new session sends any banner, including one copied from the session it duplicates.
       ...((mode === "create" ? values.coverImageUrl : values.coverImageUrl !== (initial.coverImageUrl ?? "")) ? { coverImageUrl: values.coverImageUrl } : {}),
@@ -170,6 +174,11 @@ export function EventEditor({ mode, clubs, venues, initial, eventId, expectedUpd
           <label className="flex items-start gap-3 rounded-lg border border-border-subtle p-3 text-sm sm:col-span-2">
             <input type="checkbox" checked={values.lateSignup === true} onChange={change => set("lateSignup", change.target.checked)} className="mt-0.5 size-5 shrink-0 accent-velocity" />
             <span><span className="font-semibold text-white">Allow sign-ups after the start</span><span className={`${hint} block`}>People can still book until the session ends. At the check-in desk, scanning someone who hasn’t signed up offers to register them{values.paid ? " once you’ve collected the ticket price" : ""} and check them in.</span></span>
+          </label>
+          <label className={`${labelClass} sm:col-span-2`}>Close sign-ups at <span className="font-normal text-text-secondary">(optional)</span>
+            <span className="mt-1 flex gap-2"><input type="datetime-local" value={values.bookingClosesAtLocal} onChange={change => set("bookingClosesAtLocal", change.target.value)} className={field} />
+              {values.bookingClosesAtLocal && <button type="button" onClick={() => set("bookingClosesAtLocal", "")} className="shrink-0 rounded-lg border border-border-strong px-3 text-xs font-semibold text-white">Clear</button>}</span>
+            <span className={hint}>India time. From then, nobody can book a spot or claim a gift link for this session. Empty: sign-ups close {values.lateSignup ? "when the session ends" : "when it starts"}. The check-in desk can still register walk-ins if sign-ups after the start are allowed.</span>
           </label>
           <label className={labelClass}>Level <span className="font-normal text-text-secondary">(optional)</span><input maxLength={100} value={values.level ?? ""} onChange={change => set("level", change.target.value)} className={field} placeholder="All levels" /></label>
           <label className={labelClass}>Distance <span className="font-normal text-text-secondary">(optional)</span><input maxLength={100} value={values.distance ?? ""} onChange={change => set("distance", change.target.value)} className={field} placeholder="5 km" /></label>

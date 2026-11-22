@@ -34,7 +34,7 @@ export default async function EditEventPage({ params }: Props) {
     title: String(record.title), description: String(record.description), date: String(record.date),
     startTime: String(record.startTime), endTime: String(record.endTime), venueSlug: String(record.venueSlug),
     capacity: Number(record.capacity), price: String(record.price), status: record.status as EditorValues["status"],
-    level: text("level"), distance: text("distance"), pace: text("pace"), routeOverview: text("routeOverview"), lateSignup: record.lateSignup === true,
+    level: text("level"), distance: text("distance"), pace: text("pace"), routeOverview: text("routeOverview"), lateSignup: record.lateSignup === true, bookingClosesAt: text("bookingClosesAt"),
     coverImageUrl: text("coverImageUrl"),
     whatToBring: Array.isArray(record.whatToBring) ? record.whatToBring.map(String) : [],
   };

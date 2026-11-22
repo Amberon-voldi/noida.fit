@@ -34,6 +34,8 @@ export interface Event {
   status?: "published" | "cancelled" | "draft";
   /** Sign-ups stay open until the end, and the check-in desk can register walk-ins. */
   lateSignup?: boolean;
+  /** The organizer's own closing time for sign-ups and gift claims (ISO). Unset: the start, or the end with lateSignup. */
+  bookingClosesAt?: string;
   demo?: boolean;
   tags?: string[];
 }

@@ -39,6 +39,8 @@ export const organizerEventInputSchema = z.object({
   status: z.enum(["draft", "published", "cancelled"]),
   /** Sign-ups stay open until the end, and the check-in desk can register walk-ins. */
   lateSignup: z.boolean().optional(),
+  /** Close sign-ups and gift claims at this time (ISO), before the end. "" or omitted: the usual time. */
+  bookingClosesAt: z.union([z.literal(""), z.string().datetime({ offset: true })]).optional(),
   /** The banner: an image uploaded through /api/organizer/media, or "" to remove it. Omitted on edit: unchanged. */
   coverImageUrl: z.union([z.literal(""), z.string().refine(isMediaPath, "Upload the banner image again")]).optional(),
 }).strict();
@@ -60,10 +62,11 @@ export async function organizerVenues(): Promise<Place[]> {
   return (await getPlaces()).filter(published).sort((a, b) => a.name.localeCompare(b.name));
 }
 
-function schedule(date: string, startTime: string, endTime: string) {
+function schedule({ date, startTime, endTime, bookingClosesAt }: Pick<OrganizerEventInput, "date" | "startTime" | "endTime" | "bookingClosesAt">) {
   let start: Date, end: Date;
   try { start = indiaDateTime(date, startTime); end = indiaDateTime(date, endTime); } catch { throw new HttpError(400, "INVALID_EVENT", "Pick a valid date and times"); }
   if (end <= start) throw new HttpError(400, "INVALID_EVENT", "The end time must be after the start time");
+  if (bookingClosesAt && Date.parse(bookingClosesAt) >= end.getTime()) throw new HttpError(400, "INVALID_EVENT", "Close sign-ups before the session ends");
   return { startsAt: start.toISOString(), endsAt: end.toISOString() };
 }
 
@@ -80,6 +83,7 @@ function clean(input: OrganizerEventInput) {
     level: optional(input.level), distance: optional(input.distance), pace: optional(input.pace), routeOverview: optional(input.routeOverview),
     whatToBring: input.whatToBring?.filter(Boolean),
     lateSignup: input.lateSignup === true ? true : undefined,
+    bookingClosesAt: input.bookingClosesAt ? new Date(input.bookingClosesAt).toISOString() : undefined,
   };
 }
 
@@ -118,7 +122,7 @@ async function create(user: Actor, value: unknown): Promise<{ id: string; slug: 
     category: club.category, activityId, communitySlug: club.slug, communityName: club.name,
     ...(club.crestUrl ? { communityCrestUrl: club.crestUrl } : {}),
     venueSlug: place.slug, venueName: place.name, sector: place.sector,
-    ...clean(input), ...schedule(input.date, input.startTime, input.endTime),
+    ...clean(input), ...schedule(input),
     ...(input.coverImageUrl ? { coverImageUrl: input.coverImageUrl } : {}),
     organizerUserIds: [user.id],
   });
@@ -153,8 +157,8 @@ async function update(user: Actor, eventId: string, value: unknown, expectedUpda
     ? { slug: String(stored.record.venueSlug), name: String(stored.record.venueName), sector: String(stored.record.sector) }
     : await venue(input.venueSlug);
   // Start from the stored record so team-owned fields (slug, club, images, featured) survive untouched.
-  const next: Record<string, unknown> = { ...stored.record, ...clean(input), venueSlug: place.slug, venueName: place.name, sector: place.sector, ...schedule(input.date, input.startTime, input.endTime) };
-  for (const key of ["level", "distance", "pace", "routeOverview", "whatToBring", "lateSignup"]) if (next[key] === undefined) delete next[key];
+  const next: Record<string, unknown> = { ...stored.record, ...clean(input), venueSlug: place.slug, venueName: place.name, sector: place.sector, ...schedule(input) };
+  for (const key of ["level", "distance", "pace", "routeOverview", "whatToBring", "lateSignup", "bookingClosesAt"]) if (next[key] === undefined) delete next[key];
   // A banner the team set stays unless the organizer changed it.
   if (input.coverImageUrl) next.coverImageUrl = input.coverImageUrl;
   else if (input.coverImageUrl === "") delete next.coverImageUrl;

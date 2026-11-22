@@ -10,6 +10,7 @@ import { normalizeIndianMobile } from "@/lib/phone";
 import { ticketHoldEndsAt } from "@/lib/pricing";
 import { getManagedEventRecord } from "@/lib/services/organizer-events";
 import { checkInDocumentId, checkInGuestHolder, claimGiftTicket, collectedSchema, documentIdSchema, getTicketEvent, getUserRsvp, GUEST_HOLDER_PREFIX } from "@/lib/services/participation";
+import { eventBookingClosesAt } from "@/lib/booking-window";
 import type { AuthUser } from "@/lib/auth";
 import type { Event } from "@/types/event";
 import type { GiftLink } from "@/types/organizer";
@@ -264,7 +265,7 @@ export async function getGiftView(linkId: string, viewerId?: string): Promise<Gi
   const taken = tickets.filter(ticket => ticket.userId !== viewerId && (ticket.status === "confirmed" || (ticket.status === "pending" && ticketHoldEndsAt(String(ticket.createdAt)) > now))).length;
   const state: GiftState = mine?.paymentRef === ref ? "yours"
     : row.status === "revoked" ? "revoked"
-    : event.status === "cancelled" || !(Date.parse(event.startsAt ?? "") > now) ? "closed"
+    : event.status === "cancelled" || !(eventBookingClosesAt(event) > now) ? "closed"
     : mine ? "going"
     : claimed >= row.spots ? "used"
     : typeof event.capacity === "number" && taken >= event.capacity ? "full"

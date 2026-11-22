@@ -112,6 +112,8 @@ const eventFields = {
   whatToBring: z.array(plainText(200, 1)).max(30).optional(),
   /** People can sign up after the start (until the end), and the check-in desk can register walk-ins. */
   lateSignup: z.boolean().optional(),
+  /** The organizer's own closing time for sign-ups and gift claims (before the end). */
+  bookingClosesAt: z.string().datetime({ offset: true }).optional(),
 };
 
 const withId = <T extends z.ZodRawShape>(fields: T) => z.object({ id, ...fields }).strict();

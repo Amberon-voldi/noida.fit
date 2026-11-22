@@ -10,6 +10,7 @@ import { ShareButton } from "@/components/ui/ShareButton";
 import { StructuredData } from "@/components/discovery/DetailPrimitives";
 import { DetailHero } from "@/components/discovery/DetailHero";
 import { BioIntro } from "@/components/discovery/BioIntro";
+import { eventBookingClosesAt } from "@/lib/booking-window";
 import { eventIsUpcoming, eventTimestamp } from "@/components/discovery/filter";
 import { listingMetadata } from "@/components/discovery/metadata";
 import { getActivities, getEventBySlug } from "@/lib/data";
@@ -60,8 +61,9 @@ export default async function EventPage({ params, searchParams }: Props) {
   } : null;
   const account = { savedPhone, savedName: viewer?.name || undefined, accountEmail: viewer?.email || undefined };
   const when = `${formatDate(event.date)} · ${event.startTime}`;
-  // Booking closes at the start, or at the end for a session that takes late sign-ups.
-  const signupClosesAt = event.lateSignup ? event.endsAt : event.startsAt;
+  // Booking closes at the organizer's closing time, else the start (the end for a session taking late sign-ups).
+  const closes = eventBookingClosesAt(event);
+  const signupClosesAt = Number.isFinite(closes) ? new Date(closes).toISOString() : undefined;
   const jsonLd = {
     "@context": "https://schema.org", "@type": "SportsEvent", name: event.title, description: event.description,
     startDate: Number.isFinite(start) ? new Date(start).toISOString() : undefined,
