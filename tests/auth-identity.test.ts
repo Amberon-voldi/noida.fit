@@ -596,3 +596,58 @@ test("the signup API accepts no username and still emails the verification link"
   assert.equal(backend.rows.get("profiles/private-auth-user")?.username, "rahul-sharma");
   assert.equal(backend.calls.filter(call => call.path === "/account/verification" && call.method === "POST").length, 1);
 });
+
+test("the .fit app signs in with the website's checks and gets its session secret in the body, not a cookie", async () => {
+  fakeAppwrite();
+  const { POST } = await import("../app/api/app/auth/login/route");
+  // A phone sends no Origin header.
+  const response = await POST(new Request("https://noida.fit/api/app/auth/login", {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email: "app-runner@example.test", password: "password123" }),
+  }));
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), { secret: "server-only-session-secret", expire: "2027-01-01T00:00:00.000Z" });
+  assert.equal(response.headers.get("set-cookie"), null);
+  assert.match(response.headers.get("cache-control") || "", /no-store/);
+});
+
+test("the .fit app's sign-in refuses wrong passwords like the website does", async () => {
+  const backend = fakeAppwrite();
+  backend.setSessionError(401, "user_invalid_credentials");
+  const { POST } = await import("../app/api/app/auth/login/route");
+  const response = await POST(new Request("https://noida.fit/api/app/auth/login", {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ email: "app-wrong@example.test", password: "password123" }),
+  }));
+  assert.equal(response.status, 401);
+  assert.equal((await response.json()).code, "INVALID_CREDENTIALS");
+});
+
+test("a bearer secret from the app replaces the cookie and the same-origin check; cookie requests stay guarded", async () => {
+  const { bearerSessionSecret } = await import("../lib/app-session");
+  const { assertSameOrigin } = await import("../lib/http");
+  assert.equal(bearerSessionSecret("Bearer server-only-session-secret"), "server-only-session-secret");
+  for (const bad of [null, "", "Bearer", "Bearer short", "Basic server-only-session-secret", "Bearer has spaces in it ok", "Bearer <script>alert(1)</script>"]) {
+    assert.equal(bearerSessionSecret(bad), null, String(bad));
+  }
+  // The app: no Origin, but a bearer secret.
+  assert.doesNotThrow(() => assertSameOrigin(new Request("https://noida.fit/api/check-in/pass", { method: "POST", headers: { Authorization: "Bearer server-only-session-secret" } })));
+  // A browser: no Origin and no bearer, or another site's origin, is still refused.
+  assert.throws(() => assertSameOrigin(new Request("https://noida.fit/api/check-in/pass", { method: "POST" })), /origin/i);
+  assert.throws(() => assertSameOrigin(new Request("https://noida.fit/api/check-in/pass", { method: "POST", headers: { Origin: "https://evil.test" } })), /origin/i);
+  // Signed out, the app names itself instead; any other value is a browser request like the rest.
+  assert.doesNotThrow(() => assertSameOrigin(new Request("https://noida.fit/api/auth/recovery", { method: "POST", headers: { "X-Dotfit-Client": "app" } })));
+  assert.throws(() => assertSameOrigin(new Request("https://noida.fit/api/auth/recovery", { method: "POST", headers: { "X-Dotfit-Client": "web" } })), /origin/i);
+  // A malformed bearer header does not open the door either.
+  assert.throws(() => assertSameOrigin(new Request("https://noida.fit/api/check-in/pass", { method: "POST", headers: { Authorization: "Bearer x", Origin: "https://evil.test" } })), /origin/i);
+});
+
+test("the app's sign-out revokes its own session on the server and needs the bearer secret", async () => {
+  const backend = fakeAppwrite();
+  const { POST } = await import("../app/api/app/auth/logout/route");
+  const missing = await POST(new Request("https://noida.fit/api/app/auth/logout", { method: "POST" }));
+  assert.equal(missing.status, 401);
+  const response = await POST(new Request("https://noida.fit/api/app/auth/logout", { method: "POST", headers: { Authorization: "Bearer server-only-session-secret" } }));
+  assert.equal(response.status, 200);
+  assert.ok(backend.calls.some((call) => call.method === "DELETE" && call.path === "/account/sessions/current" && call.session === "server-only-session-secret"));
+});

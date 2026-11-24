@@ -32,7 +32,7 @@ const diagnosticTypes = new Set([
   "user_more_factors_required", "user_session_not_found", "user_invalid_credentials",
 ]);
 const networkCodes = new Set(["ENOTFOUND", "EAI_AGAIN", "ECONNREFUSED", "ECONNRESET", "ETIMEDOUT", "UND_ERR_CONNECT_TIMEOUT", "CERT_HAS_EXPIRED", "UNABLE_TO_VERIFY_LEAF_SIGNATURE"]);
-type Operation = "auth.login" | "auth.lookup" | "auth.recovery.create" | "auth.recovery.update" | "auth.verification.create" | "auth.verification.update" | "auth.session.create" | "auth.session.read" | "auth.profile.ensure" | "database.list" | "database.get";
+type Operation = "auth.login" | "auth.lookup" | "auth.google.start" | "auth.google.callback" | "auth.google.app" | "auth.password.update" | "auth.recovery.create" | "auth.recovery.update" | "auth.verification.create" | "auth.verification.update" | "auth.session.create" | "auth.session.read" | "auth.profile.ensure" | "database.list" | "database.get";
 // Callers supply only generated IDs, fixed collection aliases and elapsed time.
 type DiagnosticContext = { traceId?: string; collection?: string; durationMs?: number };
 

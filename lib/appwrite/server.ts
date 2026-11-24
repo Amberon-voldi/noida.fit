@@ -3,7 +3,8 @@ import "server-only";
 import { cache } from "react";
 import { Account, Client, Databases, Users } from "node-appwrite";
 import { AppwriteException } from "node-appwrite";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
+import { bearerSessionSecret } from "@/lib/app-session";
 import {
   APPWRITE_SESSION_COOKIE,
   appwriteCollections,
@@ -43,7 +44,10 @@ export function getSessionServices(sessionSecret: string): { account: Account } 
   return { account: new Account(client) };
 }
 
+/** The .fit app's bearer secret (lib/app-session.ts) wins over any cookie; the website uses its cookie. */
 export async function getSessionSecret(): Promise<string | null> {
+  const bearer = bearerSessionSecret((await headers()).get("authorization"));
+  if (bearer) return bearer;
   const cookieStore = await cookies();
   return cookieStore.get(APPWRITE_SESSION_COOKIE)?.value ?? null;
 }

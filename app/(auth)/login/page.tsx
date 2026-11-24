@@ -11,9 +11,10 @@ export const metadata: Metadata = {
 };
 
 export default async function LoginPage({ searchParams }: {
-  searchParams: Promise<{ callbackUrl?: string | string[] }>;
+  searchParams: Promise<{ callbackUrl?: string | string[]; error?: string | string[] }>;
 }) {
-  const callbackUrl = safeCallbackUrl((await searchParams).callbackUrl);
+  const params = await searchParams;
+  const callbackUrl = safeCallbackUrl(params.callbackUrl);
   if (await auth()) redirect(callbackUrl);
-  return <AuthForm callbackUrl={callbackUrl} />;
+  return <AuthForm callbackUrl={callbackUrl} googleError={params.error === "google"} />;
 }

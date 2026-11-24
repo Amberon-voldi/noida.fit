@@ -3,6 +3,7 @@ import "server-only";
 import { createHash } from "node:crypto";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
+import { isAppRequest } from "@/lib/app-session";
 
 const RATE_WINDOW_MS = 10 * 60 * 1000;
 const requests = new Map<string, number[]>();
@@ -44,6 +45,8 @@ export function jsonError(error: unknown, fallback = "Request could not be compl
 
 /** Compare full origins, never attacker-provided forwarded host headers. */
 export function assertSameOrigin(request: Request): void {
+  // The .fit app sends a bearer secret or its client header, never a cookie, so there is no forged request to stop.
+  if (isAppRequest(request)) return;
   const value = request.headers.get("origin");
   const fetchSite = request.headers.get("sec-fetch-site");
   if (!value || fetchSite === "cross-site") {

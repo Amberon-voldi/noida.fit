@@ -26,6 +26,7 @@ export default async function AccountPage() {
     settings={profileSettings(stored)}
     email={user.email}
     phone={savedPaymentPhone(user.prefs)}
+    hasPassword={Boolean(user.passwordUpdate)}
     canOrganize={user.labels.includes("admin") || managedEvents.length > 0 || managedClubs.length > 0}
     participation={participation}
     events={events}

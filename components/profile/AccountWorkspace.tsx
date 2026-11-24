@@ -9,6 +9,7 @@ import { ActivitySummary } from "./ActivitySummary";
 import { MemberIdentity } from "./MemberIdentity";
 import { SettingsForm } from "./SettingsForm";
 import { PhoneSettings } from "./PhoneSettings";
+import { PasswordSettings } from "./PasswordSettings";
 import { MobileAccountSection } from "./MobileAccountSection";
 import { AccountSectionNav } from "./AccountSectionNav";
 import { PlanTabs, type PlanTab } from "./PlanTabs";
@@ -27,6 +28,8 @@ export interface AccountWorkspaceProps {
   email: string;
   /** The mobile number saved on the account (prefs), for the member to change or remove. */
   phone?: string;
+  /** False for someone who joined with Google and hasn’t set a password yet. */
+  hasPassword?: boolean;
   canOrganize: boolean;
   participation: AccountParticipation;
   events: Event[];
@@ -41,7 +44,7 @@ function DateChip({ value }: { value: string }) {
 }
 
 /** Server-rendered private workspace; data loading and authorization stay in the route. */
-export function AccountWorkspace({ profile, settings, email, phone, canOrganize, participation, events, upcomingEvents, communities, places }: AccountWorkspaceProps) {
+export function AccountWorkspace({ profile, settings, email, phone, hasPassword = true, canOrganize, participation, events, upcomingEvents, communities, places }: AccountWorkspaceProps) {
   const { rsvps, history } = accountRecords(participation, events, upcomingEvents);
   const communitiesById = new Map(communities.map(community => [community.id, community]));
   const eventsById = new Map(events.map(event => [event.id, event]));
@@ -116,6 +119,7 @@ export function AccountWorkspace({ profile, settings, email, phone, canOrganize,
         <MobileAccountSection headingId="settings" title="Profile & privacy" description="Your details, visibility and sharing.">
           <dl className="member-account-details"><div><dt><Mail size={14} aria-hidden="true" />Account email · private</dt><dd>{email}</dd></div><div><dt>Member since</dt><dd>{accountDate(profile.joinedAt)}</dd></div></dl>
           <PhoneSettings phone={phone} />
+          <PasswordSettings hasPassword={hasPassword} />
           <SettingsForm settings={settings} className="account-settings-form" />
         </MobileAccountSection>
         <MobileAccountSection headingId="integrations" title="Connected services" description="Availability and setup information."><div className="account-service-grid">{integrations.map(integration => <div key={integration.id} className="account-service-card"><div className="account-service-icon"><Link2 size={16} aria-hidden="true" /></div><div><h3 className="text-sm font-semibold text-white">{integration.name}</h3><p className="mt-1 text-sm leading-relaxed text-text-secondary">{integration.message}</p></div></div>)}</div></MobileAccountSection>
