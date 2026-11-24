@@ -2,7 +2,7 @@ import "server-only";
 
 import { OAuthProvider } from "node-appwrite";
 import { getAdminServices, getGuestServices, getSessionServices } from "@/lib/appwrite/server";
-import { ensureProfileForUser } from "@/lib/appwrite/profiles";
+import { ensureProfileForUser, getProfileDocumentByUserId } from "@/lib/appwrite/profiles";
 
 /**
  * "Continue with Google", for the website and the .fit app. Appwrite runs the Google sign-in and hands back a
@@ -21,11 +21,16 @@ function hasConsent(prefs: unknown): boolean {
   return typeof values?.termsAcceptedAt === "string" && typeof values?.privacyAcceptedAt === "string";
 }
 
-/** The token from Google's round trip, as a session. Members who agreed before are ready; someone new must agree first. */
+/**
+ * The token from Google's round trip, as a session. Appwrite links Google to an existing account with the same
+ * email, so members who joined with a password land in their own account. Existing members are ready: those who
+ * agreed at sign-up, and those whose .fit ID predates the recorded agreements (as their password sign-in is).
+ * Only someone genuinely new must agree first.
+ */
 export async function completeGoogle(userId: string, secret: string): Promise<{ secret: string; expire: string; needsConsent: boolean }> {
   const session = await getAdminServices().account.createSession({ userId, secret });
   const user = await getSessionServices(session.secret).account.get();
-  const needsConsent = !hasConsent(user.prefs);
+  const needsConsent = !hasConsent(user.prefs) && !(await getProfileDocumentByUserId(user.$id));
   if (!needsConsent) await ensureProfileForUser(user);
   return { secret: session.secret, expire: session.expire, needsConsent };
 }

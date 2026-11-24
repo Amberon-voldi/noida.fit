@@ -62,6 +62,6 @@ export async function signUp(request: Request): Promise<OpenedSession> {
     const unavailable = backendErrorCode(error) >= 500 || backendErrorCode(error) === 0;
     throw new HttpError(unavailable ? 503 : 400, "SIGNUP_FAILED", unavailable
       ? "Account creation is temporarily unavailable. Please try again."
-      : "Unable to create an account with those details. If you already registered, sign in.");
+      : "Unable to create an account with those details. If you already registered, sign in or continue with Google.");
   }
 }
