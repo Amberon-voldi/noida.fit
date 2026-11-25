@@ -6,6 +6,7 @@ import { loginUrl, refreshParticipation, useParticipation } from "./useParticipa
 import { indiaDateTime } from "@/lib/calendar";
 import { formatInr, parseEventPrice, ticketHoldEndsAt } from "@/lib/pricing";
 import type { TicketTier } from "@/lib/ticket-tiers";
+import { CHECKOUT_OPEN_EVENT } from "./LaserBurst";
 
 export interface EventBookingInput {
   eventId: string;
@@ -230,6 +231,8 @@ export function useEventBooking({ eventId, date, startTime, price, payOnline = f
   function openCheckout(): void {
     setCheckoutError(null);
     setCheckoutOpen(true);
+    // An event page's flourish (LaserBurst) plays as the summary opens.
+    window.dispatchEvent(new Event(CHECKOUT_OPEN_EVENT));
   }
 
   /** The one button: sign in, RSVP, open the ticket summary (to pay or book), or (on a second tap) cancel. */
