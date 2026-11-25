@@ -63,22 +63,36 @@ export interface PayuPaymentRequest {
   /** Carried through PayU and covered by its hashes: which ticket this payment is for. */
   eventId: string;
   userId: string;
+  /** The ticket type and discount code the amount was priced for (ids), so settling issues exactly what was paid. */
+  tierId?: string;
+  couponId?: string;
 }
+
+/** udf5 on payments that carry their ticket type (udf3) and coupon (udf4); older payments have neither. */
+export const PAYU_TAGGED = "v2";
 
 export interface PayuCheckoutForm { action: string; fields: Record<string, string> }
 
 export function payuCheckoutForm(request: PayuPaymentRequest): PayuCheckoutForm {
   const { key, salt, mode } = requireConfig();
-  if (/[|\s]/.test(request.email)) throw new HttpError(400, "EMAIL_UNSUPPORTED", "This account’s email address can’t be used for online payment");
+  assertPayableEmail(request.email);
   const fields = {
     key, txnid: request.txnid, amount: rupees(request.amount),
     productinfo: plain(request.productinfo, 100, "Event ticket"), firstname: plain(request.firstname.replace(/[^A-Za-z ]+/g, " "), 60, "Member"),
     email: request.email, phone: request.phone, surl: request.returnUrl, furl: request.returnUrl,
     udf1: request.eventId, udf2: request.userId,
+    udf3: request.tierId && /^[a-z0-9]{6}$/.test(request.tierId) ? request.tierId : "",
+    udf4: request.couponId && /^[a-f0-9]{8}$/.test(request.couponId) ? request.couponId : "",
+    udf5: PAYU_TAGGED,
   };
   // sha512(key|txnid|amount|productinfo|firstname|email|udf1|udf2|udf3|udf4|udf5||||||SALT)
-  const hash = sha512([key, fields.txnid, fields.amount, fields.productinfo, fields.firstname, fields.email, fields.udf1, fields.udf2, "", "", "", "", "", "", "", "", salt].join("|"));
+  const hash = sha512([key, fields.txnid, fields.amount, fields.productinfo, fields.firstname, fields.email, fields.udf1, fields.udf2, fields.udf3, fields.udf4, fields.udf5, "", "", "", "", "", salt].join("|"));
   return { action: ENDPOINTS[mode].payment, fields: { ...fields, hash } };
+}
+
+/** PayU refuses these characters in an email; checked before a seat is held for a payment that can't start. */
+export function assertPayableEmail(email: string): void {
+  if (/[|\s]/.test(email)) throw new HttpError(400, "EMAIL_UNSUPPORTED", "This account’s email address can’t be used for online payment");
 }
 
 /** Authenticates a result PayU posted (redirect or webhook) before anything acts on it. */
@@ -103,6 +117,9 @@ const transactionSchema = z.object({
   amt: money,
   udf1: z.string().optional(),
   udf2: z.string().optional(),
+  udf3: z.string().optional(),
+  udf4: z.string().optional(),
+  udf5: z.string().optional(),
 });
 
 export interface PayuTransaction {
@@ -113,6 +130,8 @@ export interface PayuTransaction {
   mihpayid: string;
   eventId?: string;
   userId?: string;
+  /** For payments made since tickets carry their type and coupon (PAYU_TAGGED): the paymentRef tags they were priced for, "" for none. */
+  tags?: string;
 }
 
 /** PayU's own record of a transaction, fetched server to server. Null when PayU has no such txnid. */
@@ -132,12 +151,13 @@ export async function verifyPayuTransaction(txnid: string): Promise<PayuTransact
   if (!detail || detail.status === "Not Found") return null;
   const parsed = transactionSchema.safeParse(detail);
   if (!parsed.success) throw new HttpError(503, "PAYMENT_VERIFY_FAILED", "PayU returned a transaction we couldn’t read");
-  const { status, unmappedstatus, mihpayid, amt, udf1, udf2 } = parsed.data;
+  const { status, unmappedstatus, mihpayid, amt, udf1, udf2, udf3, udf4, udf5 } = parsed.data;
+  const tags = udf5 === PAYU_TAGGED ? `${udf3 && /^[a-z0-9]{6}$/.test(udf3) ? `;t=${udf3}` : ""}${udf4 && /^[a-f0-9]{8}$/.test(udf4) ? `;c=${udf4}` : ""}` : undefined;
   const state = status.toLowerCase();
   // Only money PayU has captured counts; an authorisation or a bank still deciding is pending.
   const settled = state === "success" && (!unmappedstatus || unmappedstatus.toLowerCase() === "captured");
   return {
-    txnid, mihpayid, amount: amt, eventId: udf1 || undefined, userId: udf2 || undefined,
+    txnid, mihpayid, amount: amt, eventId: udf1 || undefined, userId: udf2 || undefined, ...(tags !== undefined ? { tags } : {}),
     status: settled ? "success" : state === "failure" || state === "failed" ? "failure" : "pending",
   };
 }

@@ -107,11 +107,15 @@ export function quoteCoupon(coupons: StoredCoupon[], typed: string, price: numbe
   if (coupon.paused) throw invalid;
   if (coupon.expiresAt && Date.parse(coupon.expiresAt) <= now) throw new HttpError(409, "COUPON_EXPIRED", "That discount code has expired");
   if (coupon.maxUses !== undefined && (uses.get(coupon.id) ?? 0) >= coupon.maxUses) throw new HttpError(409, "COUPON_USED_UP", "That discount code has been fully used");
-  // A percent discount is rounded to whole rupees, so the price stays a whole-rupee amount like the ticket's.
-  const discount = coupon.kind === "percent" ? Math.round(price * coupon.value / 10000) * 100 : coupon.value * 100;
-  const amount = price - discount;
+  const amount = discountedPrice(price, coupon);
+  const discount = price - amount;
   if (amount < MIN_DISCOUNTED_PAISE) throw new HttpError(409, "COUPON_TOO_LARGE", "That discount code can’t be used for this ticket");
   return { couponId: coupon.id, code: parsed.data, amount, discount, label: coupon.kind === "percent" ? `${coupon.value}% off` : `${formatInr(coupon.value * 100)} off` };
+}
+
+/** A ticket's price with a coupon (paise). A percent discount is rounded to whole rupees, like ticket prices. */
+export function discountedPrice(price: number, coupon: Pick<StoredCoupon, "kind" | "value">): number {
+  return price - (coupon.kind === "percent" ? Math.round(price * coupon.value / 10000) * 100 : coupon.value * 100);
 }
 
 /** An event's coupons for its organizer's form: codes in plain text, with how many tickets used each. */

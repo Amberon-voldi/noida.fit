@@ -5,8 +5,10 @@ import type { AuthUser } from "@/lib/auth";
 import { HttpError } from "@/lib/http";
 import { normalizeIndianMobile } from "@/lib/phone";
 import { MAX_TICKET_RUPEES, PAID_TICKET_BOOKING } from "@/lib/pricing";
-import { assertPayuConfigured, newTxnId, payuCheckoutForm, verifyPayuTransaction, type PayuCheckoutForm } from "@/lib/payments/payu";
+import { assertPayableEmail, assertPayuConfigured, newTxnId, payuCheckoutForm, verifyPayuTransaction, type PayuCheckoutForm } from "@/lib/payments/payu";
 import { sendSpotConfirmedEmail } from "@/lib/services/booking-emails";
+import { couponIdOf } from "@/lib/coupons";
+import { tierIdOf } from "@/lib/ticket-tiers";
 import { confirmTicketPayment, documentIdSchema, getTicketEvent, getUserRsvp, holdTicket, reserveTicket, type RSVP } from "@/lib/services/participation";
 
 /** `amount` (paise) is the price the member confirmed: the page price for a new ticket, the issued price for a held one. */
@@ -34,12 +36,15 @@ export async function startTicketPayment(user: Pick<AuthUser, "id" | "name" | "e
   if (!phone) throw new HttpError(400, "PHONE_INVALID", "Enter a 10-digit Indian mobile number");
   const event = await getTicketEvent(input.eventId);
   if (event.demo) throw new HttpError(409, "DEMO_EVENT", "This is a demo listing, so it can’t take a payment");
+  // Before holding a seat for a payment PayU would refuse.
+  assertPayableEmail(user.email);
   const ticket = await holdTicket(user.id, input.eventId, input.amount, input.coupon || undefined, input.tier);
   if (!ticket.amount) throw new HttpError(409, "NO_TICKET_DUE", "You already have a free RSVP for this event");
   if (ticket.paymentStatus === "paid") throw new HttpError(409, "TICKET_PAID", "Your ticket is already paid for");
   return payuCheckoutForm({
     txnid: newTxnId(), amount: ticket.amount, productinfo: event.title, firstname: user.name, email: user.email, phone,
     returnUrl: `${origin}${PAYU_RETURN_PATH}`, eventId: input.eventId, userId: user.id,
+    tierId: tierIdOf(ticket.refTags), couponId: couponIdOf(ticket.refTags),
   });
 }
 
@@ -89,7 +94,7 @@ export async function settlePayuTransaction(txnid: string): Promise<{ outcome: P
   if (transaction.status !== "success") return { outcome: transaction.status === "failure" ? "failed" : "pending", eventId };
   try {
     if (!eventId || !userId) throw new HttpError(404, "TICKET_NOT_FOUND", "The payment names no ticket");
-    await confirmTicketPayment(eventId, userId, transaction.amount, `payu:${txnid}:${mihpayid}`);
+    await confirmTicketPayment(eventId, userId, transaction.amount, `payu:${txnid}:${mihpayid}`, transaction.tags);
     return { outcome: "paid", eventId };
   } catch (error) {
     // 404/409: the money arrived but no ticket can take it. Anything else is transient; let the caller retry.

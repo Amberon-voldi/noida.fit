@@ -11,7 +11,7 @@ import {
 import { HttpError } from "@/lib/http";
 import { formatInr, MAX_TICKET_RUPEES, parseEventPrice, ticketHoldEndsAt } from "@/lib/pricing";
 import { bookingCloseTime } from "@/lib/booking-window";
-import { couponIdOf, couponTag, couponUses, quoteCoupon, storedCouponsOf, type CouponQuote } from "@/lib/coupons";
+import { couponIdOf, couponTag, couponUses, discountedPrice, quoteCoupon, storedCouponsOf, type CouponQuote } from "@/lib/coupons";
 import { ticketRefTags, tierIdOf, tiersOf, tierTag } from "@/lib/ticket-tiers";
 import type { AuthUser } from "@/lib/auth";
 import { getAdminServices } from "@/lib/appwrite/server";
@@ -262,7 +262,8 @@ function ticketPrice(event: EventRecord, tierId?: string): { amount: number; tie
     if (tierId) throw new HttpError(409, "TIER_UNAVAILABLE", "That ticket type isn’t available. Reload the page and try again.");
     return { amount: pricing.amount };
   }
-  const tier = tierId ? tiers.find(item => item.id === tierId) : tiers[0];
+  // A page that names no type (from before ticket types) shows the cheapest price, so it buys the cheapest type.
+  const tier = tierId ? tiers.find(item => item.id === tierId) : [...tiers].sort((a, b) => a.price - b.price)[0];
   if (!tier) throw new HttpError(409, "TIER_UNAVAILABLE", "That ticket type isn’t available. Reload the page and try again.");
   return { amount: tier.price * 100, tierId: tier.id };
 }
@@ -304,14 +305,14 @@ export async function quoteTicketCoupon(userId: string, eventId: string, code: s
  * applies a discount code or picks another ticket type, which re-prices it on the same seat. The type's
  * and coupon's ids are tagged onto the hold's paymentRef (";t=<id>;c=<id>").
  */
-export async function holdTicket(userId: string, eventId: string, expectedAmount: number, couponCode?: string, tierId?: string): Promise<RSVP> {
+export async function holdTicket(userId: string, eventId: string, expectedAmount: number, couponCode?: string, tierId?: string): Promise<HeldTicket> {
   documentIdSchema.parse(userId);
   const event = await getEvent(eventId);
   const closes = signupClosesAt(event);
   if (Date.now() >= closes) throw new HttpError(409, "EVENT_STARTED", "Ticket sales have closed for this event");
   const id = rsvpDocumentId(eventId, userId);
   const existing = await getAppwriteDocument<TicketRow>(collections.rsvps, id);
-  if (existing?.status === "confirmed") return rsvpDto(existing);
+  if (existing?.status === "confirmed") return held(existing);
   /** The price the member confirmed, and the paymentRef that records its type and coupon (null: neither). */
   const price = async (): Promise<{ amount: number; paymentRef: string | null }> => {
     if (!couponCode) {
@@ -324,11 +325,11 @@ export async function holdTicket(userId: string, eventId: string, expectedAmount
   };
   if (existing?.status === "pending") {
     const lapsed = holdEnded(existing);
-    // A running hold keeps its price unless a code is applied. One that ran out after using a code is priced
-    // afresh, so renewing it can't take a coupon past its expiry or usage limit.
-    // Picking another ticket type re-prices it too.
-    const reprice = Boolean(couponCode) || (lapsed && Boolean(couponIdOf(existing.paymentRef))) || (tierId !== undefined && tierId !== tierIdOf(existing.paymentRef));
-    if (!lapsed && !reprice) return rsvpDto(existing);
+    // A running hold keeps its price unless a code is applied or another type picked. One that ran out is
+    // priced afresh, at the price the page shows now: a renewed hold never keeps an old price or a coupon
+    // past its expiry or usage limit.
+    const reprice = lapsed || Boolean(couponCode) || (tierId !== undefined && tierId !== tierIdOf(existing.paymentRef));
+    if (!reprice) return held(existing);
     const changes: Partial<TicketRow> = lapsed ? { createdAt: new Date().toISOString() } : {};
     if (reprice) {
       const { amount, paymentRef } = await price();
@@ -336,15 +337,22 @@ export async function holdTicket(userId: string, eventId: string, expectedAmount
     }
     try {
       await updateAppwriteDocument(collections.rsvps, id, changes);
-      return rsvpDto({ ...existing, ...changes });
+      return held({ ...existing, ...changes });
     } catch (error) {
       if (!isCode(error, 404)) throw error;
       // Released to someone else a moment ago: take a new seat below.
     }
   }
   const { amount, paymentRef } = await price();
-  return allocateSeat(event, eventId, userId, { status: "pending", amount, paymentStatus: "pending", ...(paymentRef ? { paymentRef } : {}) }, closes);
+  const rsvp = await allocateSeat(event, eventId, userId, { status: "pending", amount, paymentStatus: "pending", ...(paymentRef ? { paymentRef } : {}) }, closes);
+  // A concurrent request may have taken the seat with other tags: read back what was stored.
+  const row = await getAppwriteDocument<TicketRow>(collections.rsvps, id);
+  return row ? held(row) : { ...rsvp, refTags: paymentRef ?? "" };
 }
+
+/** A hold or ticket, with the ticket type and coupon tags its paymentRef carries (server-side only). */
+export type HeldTicket = RSVP & { refTags: string };
+const held = (row: AppwriteDocument<TicketRow>): HeldTicket => ({ ...rsvpDto(row), refTags: ticketRefTags(row.paymentRef) });
 
 /**
  * A paid event's spot booked to pay later, while online payment is off (PAID_TICKET_BOOKING): confirmed
@@ -536,27 +544,46 @@ export async function cancelRsvp(userId: string, eventId: string): Promise<void>
  * (lib/services/ticket-payments.ts). Idempotent for the same paymentRef; the amount must match the
  * held ticket. A 404/409 here means the money arrived but no ticket can take it: refund it.
  */
-export async function confirmTicketPayment(eventId: string, userId: string, amount: number, paymentRef: string): Promise<RSVP> {
+export async function confirmTicketPayment(eventId: string, userId: string, amount: number, paymentRef: string, paidTags?: string): Promise<RSVP> {
   const id = rsvpDocumentId(documentIdSchema.parse(eventId), documentIdSchema.parse(userId));
   const ref = paymentRef.slice(0, 128);
   let ticket = await getAppwriteDocument<TicketRow>(collections.rsvps, id);
   if (!ticket) {
     // The hold ran out and its seat was released, or the member cancelled while paying. The money
     // arrived, so issue the ticket if a seat is free.
-    await allocateSeat(await getEvent(eventId), eventId, userId, { status: "confirmed", amount, paymentStatus: "paid", paymentRef: ref });
+    await allocateSeat(await getEvent(eventId), eventId, userId, { status: "confirmed", amount, paymentStatus: "paid", paymentRef: `${ref}${paidTags ?? ""}`.slice(0, 128) });
     ticket = await getAppwriteDocument<TicketRow>(collections.rsvps, id);
   }
   if (!ticket?.amount || (ticket.status !== "confirmed" && ticket.status !== "pending")) throw new HttpError(404, "TICKET_NOT_FOUND", "No ticket is awaiting payment");
-  if (ticket.amount !== amount) throw new HttpError(409, "AMOUNT_MISMATCH", "The payment does not match the ticket price");
+  // A payment for a price the hold had before the member switched type or applied a code (the payment was
+  // still going through): it names the type and coupon it was priced for, so the hold becomes that ticket.
+  // It counts only if the amount is what that type and coupon cost: anything else is refunded.
+  const repricedWhilePaying = ticket.amount !== amount && ticket.status === "pending" && ticket.paymentStatus !== "paid" && paidTags !== undefined
+    && amount === await taggedPrice(eventId, paidTags);
+  if (ticket.amount !== amount && !repricedWhilePaying) throw new HttpError(409, "AMOUNT_MISMATCH", "The payment does not match the ticket price");
   if (ticket.paymentStatus === "paid") {
     if (ticket.paymentRef === ref || ticket.paymentRef?.startsWith(`${ref};`)) return rsvpDto(ticket);
     throw new HttpError(409, "DUPLICATE_PAYMENT", "This ticket was already paid for");
   }
   // The hold's ticket type and coupon stay on the paid ticket, so the guest list shows the type and the
   // coupon keeps counting against its limit.
-  const paidRef = `${ref}${ticketRefTags(ticket.paymentRef)}`.slice(0, 128);
-  await updateAppwriteDocument(collections.rsvps, id, { status: "confirmed", paymentStatus: "paid", paymentRef: paidRef });
-  return rsvpDto({ ...ticket, status: "confirmed", paymentStatus: "paid", paymentRef: paidRef });
+  const paidRef = `${ref}${paidTags ?? ticketRefTags(ticket.paymentRef)}`.slice(0, 128);
+  await updateAppwriteDocument(collections.rsvps, id, { status: "confirmed", paymentStatus: "paid", paymentRef: paidRef, amount });
+  return rsvpDto({ ...ticket, status: "confirmed", paymentStatus: "paid", paymentRef: paidRef, amount });
+}
+
+/** What a ticket of these tags (";t=<type>;c=<coupon>") costs now, in paise; NaN when they name nothing on sale. */
+async function taggedPrice(eventId: string, tags: string): Promise<number> {
+  try {
+    const event = await getEvent(eventId, false);
+    const full = ticketPrice(event, tierIdOf(tags)).amount;
+    const couponId = couponIdOf(tags);
+    if (!couponId) return full;
+    const coupon = storedCouponsOf(eventPayload(event)).find(item => item.id === couponId);
+    return coupon ? discountedPrice(full, coupon) : Number.NaN;
+  } catch {
+    return Number.NaN;
+  }
 }
 
 function secret(): string {

@@ -81,7 +81,7 @@ function reset(capacity = 2) {
 }
 const ticketRow = (eventId: string, userId = member.id) => rows.get(`rsvps/${participation.rsvpDocumentId(eventId, userId)}`);
 const start = (input: Partial<{ eventId: string; amount: number; phone: string }> = {}, user = member) => payments.startTicketPayment(user, { eventId: "paid", amount: 19900, phone: "9876543210", ...input }, "https://noida.fit");
-const captured = (fields: Record<string, string>, overrides: Record<string, unknown> = {}) => ({ mihpayid: "403993715531", status: "success", unmappedstatus: "captured", amt: "199.00", udf1: fields.udf1, udf2: fields.udf2, ...overrides });
+const captured = (fields: Record<string, string>, overrides: Record<string, unknown> = {}) => ({ mihpayid: "403993715531", status: "success", unmappedstatus: "captured", amt: "199.00", udf1: fields.udf1, udf2: fields.udf2, udf3: fields.udf3, udf4: fields.udf4, udf5: fields.udf5, ...overrides });
 
 /** What PayU posts back for a request form, signed with the documented response hash. */
 function resultFor(fields: Record<string, string>, status = "success", extra: Record<string, string> = {}) {
@@ -409,4 +409,41 @@ test("a coupon's uses count tickets read without their owner, as the dashboard r
   const rows = [{ status: "pending", paymentRef: ";t=full01;c=abcdef12" }, { status: "confirmed", paymentRef: "payu:NFx:1;c=abcdef12" }, { status: "confirmed", paymentRef: "whatsapp:9876543210:A;c=abcdef12" }];
   assert.equal(couponUses(rows, live).get("abcdef12"), 2, "a WhatsApp name never counts");
   assert.equal(couponUses([{ ...rows[0], userId: "me" }, { ...rows[1], userId: "you" }], live, "me").get("abcdef12"), 1, "the member's own hold is left out of their quote");
+});
+
+test("the payment names the ticket type and coupon it was priced for, and a held seat is never charged an old price", async t => {
+  t.mock.method(console, "info", () => {}); reset();
+  const { sealCoupons } = await import("../lib/coupons");
+  const [coupon] = sealCoupons([{ code: "LASER10", kind: "percent", value: 10 }]);
+  // Listed with the dearer type first: a page that names no type buys the cheapest.
+  rows.get("events/paid")!.payload = JSON.stringify({ price: "₹249", tiers: [{ id: "full01", name: "Full", price: 499 }, { id: "gen001", name: "General", price: 249 }], coupons: [coupon] });
+  assert.equal((await startTier(24900, undefined, {}, other)).fields.udf3, "gen001");
+
+  // Pays for Full with a code, then switches to General while that payment is still going through.
+  const full = (await startTier(44900, "full01", { coupon: "LASER10" })).fields;
+  assert.deepEqual([full.udf3, full.udf4, full.udf5], ["full01", coupon.id, "v2"]);
+  assert.equal(full.hash, sha512(fill(REQUEST_HASH, { ...full, SALT: salt })), "udf3–udf5 are signed");
+  await startTier(24900, "gen001");
+  assert.equal(ticketRow("paid")!.amount, 24900);
+  // The Full payment lands: the member gets the Full ticket they paid for, not a refund.
+  transactions.set(full.txnid, captured(full, { amt: "449.00" }));
+  assert.deepEqual(await payments.settlePayuTransaction(full.txnid), { outcome: "paid", eventId: "paid" });
+  assert.deepEqual({ amount: ticketRow("paid")!.amount, ref: ticketRow("paid")!.paymentRef }, { amount: 44900, ref: `payu:${full.txnid}:403993715531;t=full01;c=${coupon.id}` });
+  // A second payment for the same ticket is still flagged for refund.
+  const again = { ...full, txnid: "NF" + "a".repeat(20) };
+  transactions.set(again.txnid, captured(again, { amt: "449.00" }));
+  t.mock.method(console, "error", () => {});
+  assert.equal((await payments.settlePayuTransaction(again.txnid)).outcome, "refund");
+
+  // A hold that ran out is priced at today's price when renewed.
+  rows.get("events/paid")!.payload = JSON.stringify({ price: "₹249", tiers: [{ id: "full01", name: "Full", price: 599 }, { id: "gen001", name: "General", price: 249 }] });
+  ticketRow("paid", other.id)!.createdAt = new Date(Date.now() - 31 * 60_000).toISOString();
+  await assert.rejects(startTier(24900, "full01", {}, other), { code: "PRICE_CHANGED" });
+  assert.equal((await startTier(59900, "full01", {}, other)).fields.amount, "599.00");
+});
+
+test("an email PayU can't take is refused before any seat is held", async t => {
+  t.mock.method(console, "info", () => {}); reset();
+  await assert.rejects(payments.startTicketPayment({ ...other, email: "a b@example.test" }, { eventId: "paid", amount: 19900, phone: "9876543210" }, "https://noida.fit"), { code: "EMAIL_UNSUPPORTED" });
+  assert.equal(ticketRow("paid", other.id), undefined);
 });
