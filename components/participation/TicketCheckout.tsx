@@ -93,6 +93,7 @@ export function TicketCheckout({ open, title, when, venueName, priceLabel, mode,
           <p className="text-xs leading-relaxed text-text-secondary">{whatsapp
             ? `Your spot is confirmed as soon as you book. Pay ${priceLabel} through the link we send you on WhatsApp. One ticket per account.`
             : `You’ll pay ${priceLabel} on PayU’s secure checkout. We hold your spot for ${TICKET_HOLD_MINUTES} minutes while you pay, and your ticket is confirmed once PayU confirms the payment. One ticket per account.`}</p>
+          <p className="text-xs leading-relaxed text-text-secondary">By paying, you agree to the <a href="/terms" target="_blank" className="font-semibold text-velocity underline">Terms &amp; Conditions</a> and the <a href="/refund-policy" target="_blank" className="font-semibold text-velocity underline">Refund &amp; Cancellation Policy</a>.</p>
           {error && <p role="alert" className="rounded-lg border border-rose-400/60 bg-rose-400/10 p-3 text-sm text-rose-200">{error}</p>}
         </div>
         <div className="filter-dialog-actions flex gap-3 border-t border-border-subtle p-4 sm:p-6">

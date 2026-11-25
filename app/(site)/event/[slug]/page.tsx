@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { EventActions } from "@/components/participation/EventActions";
 import { EventBookingBar } from "@/components/participation/EventBookingBar";
+import { EventBookingInfo } from "@/components/participation/EventBookingInfo";
 import { PaymentReturnNotice } from "@/components/participation/PaymentReturnNotice";
 import { TicketConfirmation, type BookedTicket } from "@/components/participation/TicketConfirmation";
 import { SaveButton } from "@/components/participation/SaveButton";
@@ -98,6 +99,7 @@ export default async function EventPage({ params, searchParams }: Props) {
           <section aria-labelledby="event-about-heading"><h2 id="event-about-heading" className="text-xl font-bold">About this gathering</h2><p className="mt-3 whitespace-pre-line leading-relaxed text-text-secondary">{event.description}</p></section>
           {event.routeOverview && <section aria-labelledby="route-heading"><h2 id="route-heading" className="text-xl font-bold">Route &amp; meeting notes</h2><p className="mt-3 leading-relaxed text-text-secondary">{event.routeOverview}</p></section>}
           {!!event.whatToBring?.length && <section aria-labelledby="bring-heading"><h2 id="bring-heading" className="text-xl font-bold">What to bring</h2><ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-text-secondary">{event.whatToBring.map((item) => <li key={item}>{item}</li>)}</ul></section>}
+          {ticketed && <EventBookingInfo priceLabel={pricing.label} capacity={event.capacity} communityName={event.communityName} communitySlug={event.communitySlug} payOnline={payOnline} />}
         </div>
         <aside className="min-w-0 space-y-4 lg:sticky lg:top-24 lg:self-start">
           <section aria-labelledby="event-actions-heading" className="rounded-xl border border-border-strong bg-surface p-5">
