@@ -402,3 +402,11 @@ test("a discount code applies to the chosen type, and the paid ticket keeps its 
   // A WhatsApp contact's name can't pass for a tag.
   assert.equal(tierIdOf("whatsapp:9876543210:Asha;t=full01"), undefined);
 });
+
+test("a coupon's uses count tickets read without their owner, as the dashboard reads them", async () => {
+  const { couponUses } = await import("../lib/coupons");
+  const live = () => true;
+  const rows = [{ status: "pending", paymentRef: ";t=full01;c=abcdef12" }, { status: "confirmed", paymentRef: "payu:NFx:1;c=abcdef12" }, { status: "confirmed", paymentRef: "whatsapp:9876543210:A;c=abcdef12" }];
+  assert.equal(couponUses(rows, live).get("abcdef12"), 2, "a WhatsApp name never counts");
+  assert.equal(couponUses([{ ...rows[0], userId: "me" }, { ...rows[1], userId: "you" }], live, "me").get("abcdef12"), 1, "the member's own hold is left out of their quote");
+});

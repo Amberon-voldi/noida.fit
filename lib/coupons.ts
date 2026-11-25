@@ -76,7 +76,8 @@ export function couponUses(rows: { status: string; paymentRef?: string; userId?:
   const uses = new Map<string, number>();
   for (const row of rows) {
     const id = couponIdOf(row.paymentRef);
-    if (!id || row.userId === exceptUserId || !live(row)) continue;
+    // Rows read without userId (the dashboard selects only what it shows) must still count.
+    if (!id || (exceptUserId !== undefined && row.userId === exceptUserId) || !live(row)) continue;
     uses.set(id, (uses.get(id) ?? 0) + 1);
   }
   return uses;
