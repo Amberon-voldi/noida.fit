@@ -7,8 +7,6 @@ import { ArrowLeft, ImagePlus, LoaderCircle } from "lucide-react";
 import { isMediaPath, MEDIA_ACCEPT, MEDIA_MAX_BYTES } from "@/lib/media";
 import { indiaLocalToIso, isoToIndiaLocal } from "@/lib/booking-window";
 import { MAX_TICKET_RUPEES, paidPrice, parseEventPrice } from "@/lib/pricing";
-import { MAX_COUPONS_PER_EVENT, type EditableCoupon } from "@/lib/coupon-schema";
-import { CouponEditor, couponRowsOf, couponsFromRows, type CouponRow } from "./CouponEditor";
 
 export interface EditorOption { slug: string; name: string; detail?: string; }
 export interface EditorValues {
@@ -22,8 +20,6 @@ export interface EditorValues {
   bookingClosesAt?: string;
   /** The banner at the top of the session page: an uploaded /media path, or one the team set. */
   coverImageUrl?: string;
-  /** A paid session's discount codes, with how many tickets used each. */
-  coupons?: EditableCoupon[];
 }
 interface Props {
   mode: "create" | "edit";
@@ -64,7 +60,6 @@ export function EventEditor({ mode, clubs, venues, initial, eventId, expectedUpd
   const [values, setValues] = useState({ ...initial, startTime: to24(initial.startTime), endTime: to24(initial.endTime), whatToBring: (initial.whatToBring ?? []).join("\n"), paid: initialPricing.kind !== "free", amount: initialPricing.kind === "paid" ? String(initialPricing.amount / 100) : "", coverImageUrl: initial.coverImageUrl ?? "", bookingClosesAtLocal: isoToIndiaLocal(initial.bookingClosesAt) });
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
-  const [couponRows, setCouponRows] = useState<CouponRow[]>(() => couponRowsOf(initial.coupons ?? []));
   const [uploading, setUploading] = useState(false);
   const [bannerError, setBannerError] = useState("");
   const set = <K extends keyof typeof values>(key: K, value: (typeof values)[K]) => setValues(current => ({ ...current, [key]: value }));
@@ -94,11 +89,6 @@ export function EventEditor({ mode, clubs, venues, initial, eventId, expectedUpd
   async function submit(form: React.FormEvent) {
     form.preventDefault();
     if (pending || uploading) return;
-    let coupons: ReturnType<typeof couponsFromRows>;
-    try { coupons = values.paid ? couponsFromRows(couponRows) : []; } catch (reason) {
-      setError(reason instanceof Error ? reason.message : "Check the discount codes.");
-      return;
-    }
     setPending(true); setError("");
     const event = {
       ...(mode === "create" ? { communitySlug: values.communitySlug } : {}),
@@ -109,7 +99,6 @@ export function EventEditor({ mode, clubs, venues, initial, eventId, expectedUpd
       whatToBring: values.whatToBring.split("\n").map(line => line.trim()).filter(Boolean),
       lateSignup: values.lateSignup === true,
       bookingClosesAt: indiaLocalToIso(values.bookingClosesAtLocal) ?? "",
-      coupons,
       // On edit, only a changed banner is sent ("" removes it), so one the team set is left alone.
       // A new session sends any banner, including one copied from the session it duplicates.
       ...((mode === "create" ? values.coverImageUrl : values.coverImageUrl !== (initial.coverImageUrl ?? "")) ? { coverImageUrl: values.coverImageUrl } : {}),
@@ -198,11 +187,6 @@ export function EventEditor({ mode, clubs, venues, initial, eventId, expectedUpd
         <label className={labelClass}>Route or plan <span className="font-normal text-text-secondary">(optional)</span><textarea maxLength={2000} rows={3} value={values.routeOverview ?? ""} onChange={change => set("routeOverview", change.target.value)} className={`${field} py-2`} /></label>
         <label className={labelClass}>What to bring <span className="font-normal text-text-secondary">(one per line)</span><textarea rows={3} value={values.whatToBring} onChange={change => set("whatToBring", change.target.value)} className={`${field} py-2`} placeholder={"Water bottle\nRunning shoes"} /></label>
       </fieldset>
-
-      {values.paid && <fieldset className="space-y-4 rounded-xl border border-border-subtle bg-surface p-4 sm:p-6" disabled={pending}>
-        <legend className="px-1 text-sm font-bold uppercase tracking-widest text-velocity">Discount codes <span className="font-normal normal-case tracking-normal text-text-secondary">(optional)</span></legend>
-        <CouponEditor rows={couponRows} onChange={setCouponRows} max={MAX_COUPONS_PER_EVENT} ticketRupees={Number(values.amount) || 0} />
-      </fieldset>}
 
       <fieldset className="rounded-xl border border-border-subtle bg-surface p-4 sm:p-6" disabled={pending}>
         <legend className="px-1 text-sm font-bold uppercase tracking-widest text-velocity">Visibility</legend>

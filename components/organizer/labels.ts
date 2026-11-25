@@ -12,5 +12,5 @@ export function checkInLabel(state: CheckInWindowState): string {
 }
 
 /** The session dashboard's tabs, in order; `?tab=` deep-links to one. */
-export const DASHBOARD_TABS = ["overview", "guests", "checkin", "gifts"] as const;
+export const DASHBOARD_TABS = ["overview", "guests", "checkin", "gifts", "coupons"] as const;
 export type DashboardTab = (typeof DASHBOARD_TABS)[number];

@@ -301,13 +301,13 @@ test("a discount code is stored encrypted, quoted by the server and charged on P
   const [coupon] = await withCoupons([{ code: "EARLY20", kind: "percent", value: 20 }]);
   assert.ok(!String(rows.get("events/paid")!.payload).includes("EARLY20"), "the public payload never carries the code");
   const quote = await participation.quoteTicketCoupon(member.id, "paid", " early20 ");
-  assert.deepEqual({ code: quote.code, amount: quote.amount, discount: quote.discount, label: quote.label }, { code: "EARLY20", amount: 15920, discount: 3980, label: "20% off" });
+  assert.deepEqual({ code: quote.code, amount: quote.amount, discount: quote.discount, label: quote.label }, { code: "EARLY20", amount: 15900, discount: 4000, label: "20% off" });
   await assert.rejects(start({ amount: 19900, coupon: "EARLY20" } as never), { code: "PRICE_CHANGED" }, "the amount must be the discounted price");
-  const { fields } = await payments.startTicketPayment(member, { eventId: "paid", amount: 15920, phone: "9876543210", coupon: "early20" }, "https://noida.fit");
-  assert.equal(fields.amount, "159.20");
-  assert.equal(ticketRow("paid")!.amount, 15920);
+  const { fields } = await payments.startTicketPayment(member, { eventId: "paid", amount: 15900, phone: "9876543210", coupon: "early20" }, "https://noida.fit");
+  assert.equal(fields.amount, "159.00");
+  assert.equal(ticketRow("paid")!.amount, 15900);
   assert.equal(ticketRow("paid")!.paymentRef, `;c=${coupon.id}`);
-  transactions.set(fields.txnid, captured(fields, { amt: "159.20" }));
+  transactions.set(fields.txnid, captured(fields, { amt: "159.00" }));
   assert.deepEqual(await payments.settlePayuTransaction(fields.txnid), { outcome: "paid", eventId: "paid" });
   assert.equal(ticketRow("paid")!.paymentStatus, "paid");
   assert.equal(ticketRow("paid")!.paymentRef, `payu:${fields.txnid}:403993715531;c=${coupon.id}`, "the paid ticket still counts against the coupon");
@@ -349,4 +349,12 @@ test("applying a code to a running hold re-prices it on the same seat; a lapsed 
   assert.equal((await start()).fields.amount, "199.00", "renewed without the code: full price");
   assert.equal(ticketRow("paid")!.amount, 19900);
   assert.ok(!ticketRow("paid")!.paymentRef, "no coupon recorded");
+});
+
+test("a paused code is refused, and percent discounts round to whole rupees", async t => {
+  t.mock.method(console, "info", () => {}); reset();
+  await withCoupons([{ code: "PAUSED", kind: "percent", value: 10, paused: true }, { code: "TEN", kind: "percent", value: 10 }, { code: "THIRD", kind: "percent", value: 33 }]);
+  await assert.rejects(participation.quoteTicketCoupon(member.id, "paid", "PAUSED"), { code: "COUPON_INVALID" });
+  assert.equal((await participation.quoteTicketCoupon(member.id, "paid", "TEN")).amount, 17900, "₹199 − ₹19.90 rounds to ₹179");
+  assert.equal((await participation.quoteTicketCoupon(member.id, "paid", "THIRD")).amount, 13300, "₹199 − ₹65.67 rounds to ₹133");
 });

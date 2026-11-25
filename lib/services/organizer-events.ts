@@ -10,8 +10,6 @@ import { getActivities, getCommunities, getOrganizerEvents, getPlaces } from "@/
 import { HttpError } from "@/lib/http";
 import { isMediaPath } from "@/lib/media";
 import { parseEventPrice } from "@/lib/pricing";
-import { couponInputSchema, MAX_COUPONS_PER_EVENT } from "@/lib/coupon-schema";
-import { sealCoupons } from "@/lib/coupons";
 import { allClubOrganizers, organizerIdsOf } from "@/lib/services/organizers";
 import { isAdminUser, managesEvent } from "@/lib/services/participation";
 import type { AuthUser } from "@/lib/auth";
@@ -45,8 +43,6 @@ export const organizerEventInputSchema = z.object({
   bookingClosesAt: z.union([z.literal(""), z.string().datetime({ offset: true })]).optional(),
   /** The banner: an image uploaded through /api/organizer/media, or "" to remove it. Omitted on edit: unchanged. */
   coverImageUrl: z.union([z.literal(""), z.string().refine(isMediaPath, "Upload the banner image again")]).optional(),
-  /** Discount codes for a paid session's tickets, in plain text. Omitted on edit: unchanged. [] removes them all. */
-  coupons: z.array(couponInputSchema).max(MAX_COUPONS_PER_EVENT).optional(),
 }).strict();
 export const organizerEventCreateSchema = organizerEventInputSchema.extend({ communitySlug: text(120, 1) }).strict();
 export type OrganizerEventInput = z.infer<typeof organizerEventInputSchema>;
@@ -88,8 +84,6 @@ function clean(input: OrganizerEventInput) {
     whatToBring: input.whatToBring?.filter(Boolean),
     lateSignup: input.lateSignup === true ? true : undefined,
     bookingClosesAt: input.bookingClosesAt ? new Date(input.bookingClosesAt).toISOString() : undefined,
-    // Only a paid session takes discount codes; codes are stored encrypted (lib/coupons.ts).
-    coupons: input.coupons?.length && parseEventPrice(input.price).kind === "paid" ? sealCoupons(input.coupons) : undefined,
   };
 }
 
@@ -164,9 +158,8 @@ async function update(user: Actor, eventId: string, value: unknown, expectedUpda
     : await venue(input.venueSlug);
   // Start from the stored record so team-owned fields (slug, club, images, featured) survive untouched.
   const next: Record<string, unknown> = { ...stored.record, ...clean(input), venueSlug: place.slug, venueName: place.name, sector: place.sector, ...schedule(input) };
-  // Codes the form didn't send stay as they are, unless the session is no longer paid.
-  if (input.coupons === undefined && parseEventPrice(input.price).kind === "paid") next.coupons = stored.record.coupons;
-  for (const key of ["level", "distance", "pace", "routeOverview", "whatToBring", "lateSignup", "bookingClosesAt", "coupons"]) if (next[key] === undefined) delete next[key];
+  // Discount codes are managed on the dashboard (lib/services/event-coupons.ts); an edit keeps them as they are.
+  for (const key of ["level", "distance", "pace", "routeOverview", "whatToBring", "lateSignup", "bookingClosesAt"]) if (next[key] === undefined) delete next[key];
   // A banner the team set stays unless the organizer changed it.
   if (input.coverImageUrl) next.coverImageUrl = input.coverImageUrl;
   else if (input.coverImageUrl === "") delete next.coverImageUrl;

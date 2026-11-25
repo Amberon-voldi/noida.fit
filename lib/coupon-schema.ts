@@ -16,6 +16,8 @@ const terms = {
   maxUses: z.number().int().min(1).max(100000).optional(),
   /** It stops working at this time (ISO). Unset: until sales close. */
   expiresAt: z.string().datetime({ offset: true }).optional(),
+  /** Switched off by the organizer for now; it keeps its uses. */
+  paused: z.boolean().optional(),
 };
 const percentWithinRange = (coupon: { kind: string; value: number }) => coupon.kind !== "percent" || coupon.value <= 100;
 

@@ -226,3 +226,31 @@ test("an older event's organizer comes only from its database column, as before;
   assert.deepEqual(organizerIdsOf({ organizerUserIds: ["a", "a", "b"], organizerUserId: "c" }), ["a", "b", "c"]);
   assert.deepEqual(organizerIdsOf({ payload: "not json" }), []);
 });
+
+test("organizers manage a paid session's discount codes from its dashboard, and editing the session keeps them", async () => {
+  process.env.APPWRITE_CHECKIN_SECRET = "synthetic-checkin-secret-".repeat(3);
+  const coupons = await import("../lib/services/event-coupons");
+  const stored = await service.getManagedEventRecord(organizer, "existing");
+  await service.updateOrganizerEvent(organizer, "existing", form({ price: "₹199" }), stored.updatedAt);
+  const [created] = await coupons.createEventCoupon(organizer, "existing", { code: "early20", kind: "percent", value: 20, maxUses: 5 });
+  assert.deepEqual({ code: created.code, kind: created.kind, value: created.value, maxUses: created.maxUses, uses: created.uses }, { code: "EARLY20", kind: "percent", value: 20, maxUses: 5, uses: 0 });
+  assert.ok(!String(eventRow("existing").payload).includes("EARLY20"), "stored encrypted");
+  await assert.rejects(coupons.createEventCoupon(organizer, "existing", { code: "EARLY20", kind: "flat", value: 10 }), { code: "COUPON_EXISTS" });
+  await assert.rejects(coupons.createEventCoupon(organizer, "existing", { code: "x", kind: "flat", value: 10 }), { code: "INVALID_COUPON" });
+  await assert.rejects(coupons.createEventCoupon(stranger, "existing", { code: "MINE", kind: "flat", value: 10 }), { code: "ORGANIZER_REQUIRED" });
+  doc("rsvps", { $id: "paid-1", eventId: "existing", userId: "member-1", status: "confirmed", seatNumber: 1, amount: 15900, paymentStatus: "paid", paymentRef: `payu:NFabc:1;c=${created.id}` });
+  assert.equal((await coupons.listEventCoupons(organizer, "existing"))[0].uses, 1);
+
+  assert.equal((await coupons.updateEventCoupon(organizer, "existing", created.id, { paused: true }))[0].paused, true);
+  // Editing the session's details leaves its codes alone.
+  const latest = await service.getManagedEventRecord(organizer, "existing");
+  await service.updateOrganizerEvent(organizer, "existing", form({ price: "₹199", title: "Renamed" }), latest.updatedAt);
+  assert.equal(eventRecord("existing").coupons.length, 1);
+  assert.equal((await coupons.updateEventCoupon(organizer, "existing", created.id, { paused: false }))[0].paused, undefined);
+  assert.deepEqual(await coupons.deleteEventCoupon(organizer, "existing", created.id), []);
+  assert.equal(eventRecord("existing").coupons, undefined);
+
+  const free = await service.getManagedEventRecord(organizer, "existing");
+  await service.updateOrganizerEvent(organizer, "existing", form({ price: "FREE" }), free.updatedAt);
+  await assert.rejects(coupons.createEventCoupon(organizer, "existing", { code: "FREEBIE", kind: "flat", value: 10 }), { code: "COUPON_FREE_EVENT" });
+});

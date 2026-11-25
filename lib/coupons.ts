@@ -102,9 +102,11 @@ export function quoteCoupon(coupons: StoredCoupon[], typed: string, price: numbe
   if (!parsed.success) throw invalid;
   const coupon = coupons.find(item => decryptCode(item.code) === parsed.data);
   if (!coupon) throw invalid;
+  if (coupon.paused) throw invalid;
   if (coupon.expiresAt && Date.parse(coupon.expiresAt) <= now) throw new HttpError(409, "COUPON_EXPIRED", "That discount code has expired");
   if (coupon.maxUses !== undefined && (uses.get(coupon.id) ?? 0) >= coupon.maxUses) throw new HttpError(409, "COUPON_USED_UP", "That discount code has been fully used");
-  const discount = coupon.kind === "percent" ? Math.round(price * coupon.value / 100) : coupon.value * 100;
+  // A percent discount is rounded to whole rupees, so the price stays a whole-rupee amount like the ticket's.
+  const discount = coupon.kind === "percent" ? Math.round(price * coupon.value / 10000) * 100 : coupon.value * 100;
   const amount = price - discount;
   if (amount < MIN_DISCOUNTED_PAISE) throw new HttpError(409, "COUPON_TOO_LARGE", "That discount code can’t be used for this ticket");
   return { couponId: coupon.id, code: parsed.data, amount, discount, label: coupon.kind === "percent" ? `${coupon.value}% off` : `${formatInr(coupon.value * 100)} off` };

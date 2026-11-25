@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ArrowUpRight, Check, Copy, CopyPlus, Download, Gift, LayoutDashboard, LoaderCircle, MessageCircle, Pencil, Phone, ScanLine, Search, Share2, UsersRound, type LucideIcon } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, Check, Copy, CopyPlus, Download, Gift, LayoutDashboard, LoaderCircle, MessageCircle, Pencil, Phone, ScanLine, Search, Share2, TicketPercent, UsersRound, type LucideIcon } from "lucide-react";
 import type { GiftLink, OrganizerAttendee, OrganizerEventSummary } from "@/types/organizer";
 import { OrganizerCheckInForm } from "@/components/participation/OrganizerCheckInForm";
 import { formatDate, SITE_CONFIG } from "@/lib/config";
@@ -12,12 +12,15 @@ import { formatIndianMobile } from "@/lib/phone";
 import { formatInr, parseEventPrice, TICKET_HOLD_MINUTES } from "@/lib/pricing";
 import { checkInLabel, type DashboardTab } from "./labels";
 import { GiftLinks } from "./GiftLinks";
+import { CouponManager } from "./CouponManager";
+import type { EditableCoupon } from "@/lib/coupon-schema";
 
 const tabs: Array<{ id: DashboardTab; label: string; Icon: LucideIcon }> = [
   { id: "overview", label: "Overview", Icon: LayoutDashboard },
   { id: "guests", label: "Guests", Icon: UsersRound },
   { id: "checkin", label: "Check-in", Icon: ScanLine },
   { id: "gifts", label: "Gift links", Icon: Gift },
+  { id: "coupons", label: "Discount codes", Icon: TicketPercent },
 ];
 
 type Filter = "all" | "waiting" | "in" | "paid" | "due" | "gift";
@@ -34,7 +37,7 @@ function Stat({ label, value, detail, accent = false, percent }: { label: string
 
 /** One session, everything an organizer runs it with: numbers, guests, the check-in desk and gift links. */
 /** `guestPasses`: gift links can let people claim without an account (the gift guest table is set up). */
-export function EventDashboard({ summary, giftLinks, guestPasses, initialTab }: { summary: OrganizerEventSummary; giftLinks: GiftLink[] | null; guestPasses: boolean; initialTab: DashboardTab }) {
+export function EventDashboard({ summary, giftLinks, guestPasses, coupons, initialTab }: { summary: OrganizerEventSummary; giftLinks: GiftLink[] | null; guestPasses: boolean; coupons: EditableCoupon[]; initialTab: DashboardTab }) {
   const { event, attendees } = summary;
   const router = useRouter();
   const [tab, setTab] = useState(initialTab);
@@ -155,6 +158,7 @@ export function EventDashboard({ summary, giftLinks, guestPasses, initialTab }: 
         <Icon size={16} className="hidden sm:block" aria-hidden="true" />{label}
         {id === "guests" && <span className="rounded-full bg-white/10 px-2 py-0.5 text-xs">{summary.confirmedRsvps}</span>}
         {id === "gifts" && activeGiftLinks > 0 && <span className="rounded-full bg-velocity/20 px-2 py-0.5 text-xs text-velocity">{activeGiftLinks}</span>}
+        {id === "coupons" && coupons.length > 0 && <span className="rounded-full bg-velocity/20 px-2 py-0.5 text-xs text-velocity">{coupons.length}</span>}
       </button>)}
     </div>
 
@@ -259,6 +263,10 @@ export function EventDashboard({ summary, giftLinks, guestPasses, initialTab }: 
 
     {tab === "gifts" && <section id="panel-gifts" role="tabpanel" aria-labelledby="tab-gifts" className="mt-6">
       <GiftLinks eventId={event.id} eventTitle={event.title} published={published} initialLinks={giftLinks} guestPasses={guestPasses} attendees={attendees} paidLabel={pricing.kind === "paid" ? pricing.label : undefined} />
+    </section>}
+
+    {tab === "coupons" && <section id="panel-coupons" role="tabpanel" aria-labelledby="tab-coupons" className="mt-6">
+      <CouponManager eventId={event.id} ticketPaise={pricing.kind === "paid" ? pricing.amount : null} initialCoupons={coupons} />
     </section>}
   </div>;
 }

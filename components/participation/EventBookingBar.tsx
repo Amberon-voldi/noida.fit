@@ -45,7 +45,7 @@ export function EventBookingBar(props: EventBookingBarProps) {
               <p className="flex items-center gap-1.5 text-sm font-bold text-velocity"><Check className="h-4 w-4 shrink-0" aria-hidden="true" />{bookedLabel}</p>
               <p className="truncate text-xs text-text-secondary">Spot #{booking.seatNumber}{booking.amount ? ` · ${formatInr(booking.amount)} ${due ? (booking.whatsapp ? "due, link on WhatsApp" : "due") : "paid"}` : ""} · {props.when}</p>
             </> : <>
-              <p className="truncate font-mono text-lg font-bold leading-tight text-white">{pricing.label}</p>
+              <p className="truncate font-mono text-lg font-bold leading-tight text-white">{hold?.amount ? formatInr(hold.amount) : pricing.label}</p>
               <p className="truncate text-xs text-text-secondary">{hold && props.payOnline ? `Spot held until ${holdUntil}` : `${props.when}${availability}`}</p>
             </>}
           </div>

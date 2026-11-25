@@ -7,6 +7,7 @@ import { getOrganizerEventSummary } from "@/lib/services/organizer";
 import { isGiftLinksConfigured, isGuestPassesConfigured, listGiftLinks } from "@/lib/services/gifts";
 import { isAdminUser } from "@/lib/services/participation";
 import { EventDashboard } from "@/components/organizer/EventDashboard";
+import { listEventCoupons } from "@/lib/services/event-coupons";
 import { DASHBOARD_TABS, type DashboardTab } from "@/components/organizer/labels";
 
 export const metadata: Metadata = { title: "Session dashboard", description: "Guests, check-in, revenue and gift links for one NOIDA.FIT session.", robots: { index: false, follow: false }, referrer: "no-referrer" };
@@ -21,14 +22,19 @@ export default async function EventDashboardPage({ params, searchParams }: Props
   // Same scope as the workspace list: only events this account manages (all, for admins).
   const event = (await getOrganizerEvents(session.user.id, isAdminUser(session.user))).find(item => item.id === eventId);
   if (!event) notFound();
-  const [summary, giftLinks] = await Promise.all([
+  const [summary, giftLinks, coupons] = await Promise.all([
     getOrganizerEventSummary(session.user, event),
     isGiftLinksConfigured() ? listGiftLinks(session.user, eventId).catch(error => {
       if (error instanceof HttpError && error.code === "GIFTS_NOT_CONFIGURED") return null;
       throw error;
     }) : null,
+    // Codes can't be read without the server's key; the tab then shows none rather than failing the dashboard.
+    listEventCoupons(session.user, eventId).catch(error => {
+      if (error instanceof HttpError && error.code === "COUPONS_NOT_CONFIGURED") return [];
+      throw error;
+    }),
   ]);
   // On the day, the desk is what an organizer opens the session for.
   const initialTab: DashboardTab = DASHBOARD_TABS.find(item => item === tab) ?? (summary.checkInWindow === "open" ? "checkin" : "overview");
-  return <EventDashboard summary={summary} giftLinks={giftLinks} guestPasses={isGuestPassesConfigured()} initialTab={initialTab} />;
+  return <EventDashboard summary={summary} giftLinks={giftLinks} guestPasses={isGuestPassesConfigured()} coupons={coupons} initialTab={initialTab} />;
 }

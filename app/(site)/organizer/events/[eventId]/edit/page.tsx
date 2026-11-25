@@ -7,8 +7,6 @@ import { listAppwriteDocuments, Query } from "@/lib/appwrite/database";
 import { appwriteCollections } from "@/lib/appwrite/config";
 import { EventEditor, type EditorValues } from "@/components/organizer/EventEditor";
 import { isPayuConfigured } from "@/lib/payments/payu";
-import { editableCoupons } from "@/lib/coupons";
-import { liveTicket } from "@/lib/services/participation";
 
 export const metadata: Metadata = { title: "Edit session", robots: { index: false, follow: false } };
 
@@ -25,7 +23,7 @@ export default async function EditEventPage({ params }: Props) {
   }
   const [venues, rsvps] = await Promise.all([
     organizerVenues(),
-    listAppwriteDocuments<{ status: string; paymentRef?: string; createdAt?: string }>(appwriteCollections.rsvps, [Query.equal("eventId", eventId), Query.select(["status", "paymentRef", "createdAt"])]),
+    listAppwriteDocuments<{ status: string }>(appwriteCollections.rsvps, [Query.equal("eventId", eventId), Query.select(["status"])]),
   ]);
   const record = stored.record;
   const venueList = venues.map(place => ({ slug: place.slug, name: place.name, detail: place.sector }));
@@ -39,7 +37,6 @@ export default async function EditEventPage({ params }: Props) {
     level: text("level"), distance: text("distance"), pace: text("pace"), routeOverview: text("routeOverview"), lateSignup: record.lateSignup === true, bookingClosesAt: text("bookingClosesAt"),
     coverImageUrl: text("coverImageUrl"),
     whatToBring: Array.isArray(record.whatToBring) ? record.whatToBring.map(String) : [],
-    coupons: editableCoupons(record, rsvps, liveTicket),
   };
   return <EventEditor mode="edit" eventId={eventId} expectedUpdatedAt={stored.updatedAt} clubs={[]} venues={venueList} initial={initial} payOnline={isPayuConfigured() && record.demo !== true}
     clubName={String(record.communityName)} confirmedRsvps={rsvps.filter(rsvp => rsvp.status === "confirmed").length} />;
