@@ -3,7 +3,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { LoaderCircle, X } from "lucide-react";
 import { normalizeIndianMobile } from "@/lib/phone";
-import { formatInr, parseEventPrice, TICKET_HOLD_MINUTES } from "@/lib/pricing";
+import { formatInr, parseEventPrice } from "@/lib/pricing";
 import type { AppliedCoupon, TicketContact } from "./useEventBooking";
 
 interface Props {
@@ -102,9 +102,9 @@ export function TicketCheckout({ open, title, when, venueName, priceLabel, mode,
             </> : <div className="flex items-center justify-between gap-3 px-4 py-3"><dt className="text-sm text-text-secondary">1 ticket</dt><dd className="font-mono text-lg font-bold text-white">{priceLabel}</dd></div>}
           </dl>
           {coupons && (applied
-            ? <p className="flex items-center justify-between gap-3 text-sm text-text-secondary"><span>Code <span className="font-semibold text-white">{applied.code}</span> applied</span><button type="button" onClick={() => { coupons.remove(); setCouponCode(""); setCouponError(null); }} className="min-h-11 px-2 text-sm font-semibold text-text-secondary underline hover:text-white">Remove</button></p>
+            ? <p className="flex items-center justify-between gap-3 text-sm text-text-secondary"><span className="font-semibold text-white">{applied.code}</span><button type="button" onClick={() => { coupons.remove(); setCouponCode(""); setCouponError(null); }} className="min-h-11 px-2 text-sm font-semibold text-text-secondary underline hover:text-white">Remove</button></p>
             : <div>
-              <label htmlFor={couponId} className="text-sm font-semibold text-white">Discount code <span className="font-normal text-text-secondary">(optional)</span></label>
+              <label htmlFor={couponId} className="text-sm font-semibold text-white">Discount code</label>
               <div className="mt-1.5 flex gap-2">
                 <input id={couponId} type="text" autoCapitalize="characters" autoComplete="off" spellCheck={false} maxLength={20} value={couponCode} onChange={event => { setCouponCode(event.target.value.toUpperCase()); setCouponError(null); }} onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); void applyCoupon(); } }} placeholder="CODE" aria-invalid={Boolean(couponError)} aria-describedby={couponError ? `${couponId}-error` : undefined} className={`${inputClass.replace("mt-1.5 ", "")} font-mono uppercase`} />
                 <button type="button" onClick={() => void applyCoupon()} disabled={applying || pending} className="button-secondary shrink-0">{applying ? <LoaderCircle className="h-4 w-4 animate-spin" aria-label="Checking" /> : "Apply"}</button>
@@ -119,13 +119,10 @@ export function TicketCheckout({ open, title, when, venueName, priceLabel, mode,
           </div>}
           <div>
             <label htmlFor={phoneId} className="text-sm font-semibold text-white">{whatsapp ? "WhatsApp number" : "Mobile number"}</label>
-            <input id={phoneId} type="tel" inputMode="tel" autoComplete="tel" required maxLength={20} value={phone} onChange={event => { setPhone(event.target.value); setPhoneError(null); }} placeholder="98XXXXXXX" aria-invalid={Boolean(phoneError)} aria-describedby={`${phoneId}-hint`} className={inputClass} />
-            <p id={`${phoneId}-hint`} className={`mt-1.5 text-xs ${phoneError ? "text-rose-200" : "text-text-secondary"}`}>{phoneError ?? (whatsapp ? "We’ll send your payment link to this number on WhatsApp." : "PayU needs it to process the payment. We’ll remember it for your next ticket.")}</p>
+            <input id={phoneId} type="tel" inputMode="tel" autoComplete="tel" required maxLength={20} value={phone} onChange={event => { setPhone(event.target.value); setPhoneError(null); }} placeholder="98XXXXXXX" aria-invalid={Boolean(phoneError)} aria-describedby={phoneError ? `${phoneId}-hint` : undefined} className={inputClass} />
+            {phoneError && <p id={`${phoneId}-hint`} className="mt-1.5 text-xs text-rose-200">{phoneError}</p>}
           </div>
-          <p className="text-xs leading-relaxed text-text-secondary">{whatsapp
-            ? `Your spot is confirmed as soon as you book. Pay ${priceLabel} through the link we send you on WhatsApp. One ticket per account.`
-            : `You’ll pay ${priceLabel} on PayU’s secure checkout. We hold your spot for ${TICKET_HOLD_MINUTES} minutes while you pay, and your ticket is confirmed once PayU confirms the payment. One ticket per account.`}</p>
-          <p className="text-xs leading-relaxed text-text-secondary">By paying, you agree to the <a href="/terms" target="_blank" className="font-semibold text-velocity underline">Terms &amp; Conditions</a> and the <a href="/refund-policy" target="_blank" className="font-semibold text-velocity underline">Refund &amp; Cancellation Policy</a>.</p>
+          <p className="text-xs text-text-secondary">By {whatsapp ? "booking" : "paying"}, you agree to the <a href="/terms" target="_blank" className="font-semibold text-velocity underline">Terms</a> and <a href="/refund-policy" target="_blank" className="font-semibold text-velocity underline">Refund Policy</a>.</p>
           {error && <p role="alert" className="rounded-lg border border-rose-400/60 bg-rose-400/10 p-3 text-sm text-rose-200">{error}</p>}
         </div>
         <div className="filter-dialog-actions flex gap-3 border-t border-border-subtle p-4 sm:p-6">

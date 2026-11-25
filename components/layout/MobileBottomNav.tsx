@@ -56,7 +56,8 @@ export function MobileBottomNav() {
   const pathname = usePathname();
   const panel = useRef<HTMLDivElement>(null);
   useFocusClearOfDock(panel);
-  if (pathname === "/") return null;
+  // The landing page, and event pages (their Get ticket bar takes the bottom edge), have no dock.
+  if (pathname === "/" || pathname.startsWith("/event/")) return null;
   const activeIndex = LINKS.findIndex(({ prefixes }) => prefixes.some(prefix => pathname === prefix || (prefix !== "/" && pathname.startsWith(`${prefix}/`))));
 
   return (
