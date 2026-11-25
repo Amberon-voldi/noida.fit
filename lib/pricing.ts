@@ -35,7 +35,7 @@ export function parseEventPrice(value: unknown): EventPricing {
  * and the organizer sends a payment link to the WhatsApp number the member gives. "online": the member
  * pays on PayU's checkout, and the spot is confirmed once PayU confirms the payment.
  */
-export const PAID_TICKET_BOOKING: "whatsapp" | "online" = "whatsapp";
+export const PAID_TICKET_BOOKING: "whatsapp" | "online" = "online";
 
 /** How long a paid ticket's seat is held while its payment completes. Only a confirmed payment confirms it. */
 export const TICKET_HOLD_MINUTES = 30;
