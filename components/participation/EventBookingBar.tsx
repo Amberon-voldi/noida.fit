@@ -62,7 +62,7 @@ export function EventBookingBar(props: EventBookingBarProps) {
               </button>}
         </div>
       </aside>
-      <TicketCheckout open={checkout.open} title={props.title} when={props.when} venueName={props.venueName} priceLabel={checkout.priceLabel} mode={checkout.mode} savedPhone={props.savedPhone} savedName={props.savedName} accountEmail={props.accountEmail} pending={pending} error={checkout.error} onConfirm={checkout.confirm} onClose={checkout.close} />
+      <TicketCheckout open={checkout.open} title={props.title} when={props.when} venueName={props.venueName} priceLabel={checkout.priceLabel} mode={checkout.mode} savedPhone={props.savedPhone} savedName={props.savedName} accountEmail={props.accountEmail} pending={pending} error={checkout.error} fullPriceLabel={checkout.fullPriceLabel} coupons={checkout.coupons} onConfirm={checkout.confirm} onClose={checkout.close} />
     </>
   );
 }

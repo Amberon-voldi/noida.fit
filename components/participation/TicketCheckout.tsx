@@ -3,8 +3,8 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { LoaderCircle, X } from "lucide-react";
 import { normalizeIndianMobile } from "@/lib/phone";
-import { TICKET_HOLD_MINUTES } from "@/lib/pricing";
-import type { TicketContact } from "./useEventBooking";
+import { formatInr, parseEventPrice, TICKET_HOLD_MINUTES } from "@/lib/pricing";
+import type { AppliedCoupon, TicketContact } from "./useEventBooking";
 
 interface Props {
   open: boolean;
@@ -22,6 +22,10 @@ interface Props {
   accountEmail?: string;
   pending: boolean;
   error: string | null;
+  /** The ticket's price before a discount, shown struck through once a code is applied. */
+  fullPriceLabel?: string;
+  /** Discount codes, when this checkout takes them. */
+  coupons?: { applied: AppliedCoupon | null; apply: (code: string) => Promise<string | null>; remove: () => void };
   onConfirm: (contact: TicketContact) => void;
   onClose: () => void;
 }
@@ -32,7 +36,7 @@ const inputClass = "mt-1.5 min-h-11 w-full rounded-xl border border-border-subtl
  * The summary a member confirms before a paid ticket. Online, the ticket is confirmed once PayU confirms the
  * payment. While online payment is off, the spot is confirmed at once and the payment link goes to WhatsApp.
  */
-export function TicketCheckout({ open, title, when, venueName, priceLabel, mode, savedPhone, savedName, accountEmail, pending, error, onConfirm, onClose }: Props) {
+export function TicketCheckout({ open, title, when, venueName, priceLabel, mode, savedPhone, savedName, accountEmail, pending, error, fullPriceLabel, coupons, onConfirm, onClose }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   const nameId = useId();
@@ -41,6 +45,20 @@ export function TicketCheckout({ open, title, when, venueName, priceLabel, mode,
   const [phone, setPhone] = useState(savedPhone ?? "");
   const [nameError, setNameError] = useState<string | null>(null);
   const [phoneError, setPhoneError] = useState<string | null>(null);
+  const couponId = useId();
+  const [couponCode, setCouponCode] = useState("");
+  const [couponError, setCouponError] = useState<string | null>(null);
+  const [applying, setApplying] = useState(false);
+  const applied = coupons?.applied ?? null;
+
+  async function applyCoupon(): Promise<void> {
+    if (!coupons || applying) return;
+    const code = couponCode.trim();
+    if (!code) { setCouponError("Enter a discount code"); return; }
+    setApplying(true);
+    setCouponError(await coupons.apply(code));
+    setApplying(false);
+  }
   const whatsapp = mode === "whatsapp";
 
   useEffect(() => {
@@ -77,8 +95,22 @@ export function TicketCheckout({ open, title, when, venueName, priceLabel, mode,
         <div className="space-y-4 overflow-y-auto p-4 sm:p-6">
           <p className="text-sm text-text-secondary">{when} · {venueName}</p>
           <dl className="rounded-lg border border-border-subtle bg-surface-elevated">
-            <div className="flex items-center justify-between gap-3 px-4 py-3"><dt className="text-sm text-text-secondary">1 ticket</dt><dd className="font-mono text-lg font-bold text-white">{priceLabel}</dd></div>
+            {applied && fullPriceLabel ? <>
+              <div className="flex items-center justify-between gap-3 px-4 pt-3"><dt className="text-sm text-text-secondary">1 ticket</dt><dd className="font-mono text-sm text-text-secondary line-through">{fullPriceLabel}</dd></div>
+              <div className="flex items-center justify-between gap-3 px-4 pt-1"><dt className="text-sm text-velocity">{applied.code} · {applied.label}</dt><dd className="font-mono text-sm text-velocity">−{formatInr(Math.max(0, (parseEventPrice(fullPriceLabel).amount || 0) - applied.amount))}</dd></div>
+              <div className="flex items-center justify-between gap-3 px-4 pb-3 pt-2"><dt className="text-sm font-semibold text-white">You pay</dt><dd className="font-mono text-lg font-bold text-white">{priceLabel}</dd></div>
+            </> : <div className="flex items-center justify-between gap-3 px-4 py-3"><dt className="text-sm text-text-secondary">1 ticket</dt><dd className="font-mono text-lg font-bold text-white">{priceLabel}</dd></div>}
           </dl>
+          {coupons && (applied
+            ? <p className="flex items-center justify-between gap-3 text-sm text-text-secondary"><span>Code <span className="font-semibold text-white">{applied.code}</span> applied</span><button type="button" onClick={() => { coupons.remove(); setCouponCode(""); setCouponError(null); }} className="min-h-11 px-2 text-sm font-semibold text-text-secondary underline hover:text-white">Remove</button></p>
+            : <div>
+              <label htmlFor={couponId} className="text-sm font-semibold text-white">Discount code <span className="font-normal text-text-secondary">(optional)</span></label>
+              <div className="mt-1.5 flex gap-2">
+                <input id={couponId} type="text" autoCapitalize="characters" autoComplete="off" spellCheck={false} maxLength={20} value={couponCode} onChange={event => { setCouponCode(event.target.value.toUpperCase()); setCouponError(null); }} onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); void applyCoupon(); } }} placeholder="CODE" aria-invalid={Boolean(couponError)} aria-describedby={couponError ? `${couponId}-error` : undefined} className={`${inputClass.replace("mt-1.5 ", "")} font-mono uppercase`} />
+                <button type="button" onClick={() => void applyCoupon()} disabled={applying || pending} className="button-secondary shrink-0">{applying ? <LoaderCircle className="h-4 w-4 animate-spin" aria-label="Checking" /> : "Apply"}</button>
+              </div>
+              {couponError && <p id={`${couponId}-error`} role="alert" className="mt-1.5 text-xs text-rose-200">{couponError}</p>}
+            </div>)}
           {whatsapp && accountEmail && <p className="break-words text-xs text-text-secondary">Booking on your account <span className="font-semibold text-white">{accountEmail}</span></p>}
           {whatsapp && <div>
             <label htmlFor={nameId} className="text-sm font-semibold text-white">Your name</label>

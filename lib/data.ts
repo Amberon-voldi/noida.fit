@@ -32,6 +32,8 @@ function withoutOrganizers<T extends object>(record: T): T {
   const copy: Record<string, unknown> = { ...(record as Record<string, unknown>) };
   delete copy.organizerUserId;
   delete copy.organizerUserIds;
+  // Discount codes are encrypted, but listings have no use for them at all.
+  delete copy.coupons;
   return copy as T;
 }
 

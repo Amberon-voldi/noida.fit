@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { indiaDateTime } from "./calendar";
 import { isMediaPath } from "./media";
+import { MAX_COUPONS_PER_EVENT, storedCouponSchema } from "./coupon-schema";
 
 export const contentKinds = ["activities", "communities", "places", "events"] as const;
 export type ContentKind = (typeof contentKinds)[number];
@@ -114,6 +115,8 @@ const eventFields = {
   lateSignup: z.boolean().optional(),
   /** The organizer's own closing time for sign-ups and gift claims (before the end). */
   bookingClosesAt: z.string().datetime({ offset: true }).optional(),
+  /** Discount codes for its tickets, each code encrypted (lib/coupons.ts). */
+  coupons: z.array(storedCouponSchema).max(MAX_COUPONS_PER_EVENT).optional(),
 };
 
 const withId = <T extends z.ZodRawShape>(fields: T) => z.object({ id, ...fields }).strict();

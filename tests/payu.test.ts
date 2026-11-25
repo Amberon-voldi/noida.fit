@@ -80,7 +80,7 @@ function reset(capacity = 2) {
   rows.set("events/free", { $id: "free", slug: "free-run", title: "Free run", demo: false, ...schedule, payload: JSON.stringify({ price: "FREE" }) });
 }
 const ticketRow = (eventId: string, userId = member.id) => rows.get(`rsvps/${participation.rsvpDocumentId(eventId, userId)}`);
-const start = (input: Partial<{ eventId: string; amount: number; phone: string }> = {}, user = member) => payments.startTicketPayment(user, { eventId: "paid", amount: 19900, phone: "98XXXXXXX", ...input }, "https://noida.fit");
+const start = (input: Partial<{ eventId: string; amount: number; phone: string }> = {}, user = member) => payments.startTicketPayment(user, { eventId: "paid", amount: 19900, phone: "9876543210", ...input }, "https://noida.fit");
 const captured = (fields: Record<string, string>, overrides: Record<string, unknown> = {}) => ({ mihpayid: "403993715531", status: "success", unmappedstatus: "captured", amt: "199.00", udf1: fields.udf1, udf2: fields.udf2, ...overrides });
 
 /** What PayU posts back for a request form, signed with the documented response hash. */
@@ -286,4 +286,67 @@ test("members change or remove their saved number from settings, and their other
   account.down = true;
   await assert.rejects(auth.setPaymentPhone("synthetic-session", "9123456789"), "a settings save that fails says so");
   account.down = false;
+});
+
+// Discount codes (lib/coupons.ts): stored encrypted on the event, priced only by the server.
+async function withCoupons(coupons: Parameters<typeof import("../lib/coupons").sealCoupons>[0]) {
+  const { sealCoupons } = await import("../lib/coupons");
+  const stored = sealCoupons(coupons);
+  rows.get("events/paid")!.payload = JSON.stringify({ price: "₹199", coupons: stored });
+  return stored;
+}
+
+test("a discount code is stored encrypted, quoted by the server and charged on PayU at the discounted price", async t => {
+  t.mock.method(console, "info", () => {}); reset();
+  const [coupon] = await withCoupons([{ code: "EARLY20", kind: "percent", value: 20 }]);
+  assert.ok(!String(rows.get("events/paid")!.payload).includes("EARLY20"), "the public payload never carries the code");
+  const quote = await participation.quoteTicketCoupon(member.id, "paid", " early20 ");
+  assert.deepEqual({ code: quote.code, amount: quote.amount, discount: quote.discount, label: quote.label }, { code: "EARLY20", amount: 15920, discount: 3980, label: "20% off" });
+  await assert.rejects(start({ amount: 19900, coupon: "EARLY20" } as never), { code: "PRICE_CHANGED" }, "the amount must be the discounted price");
+  const { fields } = await payments.startTicketPayment(member, { eventId: "paid", amount: 15920, phone: "9876543210", coupon: "early20" }, "https://noida.fit");
+  assert.equal(fields.amount, "159.20");
+  assert.equal(ticketRow("paid")!.amount, 15920);
+  assert.equal(ticketRow("paid")!.paymentRef, `;c=${coupon.id}`);
+  transactions.set(fields.txnid, captured(fields, { amt: "159.20" }));
+  assert.deepEqual(await payments.settlePayuTransaction(fields.txnid), { outcome: "paid", eventId: "paid" });
+  assert.equal(ticketRow("paid")!.paymentStatus, "paid");
+  assert.equal(ticketRow("paid")!.paymentRef, `payu:${fields.txnid}:403993715531;c=${coupon.id}`, "the paid ticket still counts against the coupon");
+  assert.deepEqual(await payments.settlePayuTransaction(fields.txnid), { outcome: "paid", eventId: "paid" }, "settling again is a no-op");
+});
+
+test("a discount code is refused when unknown, expired, used up or larger than the ticket", async t => {
+  t.mock.method(console, "info", () => {}); reset(5);
+  await withCoupons([
+    { code: "ONCE", kind: "flat", value: 50, maxUses: 1 },
+    { code: "OLD", kind: "percent", value: 10, expiresAt: new Date(Date.now() - 60_000).toISOString() },
+    { code: "HUGE", kind: "flat", value: 199 },
+    { code: "ALL", kind: "percent", value: 100 },
+  ]);
+  await assert.rejects(participation.quoteTicketCoupon(member.id, "paid", "NOPE"), { code: "COUPON_INVALID" });
+  await assert.rejects(participation.quoteTicketCoupon(member.id, "paid", "OLD"), { code: "COUPON_EXPIRED" });
+  await assert.rejects(participation.quoteTicketCoupon(member.id, "paid", "HUGE"), { code: "COUPON_TOO_LARGE" });
+  await assert.rejects(participation.quoteTicketCoupon(member.id, "paid", "ALL"), { code: "COUPON_TOO_LARGE" });
+  // Holding with ONCE uses it up for everyone else, while the hold runs; the holder can re-apply it.
+  await payments.startTicketPayment(member, { eventId: "paid", amount: 14900, phone: "9876543210", coupon: "ONCE" }, "https://noida.fit");
+  await assert.rejects(participation.quoteTicketCoupon(other.id, "paid", "ONCE"), { code: "COUPON_USED_UP" });
+  assert.equal((await participation.quoteTicketCoupon(member.id, "paid", "ONCE")).amount, 14900);
+  // Once the hold runs out unpaid, the code is free again.
+  ticketRow("paid")!.createdAt = new Date(Date.now() - 31 * 60_000).toISOString();
+  assert.equal((await participation.quoteTicketCoupon(other.id, "paid", "ONCE")).amount, 14900);
+  await assert.rejects(participation.quoteTicketCoupon(member.id, "free", "ONCE"), { code: "COUPON_INVALID" });
+});
+
+test("applying a code to a running hold re-prices it on the same seat; a lapsed coupon hold is priced afresh", async t => {
+  t.mock.method(console, "info", () => {}); reset();
+  const [coupon] = await withCoupons([{ code: "FIFTY", kind: "flat", value: 50 }]);
+  await start();
+  assert.equal(ticketRow("paid")!.amount, 19900);
+  const seat = ticketRow("paid")!.seatNumber;
+  assert.equal((await payments.startTicketPayment(member, { eventId: "paid", amount: 14900, phone: "9876543210", coupon: "FIFTY" }, "https://noida.fit")).fields.amount, "149.00");
+  assert.deepEqual({ amount: ticketRow("paid")!.amount, paymentRef: ticketRow("paid")!.paymentRef, seat: ticketRow("paid")!.seatNumber }, { amount: 14900, paymentRef: `;c=${coupon.id}`, seat }, "same seat, new price");
+  assert.equal((await start({ amount: 14900 })).fields.amount, "149.00", "a running hold keeps its discounted price");
+  ticketRow("paid")!.createdAt = new Date(Date.now() - 31 * 60_000).toISOString();
+  assert.equal((await start()).fields.amount, "199.00", "renewed without the code: full price");
+  assert.equal(ticketRow("paid")!.amount, 19900);
+  assert.ok(!ticketRow("paid")!.paymentRef, "no coupon recorded");
 });

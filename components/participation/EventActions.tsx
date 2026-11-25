@@ -106,7 +106,7 @@ export function EventActions(props: EventActionsProps) {
       {payDue && !props.compact && <button type="button" onClick={payDue} disabled={pending} className="button-primary w-full">{pending && <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />}Pay {formatInr(due)}</button>}
       {rsvped && !props.compact && <p className="text-xs leading-relaxed text-text-secondary">On the day, open your <Link href="/account" className="font-semibold text-velocity underline-offset-2 hover:underline">.fit ID</Link> and show the check-in QR on its back to the organizer.</p>}
       {feedback && <p className="text-[11px] text-velocity" role="status" aria-live="polite">{feedback}</p>}
-      <TicketCheckout open={checkout.open} title={props.title} when={props.when} venueName={props.venueName} priceLabel={checkout.priceLabel} mode={checkout.mode} savedPhone={props.savedPhone} savedName={props.savedName} accountEmail={props.accountEmail} pending={pending} error={checkout.error} onConfirm={checkout.confirm} onClose={checkout.close} />
+      <TicketCheckout open={checkout.open} title={props.title} when={props.when} venueName={props.venueName} priceLabel={checkout.priceLabel} mode={checkout.mode} savedPhone={props.savedPhone} savedName={props.savedName} accountEmail={props.accountEmail} pending={pending} error={checkout.error} fullPriceLabel={checkout.fullPriceLabel} coupons={checkout.coupons} onConfirm={checkout.confirm} onClose={checkout.close} />
     </div>
   );
 }

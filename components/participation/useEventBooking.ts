@@ -19,6 +19,16 @@ export interface EventBookingInput {
   signupClosesAt?: string;
 }
 
+/** A discount code the server priced for this ticket. */
+export interface AppliedCoupon {
+  code: string;
+  /** The discounted price (paise). */
+  amount: number;
+  /** "20% off" or "₹50 off". */
+  label: string;
+  priceLabel: string;
+}
+
 /** Contact details from the ticket summary: the name on the ticket and the mobile number. */
 export interface TicketContact {
   name: string;
@@ -65,6 +75,7 @@ export function useEventBooking({ eventId, date, startTime, price, payOnline = f
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [coupon, setCoupon] = useState<AppliedCoupon | null>(null);
   const [, startNavigation] = useTransition();
   const sellsTickets = payOnline || payOnWhatsapp;
 
@@ -130,7 +141,7 @@ export function useEventBooking({ eventId, date, startTime, price, payOnline = f
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ eventId, amount: hold?.amount ?? (due || pricing.amount), phone }),
+        body: JSON.stringify(coupon ? { eventId, amount: coupon.amount, phone, coupon: coupon.code } : { eventId, amount: hold?.amount ?? (due || pricing.amount), phone }),
       });
       if (response.status === 401) {
         setPending(false);
@@ -140,6 +151,8 @@ export function useEventBooking({ eventId, date, startTime, price, payOnline = f
       const data = await response.json().catch(() => null) as { action?: string; fields?: Record<string, string>; error?: string; code?: string } | null;
       if (!response.ok || !data?.action || !data.fields) {
         if (data?.code === "PRICE_CHANGED") router.refresh();
+        // The code stopped working (expired or used up) since it was applied: pay without it, or try another.
+        if (data?.code?.startsWith("COUPON_") || data?.code === "PRICE_CHANGED") setCoupon(null);
         throw new Error(data?.error || "Could not start the payment");
       }
       postToGateway(data.action, data.fields);
@@ -186,6 +199,25 @@ export function useEventBooking({ eventId, date, startTime, price, payOnline = f
     }
   }
 
+  /** Checks a discount code with the server and, if it works, shows the discounted price. Returns an error message, or null. */
+  async function applyCoupon(code: string): Promise<string | null> {
+    try {
+      const response = await fetch("/api/payments/coupon", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ eventId, code }),
+      });
+      if (response.status === 401) { router.push(loginUrl()); return null; }
+      const data = await response.json().catch(() => null) as (Partial<AppliedCoupon> & { error?: string }) | null;
+      if (!response.ok || !data?.code || typeof data.amount !== "number") return data?.error || "That discount code couldn’t be applied";
+      setCoupon({ code: data.code, amount: data.amount, label: data.label ?? "Discount", priceLabel: data.priceLabel ?? formatInr(data.amount) });
+      return null;
+    } catch {
+      return "That discount code couldn’t be checked. Try again.";
+    }
+  }
+
   function openCheckout(): void {
     setCheckoutError(null);
     setCheckoutOpen(true);
@@ -220,7 +252,12 @@ export function useEventBooking({ eventId, date, startTime, price, payOnline = f
     /** Pay a held ticket online; absent when there is nothing to pay or no online payment. */
     payDue: due && payOnline && !started ? openCheckout : undefined,
     checkout: {
-      open: checkoutOpen, error: checkoutError, priceLabel: hold?.amount ? formatInr(hold.amount) : due ? formatInr(due) : pricing.label,
+      open: checkoutOpen, error: checkoutError,
+      priceLabel: coupon ? coupon.priceLabel : hold?.amount ? formatInr(hold.amount) : due ? formatInr(due) : pricing.label,
+      /** Before any discount: the price a new ticket costs. */
+      fullPriceLabel: pricing.label,
+      /** Discount codes are for new online tickets, not a ticket already issued with a price due. */
+      coupons: payOnline && !due ? { applied: coupon, apply: applyCoupon, remove: () => setCoupon(null) } : undefined,
       mode: payOnWhatsapp && !due ? "whatsapp" as const : "online" as const,
       close: () => setCheckoutOpen(false),
       confirm: (contact: TicketContact) => void (payOnWhatsapp && !due ? reserve(contact) : pay(contact.phone)),
