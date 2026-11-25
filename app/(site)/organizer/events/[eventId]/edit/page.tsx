@@ -5,6 +5,7 @@ import { HttpError } from "@/lib/http";
 import { getManagedEventRecord, organizerVenues } from "@/lib/services/organizer-events";
 import { listAppwriteDocuments, Query } from "@/lib/appwrite/database";
 import { appwriteCollections } from "@/lib/appwrite/config";
+import { tiersOf } from "@/lib/ticket-tiers";
 import { EventEditor, type EditorValues } from "@/components/organizer/EventEditor";
 import { isPayuConfigured } from "@/lib/payments/payu";
 
@@ -36,6 +37,7 @@ export default async function EditEventPage({ params }: Props) {
     capacity: Number(record.capacity), price: String(record.price), status: record.status as EditorValues["status"],
     level: text("level"), distance: text("distance"), pace: text("pace"), routeOverview: text("routeOverview"), lateSignup: record.lateSignup === true, bookingClosesAt: text("bookingClosesAt"),
     coverImageUrl: text("coverImageUrl"),
+    tiers: tiersOf(record), openEnded: record.openEnded === true,
     whatToBring: Array.isArray(record.whatToBring) ? record.whatToBring.map(String) : [],
   };
   return <EventEditor mode="edit" eventId={eventId} expectedUpdatedAt={stored.updatedAt} clubs={[]} venues={venueList} initial={initial} payOnline={isPayuConfigured() && record.demo !== true}

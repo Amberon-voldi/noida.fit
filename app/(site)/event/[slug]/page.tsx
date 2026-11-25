@@ -17,6 +17,7 @@ import { listingMetadata } from "@/components/discovery/metadata";
 import { getActivities, getEventBySlug } from "@/lib/data";
 import { CATEGORY_LABELS, formatDate, SITE_CONFIG } from "@/lib/config";
 import { formatInr, PAID_TICKET_BOOKING, parseEventPrice } from "@/lib/pricing";
+import { tierPriceLabel } from "@/lib/ticket-tiers";
 import { seeYouLabel } from "@/lib/calendar";
 import { getUserRsvp } from "@/lib/services/participation";
 import { isPayuConfigured } from "@/lib/payments/payu";
@@ -41,6 +42,7 @@ export default async function EventPage({ params, searchParams }: Props) {
   const start = eventTimestamp(event);
   const end = eventTimestamp(event, true);
   const pricing = parseEventPrice(event.price);
+  const tiers = pricing.kind === "paid" ? event.tiers ?? [] : [];
   // Demo listings never take real money, or a booking that asks for it.
   const ticketed = pricing.kind === "paid" && !event.demo;
   const payOnline = ticketed && PAID_TICKET_BOOKING === "online" && isPayuConfigured();
@@ -94,17 +96,17 @@ export default async function EventPage({ params, searchParams }: Props) {
           {ticket ? <TicketConfirmation ticket={ticket} clearParam={booked === "1" ? "booked" : "payment"} /> : <PaymentReturnNotice outcome={outcome} />}
           {!upcoming && <p role="status" className="rounded-lg border border-border-strong bg-surface px-4 py-3 text-sm text-text-secondary">{event.status === "cancelled" ? "This gathering has been cancelled." : "This gathering has ended."}</p>}
           <dl className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {[["Date", formatDate(event.date)], ["Time · IST", `${event.startTime} – ${event.endTime}`], ["Cost", event.price], ["Level", event.level ?? "Ask the host"]].map(([label, value]) => <div key={label} className="min-w-0 rounded-lg border border-border-subtle bg-surface p-4"><dt className="font-mono text-[10px] uppercase tracking-widest text-text-secondary">{label}</dt><dd className="mt-2 break-words text-sm font-semibold">{value}</dd></div>)}
+            {[["Date", formatDate(event.date)], ["Time · IST", event.openEnded ? `${event.startTime} onwards` : `${event.startTime} – ${event.endTime}`], ["Cost", tierPriceLabel(tiers, event.price)], ["Level", event.level ?? "Ask the host"]].map(([label, value]) => <div key={label} className="min-w-0 rounded-lg border border-border-subtle bg-surface p-4"><dt className="font-mono text-[10px] uppercase tracking-widest text-text-secondary">{label}</dt><dd className="mt-2 break-words text-sm font-semibold">{value}</dd></div>)}
           </dl>
           <section aria-labelledby="event-about-heading"><h2 id="event-about-heading" className="text-xl font-bold">About this gathering</h2><p className="mt-3 whitespace-pre-line leading-relaxed text-text-secondary">{event.description}</p></section>
           {event.routeOverview && <section aria-labelledby="route-heading"><h2 id="route-heading" className="text-xl font-bold">Route &amp; meeting notes</h2><p className="mt-3 leading-relaxed text-text-secondary">{event.routeOverview}</p></section>}
           {!!event.whatToBring?.length && <section aria-labelledby="bring-heading"><h2 id="bring-heading" className="text-xl font-bold">What to bring</h2><ul className="mt-3 list-disc space-y-2 pl-5 text-sm text-text-secondary">{event.whatToBring.map((item) => <li key={item}>{item}</li>)}</ul></section>}
-          {ticketed && <EventBookingInfo priceLabel={pricing.label} capacity={event.capacity} communityName={event.communityName} communitySlug={event.communitySlug} />}
+          {ticketed && <EventBookingInfo priceLabel={pricing.label} capacity={event.capacity} communityName={event.communityName} communitySlug={event.communitySlug} tiers={tiers} />}
         </div>
         <aside className="min-w-0 space-y-4 lg:sticky lg:top-24 lg:self-start">
           <section aria-labelledby="event-actions-heading" className="rounded-xl border border-border-strong bg-surface p-5">
             <h2 id="event-actions-heading" className="eyebrow mb-4">{event.demo ? "Try participation" : "Your next step"}</h2>
-            {upcoming ? <EventActions eventId={event.id} eventSlug={event.slug} title={event.title} date={event.date} startTime={event.startTime} endTime={event.endTime} venueName={event.venueName} communityName={event.communityName} price={event.price} when={when} payOnline={payOnline} payOnWhatsapp={payOnWhatsapp} signupClosesAt={signupClosesAt} {...account} /> : <div className="flex flex-wrap gap-2"><SaveButton itemType="event" itemId={event.id} /><ShareButton title={event.title} /></div>}
+            {upcoming ? <EventActions eventId={event.id} eventSlug={event.slug} title={event.title} date={event.date} startTime={event.startTime} endTime={event.endTime} venueName={event.venueName} communityName={event.communityName} price={event.price} when={when} payOnline={payOnline} payOnWhatsapp={payOnWhatsapp} tiers={tiers} signupClosesAt={signupClosesAt} {...account} /> : <div className="flex flex-wrap gap-2"><SaveButton itemType="event" itemId={event.id} /><ShareButton title={event.title} /></div>}
           </section>
           <section aria-labelledby="meeting-heading" className="rounded-xl border border-border-subtle bg-surface p-5">
             <h2 id="meeting-heading" className="eyebrow">Meeting point</h2><p className="mt-3 font-bold">{event.venueName}</p><p className="mt-1 text-sm text-text-secondary">{event.sector}</p>
@@ -113,7 +115,7 @@ export default async function EventPage({ params, searchParams }: Props) {
           <Link href={`/community/${event.communitySlug}`} className="block rounded-xl border border-border-subtle bg-surface p-5 hover:border-border-strong"><p className="eyebrow">Host community</p><p className="mt-2 font-bold">{event.communityName}</p></Link>
         </aside>
       </div>
-      {upcoming && <EventBookingBar eventId={event.id} title={event.title} date={event.date} startTime={event.startTime} venueName={event.venueName} price={event.price} when={when} spotsLeft={typeof event.capacity === "number" ? Math.max(0, event.capacity - event.attendeesCount) : undefined} payOnline={payOnline} payOnWhatsapp={payOnWhatsapp} signupClosesAt={signupClosesAt} {...account} />}
+      {upcoming && <EventBookingBar eventId={event.id} title={event.title} date={event.date} startTime={event.startTime} venueName={event.venueName} price={event.price} when={when} spotsLeft={typeof event.capacity === "number" ? Math.max(0, event.capacity - event.attendeesCount) : undefined} payOnline={payOnline} payOnWhatsapp={payOnWhatsapp} tiers={tiers} signupClosesAt={signupClosesAt} {...account} />}
     </div>
   );
 }

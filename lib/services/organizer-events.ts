@@ -9,7 +9,8 @@ import { indiaDateTime } from "@/lib/calendar";
 import { getActivities, getCommunities, getOrganizerEvents, getPlaces } from "@/lib/data";
 import { HttpError } from "@/lib/http";
 import { isMediaPath } from "@/lib/media";
-import { parseEventPrice } from "@/lib/pricing";
+import { paidPrice, parseEventPrice } from "@/lib/pricing";
+import { assignTierIds, MAX_TICKET_TIERS, ticketTierInputSchema } from "@/lib/ticket-tiers";
 import { allClubOrganizers, organizerIdsOf } from "@/lib/services/organizers";
 import { isAdminUser, managesEvent } from "@/lib/services/participation";
 import type { AuthUser } from "@/lib/auth";
@@ -43,6 +44,10 @@ export const organizerEventInputSchema = z.object({
   bookingClosesAt: z.union([z.literal(""), z.string().datetime({ offset: true })]).optional(),
   /** The banner: an image uploaded through /api/organizer/media, or "" to remove it. Omitted on edit: unchanged. */
   coverImageUrl: z.union([z.literal(""), z.string().refine(isMediaPath, "Upload the banner image again")]).optional(),
+  /** Ticket types for a paid session; [] or omitted: one price. The session's price becomes the cheapest. */
+  tiers: z.array(ticketTierInputSchema).max(MAX_TICKET_TIERS).optional(),
+  /** Shown as "07:00 AM onwards". */
+  openEnded: z.boolean().optional(),
 }).strict();
 export const organizerEventCreateSchema = organizerEventInputSchema.extend({ communitySlug: text(120, 1) }).strict();
 export type OrganizerEventInput = z.infer<typeof organizerEventInputSchema>;
@@ -77,9 +82,19 @@ function slugify(title: string, date: string): string {
 
 function clean(input: OrganizerEventInput) {
   const optional = (value?: string) => value?.trim() ? value.trim() : undefined;
+  let tiers: ReturnType<typeof assignTierIds> | undefined;
+  if (input.tiers?.length && parseEventPrice(input.price).kind === "paid") {
+    try { tiers = assignTierIds(input.tiers, () => randomBytes(3).toString("hex")); } catch (error) {
+      throw new HttpError(400, "INVALID_EVENT", error instanceof Error && !(error instanceof z.ZodError) ? error.message : "Check the ticket types");
+    }
+  }
   return {
     title: input.title, description: input.description, date: input.date, startTime: input.startTime, endTime: input.endTime,
-    capacity: input.capacity, price: input.price, status: input.status,
+    capacity: input.capacity, status: input.status,
+    // With ticket types, listings show the cheapest.
+    price: tiers ? paidPrice(Math.min(...tiers.map(tier => tier.price))) : input.price,
+    tiers,
+    openEnded: input.openEnded === true ? true : undefined,
     level: optional(input.level), distance: optional(input.distance), pace: optional(input.pace), routeOverview: optional(input.routeOverview),
     whatToBring: input.whatToBring?.filter(Boolean),
     lateSignup: input.lateSignup === true ? true : undefined,
@@ -159,7 +174,7 @@ async function update(user: Actor, eventId: string, value: unknown, expectedUpda
   // Start from the stored record so team-owned fields (slug, club, images, featured) survive untouched.
   const next: Record<string, unknown> = { ...stored.record, ...clean(input), venueSlug: place.slug, venueName: place.name, sector: place.sector, ...schedule(input) };
   // Discount codes are managed on the dashboard (lib/services/event-coupons.ts); an edit keeps them as they are.
-  for (const key of ["level", "distance", "pace", "routeOverview", "whatToBring", "lateSignup", "bookingClosesAt"]) if (next[key] === undefined) delete next[key];
+  for (const key of ["level", "distance", "pace", "routeOverview", "whatToBring", "lateSignup", "bookingClosesAt", "tiers", "openEnded"]) if (next[key] === undefined) delete next[key];
   // A banner the team set stays unless the organizer changed it.
   if (input.coverImageUrl) next.coverImageUrl = input.coverImageUrl;
   else if (input.coverImageUrl === "") delete next.coverImageUrl;

@@ -1,4 +1,6 @@
 import Link from "next/link";
+import type { TicketTier } from "@/lib/ticket-tiers";
+import { formatInr } from "@/lib/pricing";
 import { LEGAL_ENTITY_DESCRIPTION, LEGAL_ENTITY_NAME, LEGAL_PHONE, PRIVACY_CONTACT, REGISTERED_ADDRESS } from "@/lib/privacy";
 
 interface Props {
@@ -6,6 +8,7 @@ interface Props {
   capacity?: number;
   communityName: string;
   communitySlug: string;
+  tiers?: TicketTier[];
 }
 
 const linkClass = "font-semibold text-velocity underline hover:text-velocity-glow";
@@ -14,7 +17,8 @@ const linkClass = "font-semibold text-velocity underline hover:text-velocity-glo
  * What a paid event's buyer should know before paying: the ticket on sale and its price, who runs the
  * event and who to contact, and the terms and refund policy that apply. Shown on every paid listing.
  */
-export function EventBookingInfo({ priceLabel, capacity, communityName, communitySlug }: Props) {
+export function EventBookingInfo({ priceLabel, capacity, communityName, communitySlug, tiers = [] }: Props) {
+  const rows = tiers.length ? tiers.map(tier => ({ key: tier.id, name: tier.name, description: tier.description, price: formatInr(tier.price * 100) })) : [{ key: "general", name: "General entry", description: undefined, price: priceLabel }];
   return (
     <>
       <section aria-labelledby="tickets-heading">
@@ -22,17 +26,17 @@ export function EventBookingInfo({ priceLabel, capacity, communityName, communit
         <div className="mt-3 overflow-hidden rounded-lg border border-border-subtle">
           <table className="w-full text-left text-sm">
             <thead className="bg-surface font-mono text-[10px] uppercase tracking-widest text-text-secondary">
-              <tr><th scope="col" className="px-4 py-3">Category</th><th scope="col" className="px-4 py-3">Spots</th><th scope="col" className="px-4 py-3 text-right">Price</th></tr>
+              <tr><th scope="col" className="px-4 py-3">Ticket</th><th scope="col" className="px-4 py-3 text-right">Price</th></tr>
             </thead>
             <tbody>
-              <tr className="border-t border-border-subtle">
-                <th scope="row" className="px-4 py-3 font-semibold">General entry</th>
-                <td className="px-4 py-3 text-text-secondary">{typeof capacity === "number" ? capacity : "—"}</td>
-                <td className="px-4 py-3 text-right font-semibold">{priceLabel}</td>
-              </tr>
+              {rows.map(row => <tr key={row.key} className="border-t border-border-subtle">
+                <th scope="row" className="px-4 py-3 align-top font-semibold">{row.name}{row.description && <span className="mt-0.5 block text-xs font-normal text-text-secondary">{row.description}</span>}</th>
+                <td className="px-4 py-3 text-right align-top font-semibold">{row.price}</td>
+              </tr>)}
             </tbody>
           </table>
         </div>
+        {typeof capacity === "number" && <p className="mt-2 text-xs text-text-secondary">{capacity} spots</p>}
       </section>
 
       <section aria-labelledby="organiser-heading">

@@ -4,7 +4,7 @@ import { formatInr } from "@/lib/pricing";
 /** What kind of spot a guest holds, in the organizer's words. */
 export function guestTicketLabel(attendee: OrganizerAttendee): string {
   if (attendee.gift) return `${attendee.gift.label ? `Gift (${attendee.gift.label})` : "Gift"}${attendee.guest ? ", guest pass" : ""}`;
-  if (attendee.ticket) return `${formatInr(attendee.ticket.amount)} ${attendee.ticket.paid ? "paid" : "due"}`;
+  if (attendee.ticket) return `${attendee.ticket.tier ? `${attendee.ticket.tier} · ` : ""}${formatInr(attendee.ticket.amount)} ${attendee.ticket.paid ? "paid" : "due"}`;
   return "Free";
 }
 

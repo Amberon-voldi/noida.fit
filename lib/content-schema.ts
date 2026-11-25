@@ -2,6 +2,7 @@ import { z } from "zod";
 import { indiaDateTime } from "./calendar";
 import { isMediaPath } from "./media";
 import { MAX_COUPONS_PER_EVENT, storedCouponSchema } from "./coupon-schema";
+import { MAX_TICKET_TIERS, ticketTierSchema } from "./ticket-tiers";
 
 export const contentKinds = ["activities", "communities", "places", "events"] as const;
 export type ContentKind = (typeof contentKinds)[number];
@@ -117,6 +118,10 @@ const eventFields = {
   bookingClosesAt: z.string().datetime({ offset: true }).optional(),
   /** Discount codes for its tickets, each code encrypted (lib/coupons.ts). */
   coupons: z.array(storedCouponSchema).max(MAX_COUPONS_PER_EVENT).optional(),
+  /** Ticket types, each with its own price; `price` is the cheapest (lib/ticket-tiers.ts). */
+  tiers: z.array(ticketTierSchema).max(MAX_TICKET_TIERS).optional(),
+  /** Shown as "7:00 AM onwards": the end time only bounds sign-ups and check-in. */
+  openEnded: z.boolean().optional(),
 };
 
 const withId = <T extends z.ZodRawShape>(fields: T) => z.object({ id, ...fields }).strict();

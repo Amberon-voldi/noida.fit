@@ -254,3 +254,21 @@ test("organizers manage a paid session's discount codes from its dashboard, and 
   await service.updateOrganizerEvent(organizer, "existing", form({ price: "FREE" }), free.updatedAt);
   await assert.rejects(coupons.createEventCoupon(organizer, "existing", { code: "FREEBIE", kind: "flat", value: 10 }), { code: "COUPON_FREE_EVENT" });
 });
+
+test("organizers sell several ticket types; the session's price is the cheapest, and an open end shows no end time", async () => {
+  const stored = await service.getManagedEventRecord(organizer, "existing");
+  await service.updateOrganizerEvent(organizer, "existing", form({ price: "₹1", openEnded: true, tiers: [{ name: "Full RallyVerse", price: 499, description: "Includes laser tag" }, { name: "General", price: 249 }] }), stored.updatedAt);
+  const record = eventRecord("existing");
+  assert.equal(record.price, "₹249");
+  assert.equal(record.openEnded, true);
+  assert.deepEqual(record.tiers.map((tier: { name: string; price: number }) => [tier.name, tier.price]), [["Full RallyVerse", 499], ["General", 249]]);
+  assert.ok(record.tiers.every((tier: { id: string }) => /^[a-z0-9]{6}$/.test(tier.id)));
+  // Saving again keeps each type's id; a repeated name is refused; dropping the types and the open end removes them.
+  const ids = record.tiers.map((tier: { id: string }) => tier.id);
+  await service.updateOrganizerEvent(organizer, "existing", form({ price: "₹249", tiers: record.tiers }), String(eventRow("existing").$updatedAt));
+  assert.deepEqual(eventRecord("existing").tiers.map((tier: { id: string }) => tier.id), ids);
+  await assert.rejects(service.updateOrganizerEvent(organizer, "existing", form({ price: "₹249", tiers: [{ name: "General", price: 249 }, { name: "general", price: 299 }] }), String(eventRow("existing").$updatedAt)), { code: "INVALID_EVENT" });
+  await service.updateOrganizerEvent(organizer, "existing", form({ price: "₹249", tiers: [] }), String(eventRow("existing").$updatedAt));
+  assert.equal(eventRecord("existing").tiers, undefined);
+  assert.equal(eventRecord("existing").openEnded, undefined);
+});

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { tiersOf, type TicketTier } from "@/lib/ticket-tiers";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { HttpError } from "@/lib/http";
@@ -36,6 +37,8 @@ async function copyOf(user: Parameters<typeof getManagedEventRecord>[0], eventId
       // Only an uploaded banner can be carried over; one the team set stays with its own session.
       ...(isMediaPath(banner) ? { coverImageUrl: banner } : {}),
       whatToBring: Array.isArray(record.whatToBring) ? record.whatToBring.map(String) : [],
+      // Ticket types are copied as new types, so the copy's tickets are its own.
+      tiers: tiersOf(record).map(({ id: _id, ...tier }) => { void _id; return tier as TicketTier; }), openEnded: record.openEnded === true,
     },
   };
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import type { TicketTier } from "@/lib/ticket-tiers";
 import Link from "next/link";
 import { CalendarPlus, Check, LoaderCircle, Share2 } from "lucide-react";
 import { createIcs } from "@/lib/calendar";
@@ -9,6 +10,8 @@ import { TicketCheckout } from "./TicketCheckout";
 import { useEventBooking } from "./useEventBooking";
 
 export interface EventActionsProps {
+  /** Ticket types, each with its own price. */
+  tiers?: TicketTier[];
   eventId: string;
   eventSlug: string;
   title: string;
@@ -105,7 +108,7 @@ export function EventActions(props: EventActionsProps) {
       {payDue && !props.compact && <button type="button" onClick={payDue} disabled={pending} className="button-primary w-full">{pending && <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />}Pay {formatInr(due)}</button>}
       {rsvped && !props.compact && <p className="text-xs text-text-secondary">Check in with your <Link href="/account" className="font-semibold text-velocity underline-offset-2 hover:underline">.fit ID</Link></p>}
       {feedback && <p className="text-[11px] text-velocity" role="status" aria-live="polite">{feedback}</p>}
-      <TicketCheckout open={checkout.open} title={props.title} when={props.when} venueName={props.venueName} priceLabel={checkout.priceLabel} mode={checkout.mode} savedPhone={props.savedPhone} savedName={props.savedName} accountEmail={props.accountEmail} pending={pending} error={checkout.error} fullPriceLabel={checkout.fullPriceLabel} coupons={checkout.coupons} onConfirm={checkout.confirm} onClose={checkout.close} />
+      <TicketCheckout open={checkout.open} title={props.title} when={props.when} venueName={props.venueName} priceLabel={checkout.priceLabel} mode={checkout.mode} savedPhone={props.savedPhone} savedName={props.savedName} accountEmail={props.accountEmail} pending={pending} error={checkout.error} fullPriceLabel={checkout.fullPriceLabel} coupons={checkout.coupons} tiers={checkout.tiers} onConfirm={checkout.confirm} onClose={checkout.close} />
     </div>
   );
 }

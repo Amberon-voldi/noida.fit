@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { loginUrl, refreshParticipation, useParticipation } from "./useParticipation";
 import { indiaDateTime } from "@/lib/calendar";
 import { formatInr, parseEventPrice, ticketHoldEndsAt } from "@/lib/pricing";
+import type { TicketTier } from "@/lib/ticket-tiers";
 
 export interface EventBookingInput {
   eventId: string;
@@ -17,6 +18,8 @@ export interface EventBookingInput {
   payOnWhatsapp?: boolean;
   /** When booking closes (ISO): the end for a session taking late sign-ups. Default: the start. */
   signupClosesAt?: string;
+  /** Ticket types, each with its own price. */
+  tiers?: TicketTier[];
 }
 
 /** A discount code the server priced for this ticket. */
@@ -55,7 +58,7 @@ function postToGateway(action: string, fields: Record<string, string>): void {
 }
 
 /** RSVP (free) or ticket (paid) state and actions for one event, shared by the action panel and the mobile bar. */
-export function useEventBooking({ eventId, date, startTime, price, payOnline = false, payOnWhatsapp = false, signupClosesAt }: EventBookingInput) {
+export function useEventBooking({ eventId, date, startTime, price, payOnline = false, payOnWhatsapp = false, signupClosesAt, tiers = [] }: EventBookingInput) {
   const router = useRouter();
   const state = useParticipation();
   const pricing = parseEventPrice(price);
@@ -76,6 +79,12 @@ export function useEventBooking({ eventId, date, startTime, price, payOnline = f
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [coupon, setCoupon] = useState<AppliedCoupon | null>(null);
+  const [chosenTier, setChosenTier] = useState<string | undefined>(undefined);
+  /** The ticket type being bought: the one picked, else the held one, else the first. */
+  const tier = tiers.find(item => item.id === chosenTier) ?? tiers.find(item => item.id === hold?.ticketTier) ?? tiers[0];
+  const fullPrice = tier ? tier.price * 100 : pricing.amount;
+  /** A running hold is paid at its own price, unless another type was picked. */
+  const holdApplies = Boolean(hold?.amount) && (!tier || hold?.ticketTier === tier.id);
   const [, startNavigation] = useTransition();
   const sellsTickets = payOnline || payOnWhatsapp;
 
@@ -141,7 +150,7 @@ export function useEventBooking({ eventId, date, startTime, price, payOnline = f
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(coupon ? { eventId, amount: coupon.amount, phone, coupon: coupon.code } : { eventId, amount: hold?.amount ?? (due || pricing.amount), phone }),
+        body: JSON.stringify({ eventId, phone, ...(tier && !due ? { tier: tier.id } : {}), ...(coupon ? { amount: coupon.amount, coupon: coupon.code } : { amount: holdApplies ? hold!.amount : due || fullPrice }) }),
       });
       if (response.status === 401) {
         setPending(false);
@@ -206,7 +215,7 @@ export function useEventBooking({ eventId, date, startTime, price, payOnline = f
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ eventId, code }),
+        body: JSON.stringify({ eventId, code, ...(tier ? { tier: tier.id } : {}) }),
       });
       if (response.status === 401) { router.push(loginUrl()); return null; }
       const data = await response.json().catch(() => null) as (Partial<AppliedCoupon> & { error?: string }) | null;
@@ -253,9 +262,11 @@ export function useEventBooking({ eventId, date, startTime, price, payOnline = f
     payDue: due && payOnline && !started ? openCheckout : undefined,
     checkout: {
       open: checkoutOpen, error: checkoutError,
-      priceLabel: coupon ? coupon.priceLabel : hold?.amount ? formatInr(hold.amount) : due ? formatInr(due) : pricing.label,
-      /** Before any discount: the price a new ticket costs. */
-      fullPriceLabel: pricing.label,
+      priceLabel: coupon ? coupon.priceLabel : holdApplies ? formatInr(hold!.amount!) : due ? formatInr(due) : formatInr(fullPrice),
+      /** Before any discount: the price a new ticket of this type costs. */
+      fullPriceLabel: formatInr(fullPrice),
+      /** Picking a type, when the event sells several. Another type drops an applied code: it's priced afresh. */
+      tiers: tiers.length > 1 && !due ? { list: tiers, selected: tier?.id, choose: (id: string) => { setChosenTier(id); setCoupon(null); } } : undefined,
       /** Discount codes are for new online tickets, not a ticket already issued with a price due. */
       coupons: payOnline && !due ? { applied: coupon, apply: applyCoupon, remove: () => setCoupon(null) } : undefined,
       mode: payOnWhatsapp && !due ? "whatsapp" as const : "online" as const,

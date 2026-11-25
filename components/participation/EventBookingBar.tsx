@@ -1,5 +1,6 @@
 "use client";
 
+import { tierPriceLabel, type TicketTier } from "@/lib/ticket-tiers";
 import Link from "next/link";
 import { Check, LoaderCircle } from "lucide-react";
 import { formatInr } from "@/lib/pricing";
@@ -7,6 +8,8 @@ import { TicketCheckout } from "./TicketCheckout";
 import { useEventBooking } from "./useEventBooking";
 
 export interface EventBookingBarProps {
+  /** Ticket types, each with its own price. */
+  tiers?: TicketTier[];
   eventId: string;
   title: string;
   date: string;
@@ -45,7 +48,7 @@ export function EventBookingBar(props: EventBookingBarProps) {
               <p className="flex items-center gap-1.5 text-sm font-bold text-velocity"><Check className="h-4 w-4 shrink-0" aria-hidden="true" />{bookedLabel}</p>
               <p className="truncate text-xs text-text-secondary">Spot #{booking.seatNumber}{booking.amount ? ` · ${formatInr(booking.amount)} ${due ? (booking.whatsapp ? "due, link on WhatsApp" : "due") : "paid"}` : ""} · {props.when}</p>
             </> : <>
-              <p className="truncate font-mono text-lg font-bold leading-tight text-white">{hold?.amount ? formatInr(hold.amount) : pricing.label}</p>
+              <p className="truncate font-mono text-lg font-bold leading-tight text-white">{hold?.amount ? formatInr(hold.amount) : props.tiers?.length ? tierPriceLabel(props.tiers, pricing.label) : pricing.label}</p>
               <p className="truncate text-xs text-text-secondary">{hold && props.payOnline ? `Spot held until ${holdUntil}` : `${props.when}${availability}`}</p>
             </>}
           </div>
@@ -62,7 +65,7 @@ export function EventBookingBar(props: EventBookingBarProps) {
               </button>}
         </div>
       </aside>
-      <TicketCheckout open={checkout.open} title={props.title} when={props.when} venueName={props.venueName} priceLabel={checkout.priceLabel} mode={checkout.mode} savedPhone={props.savedPhone} savedName={props.savedName} accountEmail={props.accountEmail} pending={pending} error={checkout.error} fullPriceLabel={checkout.fullPriceLabel} coupons={checkout.coupons} onConfirm={checkout.confirm} onClose={checkout.close} />
+      <TicketCheckout open={checkout.open} title={props.title} when={props.when} venueName={props.venueName} priceLabel={checkout.priceLabel} mode={checkout.mode} savedPhone={props.savedPhone} savedName={props.savedName} accountEmail={props.accountEmail} pending={pending} error={checkout.error} fullPriceLabel={checkout.fullPriceLabel} coupons={checkout.coupons} tiers={checkout.tiers} onConfirm={checkout.confirm} onClose={checkout.close} />
     </>
   );
 }

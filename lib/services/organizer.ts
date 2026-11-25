@@ -1,6 +1,7 @@
 import "server-only";
 
 import { appwriteCollections as collections } from "@/lib/appwrite/config";
+import { tierIdOf } from "@/lib/ticket-tiers";
 import {
   listAppwriteDocuments,
   Query,
@@ -103,6 +104,7 @@ export async function getOrganizerEventSummaries(
   const checkinByKey = new Map(checkins.map(checkin => [`${checkin.eventId}:${checkin.userId}`, checkin]));
 
   return events.map(event => {
+    const tierNames = new Map((event.tiers ?? []).map(tier => [tier.id, tier.name]));
     const attendees: OrganizerAttendee[] = confirmed.filter(rsvp => rsvp.eventId === event.id).map(rsvp => {
       const checkin = checkinByKey.get(`${event.id}:${rsvp.userId}`);
       const giftLinkId = rsvp.paymentStatus === "gift" && rsvp.paymentRef?.startsWith("gift:") ? rsvp.paymentRef.slice(5) : undefined;
@@ -113,7 +115,7 @@ export async function getOrganizerEventSummaries(
         displayName: guest ? safeDisplayName(guest.name) : isGuestHolder(rsvp.userId) ? "Guest" : safeDisplayName(whatsapp?.name ?? names.get(rsvp.userId)),
         rsvpStatus: "confirmed",
         ...(Number.isSafeInteger(rsvp.seatNumber) ? { seatNumber: rsvp.seatNumber } : {}),
-        ...(rsvp.amount ? { ticket: { amount: rsvp.amount, paid: rsvp.paymentStatus === "paid", ...(isPaidOnline(rsvp.paymentRef) ? { online: true } : {}) } } : {}),
+        ...(rsvp.amount ? { ticket: { amount: rsvp.amount, paid: rsvp.paymentStatus === "paid", ...(isPaidOnline(rsvp.paymentRef) ? { online: true } : {}), ...(tierNames.get(tierIdOf(rsvp.paymentRef) ?? "") ? { tier: tierNames.get(tierIdOf(rsvp.paymentRef) ?? "") } : {}) } } : {}),
         ...(giftLinkId ? { gift: { linkId: giftLinkId, ...(giftLabel ? { label: giftLabel } : {}) } } : {}),
         ...(guest ? { guest: { pass: guest.pass, phone: guest.phone } } : {}),
         ...(whatsapp ? { whatsapp: whatsapp.phone } : {}),

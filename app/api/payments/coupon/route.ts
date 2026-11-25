@@ -5,7 +5,7 @@ import { documentIdSchema, getTicketEvent, quoteTicketCoupon } from "@/lib/servi
 
 export const runtime = "nodejs";
 
-const inputSchema = z.object({ eventId: documentIdSchema, code: z.string().trim().min(1).max(40) }).strict();
+const inputSchema = z.object({ eventId: documentIdSchema, code: z.string().trim().min(1).max(40), tier: z.string().regex(/^[a-z0-9]{6}$/).optional() }).strict();
 
 /**
  * What a discount code makes this event's ticket cost, for the checkout summary. Changes nothing: the
@@ -16,7 +16,7 @@ export async function POST(request: Request) {
     const user = await requireVerifiedMutationUser(request, "ticket-coupon", 10);
     const input = await readJson(request, inputSchema);
     if ((await getTicketEvent(input.eventId)).demo) throw new HttpError(409, "DEMO_EVENT", "This is a demo listing, so it can’t take a payment");
-    const quote = await quoteTicketCoupon(user.id, input.eventId, input.code);
+    const quote = await quoteTicketCoupon(user.id, input.eventId, input.code, input.tier);
     return jsonOk({ code: quote.code, amount: quote.amount, discount: quote.discount, label: quote.label, priceLabel: formatInr(quote.amount) });
   } catch (error) {
     return jsonError(error, "The discount code could not be checked");

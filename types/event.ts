@@ -36,6 +36,10 @@ export interface Event {
   lateSignup?: boolean;
   /** The organizer's own closing time for sign-ups and gift claims (ISO). Unset: the start, or the end with lateSignup. */
   bookingClosesAt?: string;
+  /** Ticket types, each with its own whole-rupee price; `price` is the cheapest. */
+  tiers?: import("@/lib/ticket-tiers").TicketTier[];
+  /** Shown as "07:00 AM onwards": the end time only bounds sign-ups and check-in. */
+  openEnded?: boolean;
   demo?: boolean;
   tags?: string[];
 }

@@ -5,6 +5,7 @@ import { LoaderCircle, X } from "lucide-react";
 import { normalizeIndianMobile } from "@/lib/phone";
 import { formatInr, parseEventPrice } from "@/lib/pricing";
 import type { AppliedCoupon, TicketContact } from "./useEventBooking";
+import type { TicketTier } from "@/lib/ticket-tiers";
 
 interface Props {
   open: boolean;
@@ -26,6 +27,8 @@ interface Props {
   fullPriceLabel?: string;
   /** Discount codes, when this checkout takes them. */
   coupons?: { applied: AppliedCoupon | null; apply: (code: string) => Promise<string | null>; remove: () => void };
+  /** The ticket types to pick from, when the event sells several. */
+  tiers?: { list: TicketTier[]; selected?: string; choose: (id: string) => void };
   onConfirm: (contact: TicketContact) => void;
   onClose: () => void;
 }
@@ -36,7 +39,7 @@ const inputClass = "mt-1.5 min-h-11 w-full rounded-xl border border-border-subtl
  * The summary a member confirms before a paid ticket. Online, the ticket is confirmed once PayU confirms the
  * payment. While online payment is off, the spot is confirmed at once and the payment link goes to WhatsApp.
  */
-export function TicketCheckout({ open, title, when, venueName, priceLabel, mode, savedPhone, savedName, accountEmail, pending, error, fullPriceLabel, coupons, onConfirm, onClose }: Props) {
+export function TicketCheckout({ open, title, when, venueName, priceLabel, mode, savedPhone, savedName, accountEmail, pending, error, fullPriceLabel, coupons, tiers, onConfirm, onClose }: Props) {
   const dialogRef = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   const nameId = useId();
@@ -94,6 +97,18 @@ export function TicketCheckout({ open, title, when, venueName, priceLabel, mode,
         </header>
         <div className="space-y-4 overflow-y-auto p-4 sm:p-6">
           <p className="text-sm text-text-secondary">{when} · {venueName}</p>
+          {tiers && <fieldset>
+            <legend className="text-sm font-semibold text-white">Ticket</legend>
+            <div className="mt-1.5 grid gap-2">
+              {tiers.list.map(tier => <label key={tier.id} className={`flex cursor-pointer items-start justify-between gap-3 rounded-lg border p-3 ${tiers.selected === tier.id ? "border-velocity bg-velocity/10" : "border-border-strong"}`}>
+                <span className="flex min-w-0 items-start gap-3">
+                  <input type="radio" name={`${titleId}-tier`} checked={tiers.selected === tier.id} onChange={() => { tiers.choose(tier.id); setCouponCode(""); setCouponError(null); }} disabled={pending} className="mt-1 size-4 shrink-0 accent-velocity" />
+                  <span className="min-w-0"><span className="block text-sm font-semibold text-white">{tier.name}</span>{tier.description && <span className="mt-0.5 block text-xs text-text-secondary">{tier.description}</span>}</span>
+                </span>
+                <span className="shrink-0 font-mono text-sm font-bold text-white">{formatInr(tier.price * 100)}</span>
+              </label>)}
+            </div>
+          </fieldset>}
           <dl className="rounded-lg border border-border-subtle bg-surface-elevated">
             {applied && fullPriceLabel ? <>
               <div className="flex items-center justify-between gap-3 px-4 pt-3"><dt className="text-sm text-text-secondary">1 ticket</dt><dd className="font-mono text-sm text-text-secondary line-through">{fullPriceLabel}</dd></div>

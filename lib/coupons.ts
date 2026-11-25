@@ -3,6 +3,7 @@ import "server-only";
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:crypto";
 import { HttpError } from "@/lib/http";
 import { formatInr } from "@/lib/pricing";
+import { ticketRefTags } from "@/lib/ticket-tiers";
 import { couponCodeSchema, couponInputSchema, MAX_COUPONS_PER_EVENT, storedCouponSchema, type CouponInput, type EditableCoupon, type StoredCoupon } from "@/lib/coupon-schema";
 
 export type { CouponInput, EditableCoupon, StoredCoupon } from "@/lib/coupon-schema";
@@ -67,7 +68,7 @@ export function storedCouponsOf(payload: { coupons?: unknown }): StoredCoupon[] 
 /** Tagged onto a held ticket's paymentRef, and kept after it is paid, so its coupon's uses can be counted. */
 export const couponTag = (id: string) => `;c=${id}`;
 export function couponIdOf(paymentRef: string | undefined): string | undefined {
-  return paymentRef ? /;c=([a-f0-9]{8})$/.exec(paymentRef)?.[1] : undefined;
+  return /;c=([a-f0-9]{8})(?=;|$)/.exec(ticketRefTags(paymentRef))?.[1];
 }
 
 /** Tickets that used each coupon: paid ones, and holds still running. */

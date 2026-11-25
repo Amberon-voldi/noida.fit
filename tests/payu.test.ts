@@ -358,3 +358,47 @@ test("a paused code is refused, and percent discounts round to whole rupees", as
   assert.equal((await participation.quoteTicketCoupon(member.id, "paid", "TEN")).amount, 17900, "₹199 − ₹19.90 rounds to ₹179");
   assert.equal((await participation.quoteTicketCoupon(member.id, "paid", "THIRD")).amount, 13300, "₹199 − ₹65.67 rounds to ₹133");
 });
+
+// Ticket types (lib/ticket-tiers.ts): each priced on its own, sharing the event's seats.
+function withTiers(coupons: Record<string, unknown>[] = []) {
+  rows.get("events/paid")!.payload = JSON.stringify({ price: "₹249", tiers: [{ id: "gen001", name: "General", price: 249 }, { id: "full01", name: "Full experience", price: 499, description: "Includes laser tag" }], coupons });
+}
+const startTier = (amount: number, tier?: string, extra: Record<string, unknown> = {}, user = member) => payments.startTicketPayment(user, { eventId: "paid", amount, phone: "9876543210", ...(tier ? { tier } : {}), ...extra } as never, "https://noida.fit");
+
+test("a ticket type is charged its own price, and picking another type re-prices the held seat", async t => {
+  t.mock.method(console, "info", () => {}); reset();
+  withTiers();
+  await assert.rejects(startTier(24900, "full01"), { code: "PRICE_CHANGED" });
+  await assert.rejects(startTier(49900, "nope00"), { code: "TIER_UNAVAILABLE" });
+  assert.equal(ticketRow("paid"), undefined, "nothing held for a refused price");
+  assert.equal((await startTier(49900, "full01")).fields.amount, "499.00");
+  assert.deepEqual({ amount: ticketRow("paid")!.amount, ref: ticketRow("paid")!.paymentRef }, { amount: 49900, ref: ";t=full01" });
+  const seat = ticketRow("paid")!.seatNumber;
+  assert.equal((await startTier(24900, "gen001")).fields.amount, "249.00");
+  assert.deepEqual({ amount: ticketRow("paid")!.amount, ref: ticketRow("paid")!.paymentRef, seat: ticketRow("paid")!.seatNumber }, { amount: 24900, ref: ";t=gen001", seat });
+  // A page from before ticket types names none: the first type.
+  assert.equal((await startTier(24900, undefined, {}, other)).fields.amount, "249.00");
+  assert.equal(ticketRow("paid", other.id)!.paymentRef, ";t=gen001");
+  rows.get("events/free")!.payload = JSON.stringify({ price: "FREE" });
+  await assert.rejects(payments.startTicketPayment(member, { eventId: "free", amount: 100, phone: "9876543210", tier: "gen001" } as never, "https://noida.fit"), { code: "PRICE_CHANGED" });
+});
+
+test("a discount code applies to the chosen type, and the paid ticket keeps its type and code", async t => {
+  t.mock.method(console, "info", () => {}); reset();
+  const { sealCoupons } = await import("../lib/coupons");
+  const [coupon] = sealCoupons([{ code: "LASER10", kind: "percent", value: 10 }]);
+  withTiers([coupon]);
+  assert.equal((await participation.quoteTicketCoupon(member.id, "paid", "LASER10", "full01")).amount, 44900, "₹499 − ₹49.90 rounds to ₹449");
+  assert.equal((await participation.quoteTicketCoupon(member.id, "paid", "LASER10")).amount, 22400, "the first type by default");
+  const { fields } = await startTier(44900, "full01", { coupon: "laser10" });
+  assert.equal(ticketRow("paid")!.paymentRef, `;t=full01;c=${coupon.id}`);
+  transactions.set(fields.txnid, captured(fields, { amt: "449.00" }));
+  assert.deepEqual(await payments.settlePayuTransaction(fields.txnid), { outcome: "paid", eventId: "paid" });
+  assert.equal(ticketRow("paid")!.paymentRef, `payu:${fields.txnid}:403993715531;t=full01;c=${coupon.id}`);
+  const { couponIdOf } = await import("../lib/coupons");
+  const { tierIdOf } = await import("../lib/ticket-tiers");
+  assert.deepEqual([tierIdOf(String(ticketRow("paid")!.paymentRef)), couponIdOf(String(ticketRow("paid")!.paymentRef))], ["full01", coupon.id]);
+  assert.equal((await participation.getUserRsvp("paid", member.id))?.ticketTier, "full01");
+  // A WhatsApp contact's name can't pass for a tag.
+  assert.equal(tierIdOf("whatsapp:9876543210:Asha;t=full01"), undefined);
+});

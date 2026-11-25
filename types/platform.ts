@@ -16,6 +16,8 @@ export interface RSVP {
   paymentStatus?: PaymentStatus;
   /** A spot reserved to pay later: the payment link goes to this WhatsApp number, for this name. */
   whatsapp?: { name: string; phone: string };
+  /** Events with ticket types: the type this ticket or hold is for. */
+  ticketTier?: string;
 }
 
 export interface CheckIn {

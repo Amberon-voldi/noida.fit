@@ -16,6 +16,8 @@ export const ticketPaymentInputSchema = z.object({
   phone: z.string().trim().max(20),
   /** A discount code the member applied; the amount is then the discounted price. */
   coupon: z.string().trim().max(40).optional(),
+  /** The ticket type, for events that sell several. */
+  tier: z.string().regex(/^[a-z0-9]{6}$/).optional(),
 }).strict();
 
 export const PAYU_RETURN_PATH = "/api/payments/payu/return";
@@ -32,7 +34,7 @@ export async function startTicketPayment(user: Pick<AuthUser, "id" | "name" | "e
   if (!phone) throw new HttpError(400, "PHONE_INVALID", "Enter a 10-digit Indian mobile number");
   const event = await getTicketEvent(input.eventId);
   if (event.demo) throw new HttpError(409, "DEMO_EVENT", "This is a demo listing, so it can’t take a payment");
-  const ticket = await holdTicket(user.id, input.eventId, input.amount, input.coupon || undefined);
+  const ticket = await holdTicket(user.id, input.eventId, input.amount, input.coupon || undefined, input.tier);
   if (!ticket.amount) throw new HttpError(409, "NO_TICKET_DUE", "You already have a free RSVP for this event");
   if (ticket.paymentStatus === "paid") throw new HttpError(409, "TICKET_PAID", "Your ticket is already paid for");
   return payuCheckoutForm({

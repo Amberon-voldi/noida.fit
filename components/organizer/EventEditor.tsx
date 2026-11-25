@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, ImagePlus, LoaderCircle } from "lucide-react";
+import { ArrowLeft, ImagePlus, LoaderCircle, Plus, Trash2 } from "lucide-react";
 import { isMediaPath, MEDIA_ACCEPT, MEDIA_MAX_BYTES } from "@/lib/media";
 import { indiaLocalToIso, isoToIndiaLocal } from "@/lib/booking-window";
 import { MAX_TICKET_RUPEES, paidPrice, parseEventPrice } from "@/lib/pricing";
+import { MAX_TICKET_TIERS, type TicketTier } from "@/lib/ticket-tiers";
 
 export interface EditorOption { slug: string; name: string; detail?: string; }
 export interface EditorValues {
@@ -20,6 +21,10 @@ export interface EditorValues {
   bookingClosesAt?: string;
   /** The banner at the top of the session page: an uploaded /media path, or one the team set. */
   coverImageUrl?: string;
+  /** Ticket types, each with its own price. */
+  tiers?: TicketTier[];
+  /** Shown as "07:00 AM onwards". */
+  openEnded?: boolean;
 }
 interface Props {
   mode: "create" | "edit";
@@ -49,6 +54,17 @@ function to12(value: string): string {
   return `${String(h % 12 || 12).padStart(2, "0")}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`;
 }
 
+/** A start time plus four hours, kept within the day: the hidden end of a session with no end time. */
+function openEnd(start24: string): string {
+  const [h, m] = start24.split(":").map(Number);
+  if (!Number.isFinite(h) || !Number.isFinite(m)) return "";
+  const minutes = Math.min(h * 60 + m + 240, 23 * 60 + 59);
+  return `${String(Math.floor(minutes / 60)).padStart(2, "0")}:${String(minutes % 60).padStart(2, "0")}`;
+}
+
+interface TierRow { key: number; id?: string; name: string; price: string; description: string }
+let tierKey = 0;
+
 const field = "mt-1.5 min-h-11 w-full min-w-0 rounded-lg border border-border-strong bg-surface-elevated px-3 text-base text-white";
 const labelClass = "block text-sm font-semibold text-white";
 const hint = "mt-1 text-xs text-text-secondary";
@@ -60,6 +76,9 @@ export function EventEditor({ mode, clubs, venues, initial, eventId, expectedUpd
   const [values, setValues] = useState({ ...initial, startTime: to24(initial.startTime), endTime: to24(initial.endTime), whatToBring: (initial.whatToBring ?? []).join("\n"), paid: initialPricing.kind !== "free", amount: initialPricing.kind === "paid" ? String(initialPricing.amount / 100) : "", coverImageUrl: initial.coverImageUrl ?? "", bookingClosesAtLocal: isoToIndiaLocal(initial.bookingClosesAt) });
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
+  const [tiers, setTiers] = useState<TierRow[]>(() => (initial.tiers ?? []).map(tier => ({ key: tierKey++, id: tier.id, name: tier.name, price: String(tier.price), description: tier.description ?? "" })));
+  const setTier = (key: number, changes: Partial<TierRow>) => setTiers(rows => rows.map(row => row.key === key ? { ...row, ...changes } : row));
+  const [openEnded, setOpenEnded] = useState(initial.openEnded === true);
   const [uploading, setUploading] = useState(false);
   const [bannerError, setBannerError] = useState("");
   const set = <K extends keyof typeof values>(key: K, value: (typeof values)[K]) => setValues(current => ({ ...current, [key]: value }));
@@ -89,12 +108,16 @@ export function EventEditor({ mode, clubs, venues, initial, eventId, expectedUpd
   async function submit(form: React.FormEvent) {
     form.preventDefault();
     if (pending || uploading) return;
+    const tierList = values.paid ? tiers.map(row => ({ ...(row.id ? { id: row.id } : {}), name: row.name.trim(), price: Number(row.price), ...(row.description.trim() ? { description: row.description.trim() } : {}) })) : [];
+    const badTier = tierList.find(tier => tier.name.length < 2 || !Number.isInteger(tier.price) || tier.price < 1 || tier.price > MAX_TICKET_RUPEES);
+    if (badTier) { setError(`Ticket type “${badTier.name || "untitled"}”: add a name and a price of ₹1–₹${MAX_TICKET_RUPEES}.`); return; }
+    const cheapest = tierList.length ? Math.min(...tierList.map(tier => tier.price)) : Number(values.amount);
     setPending(true); setError("");
     const event = {
       ...(mode === "create" ? { communitySlug: values.communitySlug } : {}),
       title: values.title, description: values.description, date: values.date,
-      startTime: to12(values.startTime), endTime: to12(values.endTime),
-      venueSlug: values.venueSlug, capacity: Number(values.capacity), price: values.paid ? paidPrice(Number(values.amount)) : "FREE", status: values.status,
+      startTime: to12(values.startTime), endTime: to12(openEnded ? openEnd(values.startTime) : values.endTime), openEnded,
+      venueSlug: values.venueSlug, capacity: Number(values.capacity), price: values.paid ? paidPrice(cheapest) : "FREE", status: values.status, tiers: tierList,
       level: values.level || undefined, distance: values.distance || undefined, pace: values.pace || undefined, routeOverview: values.routeOverview || undefined,
       whatToBring: values.whatToBring.split("\n").map(line => line.trim()).filter(Boolean),
       lateSignup: values.lateSignup === true,
@@ -157,8 +180,10 @@ export function EventEditor({ mode, clubs, venues, initial, eventId, expectedUpd
         <div className="grid gap-4 sm:grid-cols-3">
           <label className={labelClass}>Date<input type="date" required value={values.date} onChange={change => set("date", change.target.value)} className={field} /></label>
           <label className={labelClass}>Starts<input type="time" required value={values.startTime} onChange={change => set("startTime", change.target.value)} className={field} /></label>
-          <label className={labelClass}>Ends<input type="time" required value={values.endTime} onChange={change => set("endTime", change.target.value)} className={field} /></label>
+          {openEnded ? <div className={labelClass}>Ends<p className={`${field} flex items-center text-text-secondary`}>Onwards</p></div>
+            : <label className={labelClass}>Ends<input type="time" required value={values.endTime} onChange={change => set("endTime", change.target.value)} className={field} /></label>}
         </div>
+        <label className="flex items-center gap-3 text-sm font-semibold text-white"><input type="checkbox" checked={openEnded} onChange={change => setOpenEnded(change.target.checked)} className="size-5 accent-velocity" />No end time</label>
         <p className={hint}>Times are India time (IST). Check-in opens 30 minutes before the start.</p>
         <label className={labelClass}>Venue<select required value={values.venueSlug} onChange={change => set("venueSlug", change.target.value)} className={field}><option value="" disabled>Choose a venue</option>{venues.map(place => <option key={place.slug} value={place.slug}>{place.name}{place.detail ? ` · ${place.detail}` : ""}</option>)}</select><span className={hint}>Missing a venue? Ask the NOIDA.FIT team to add it.</span></label>
       </fieldset>
@@ -169,8 +194,18 @@ export function EventEditor({ mode, clubs, venues, initial, eventId, expectedUpd
           <label className={labelClass}>Spots available<input type="number" required min={Math.max(1, confirmedRsvps)} max={100000} value={values.capacity} onChange={change => set("capacity", Number(change.target.value))} className={field} />{confirmedRsvps > 0 && <span className={hint}>Can’t go below the {confirmedRsvps} people already going.</span>}</label>
           <div>
             <label className={labelClass}>Price<select value={values.paid ? "paid" : "free"} onChange={change => set("paid", change.target.value === "paid")} className={field}><option value="free">Free</option><option value="paid">Paid ticket</option></select></label>
-            {values.paid && <label className={`${labelClass} mt-3`}>Ticket price (₹)<input type="number" inputMode="numeric" required min={1} max={MAX_TICKET_RUPEES} step={1} value={values.amount} onChange={change => set("amount", change.target.value)} className={field} placeholder="199" /><span className={hint}>{initialPricing.kind === "info" ? `Was “${initial.price}”. Set an amount, or choose Free. ` : ""}Per person. {payOnline ? "People pay online through PayU when they book; a spot only counts once its payment goes through." : "Tickets go on sale once online payment is switched on; until then nobody can book this session."} People who already have a ticket keep the price they booked at.</span></label>}
+            {values.paid && !tiers.length && <label className={`${labelClass} mt-3`}>Ticket price (₹)<input type="number" inputMode="numeric" required min={1} max={MAX_TICKET_RUPEES} step={1} value={values.amount} onChange={change => set("amount", change.target.value)} className={field} placeholder="199" /><span className={hint}>{initialPricing.kind === "info" ? `Was “${initial.price}”. Set an amount, or choose Free. ` : ""}Per person. {payOnline ? "People pay online through PayU when they book; a spot only counts once its payment goes through." : "Tickets go on sale once online payment is switched on; until then nobody can book this session."} People who already have a ticket keep the price they booked at.</span></label>}
           </div>
+          {values.paid && <div className="space-y-3 sm:col-span-2">
+            <p className={labelClass}>Ticket types</p>
+            {tiers.map(row => <div key={row.key} className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 rounded-lg border border-border-strong p-3 sm:grid-cols-[minmax(0,1fr)_120px_auto]">
+              <input aria-label="Ticket type name" required maxLength={60} value={row.name} onChange={change => setTier(row.key, { name: change.target.value })} className={`${field} col-span-2 mt-0 sm:col-span-1`} placeholder="General" />
+              <input aria-label="Price (₹)" type="number" inputMode="numeric" required min={1} max={MAX_TICKET_RUPEES} step={1} value={row.price} onChange={change => setTier(row.key, { price: change.target.value })} className={`${field} mt-0`} placeholder="₹" />
+              <button type="button" aria-label={`Remove ${row.name || "ticket type"}`} onClick={() => setTiers(rows => rows.filter(item => item.key !== row.key))} className="inline-flex min-h-11 items-center justify-center rounded-lg px-3 text-text-secondary hover:text-rose-200"><Trash2 size={16} aria-hidden="true" /></button>
+              <input aria-label="What it includes" maxLength={200} value={row.description} onChange={change => setTier(row.key, { description: change.target.value })} className={`${field} col-span-2 mt-0 sm:col-span-3`} placeholder="What it includes (optional)" />
+            </div>)}
+            {tiers.length < MAX_TICKET_TIERS && <button type="button" onClick={() => setTiers(rows => [...rows, ...(rows.length ? [] : [{ key: tierKey++, name: "General", price: values.amount, description: "" }]), { key: tierKey++, name: "", price: "", description: "" }])} className="button-secondary inline-flex items-center gap-2"><Plus size={16} aria-hidden="true" />Add a ticket type</button>}
+          </div>}
           <label className="flex items-start gap-3 rounded-lg border border-border-subtle p-3 text-sm sm:col-span-2">
             <input type="checkbox" checked={values.lateSignup === true} onChange={change => set("lateSignup", change.target.checked)} className="mt-0.5 size-5 shrink-0 accent-velocity" />
             <span><span className="font-semibold text-white">Allow sign-ups after the start</span><span className={`${hint} block`}>People can still book until the session ends. At the check-in desk, scanning someone who hasn’t signed up offers to register them{values.paid ? " once you’ve collected the ticket price" : ""} and check them in.</span></span>
