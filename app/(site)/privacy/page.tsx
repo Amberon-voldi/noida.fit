@@ -52,7 +52,7 @@ export default function PrivacyPage() {
               <li><strong className="text-white">Technical information:</strong> a session cookie that keeps you signed in, and ordinary server request information used to protect the service and diagnose failures.</li>
               <li><strong className="text-white">Camera input:</strong> if you are an organizer, your browser may ask for camera access so you can scan a participant QR code. Camera frames are processed on your device for scanning and are not stored by us.</li>
               <li>We do not use browser geolocation.</li>
-              <li>We do not currently use advertising, analytics or cross-site tracking tools.</li>
+              <li>We do not use advertising or cross-site tracking tools. We count visits with Cloudflare Web Analytics, which sets no cookies, does not identify you and does not follow you across sites; it records pages viewed, referrer, country and device type.</li>
             </ul>
           </section>
 

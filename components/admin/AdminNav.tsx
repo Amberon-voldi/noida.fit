@@ -6,7 +6,7 @@ import { useRef } from "react";
 import { BookOpen, ChevronDown } from "lucide-react";
 
 const groups = [
-  { label: "Workspace", modules: [["/admin", "Overview"]] },
+  { label: "Workspace", modules: [["/admin", "Overview"], ["/admin/analytics", "Analytics"]] },
   { label: "Directory", modules: [["/admin/content/events", "Events"], ["/admin/content/communities", "Clubs"], ["/admin/content/places", "Places"], ["/admin/content/activities", "Activities"]] },
   { label: "Operations", modules: [["/admin/members", "Members"], ["/admin/attendance", "Attendance"], ["/admin/audit", "Audit trail"]] },
 ];
