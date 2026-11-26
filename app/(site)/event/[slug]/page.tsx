@@ -5,6 +5,7 @@ import { EventActions } from "@/components/participation/EventActions";
 import { EventBookingBar } from "@/components/participation/EventBookingBar";
 import { EventBookingInfo } from "@/components/participation/EventBookingInfo";
 import { LaserBurst } from "@/components/participation/LaserBurst";
+import { PageBeacon } from "@/components/analytics/PageBeacon";
 import { PaymentReturnNotice } from "@/components/participation/PaymentReturnNotice";
 import { TicketConfirmation, type BookedTicket } from "@/components/participation/TicketConfirmation";
 import { SaveButton } from "@/components/participation/SaveButton";
@@ -84,6 +85,7 @@ export default async function EventPage({ params, searchParams }: Props) {
     <div className={upcoming ? "pb-28 lg:pb-16" : "pb-16"}>
       {!event.demo && <StructuredData data={jsonLd} />}
       {upcoming && event.tags?.includes("laser-tag") && <LaserBurst />}
+      {!event.demo && <PageBeacon kind="event" target={event.id} />}
       <BioIntro kind="event" id={event.slug} title={event.title} date={formatDate(event.date)} time={event.startTime} host={`Hosted by ${event.communityName}`} image={event.coverImageUrl ?? event.imageUrl} category={event.category} />
       <DetailHero image={event.coverImageUrl ?? event.imageUrl} category={event.category} title={event.title} logo={event.communityCrestUrl} logoAlt={`${event.communityName} logo`}>
         <div className="flex flex-wrap items-center gap-2">

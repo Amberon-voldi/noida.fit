@@ -6,4 +6,4 @@ export const LEGAL_PHONE = "9873225236";
 export const DATA_STORAGE_REGION = "Kolkata, India";
 export const PRIVACY_CONTACT = "hello@noida.fit";
 export const EFFECTIVE_DATE = "17 November 2026";
-export const COOKIE_DISCLOSURE = "NOIDA.FIT uses an essential HttpOnly session cookie to keep signed-in accounts working. It sets no advertising, analytics or cross-site tracking cookies; visits are counted with cookie-free Cloudflare Web Analytics.";
+export const COOKIE_DISCLOSURE = "NOIDA.FIT uses an essential HttpOnly session cookie to keep signed-in accounts working. It sets no advertising, analytics or cross-site tracking cookies; visits are counted without cookies.";

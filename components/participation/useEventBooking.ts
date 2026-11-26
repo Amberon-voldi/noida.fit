@@ -7,6 +7,7 @@ import { indiaDateTime } from "@/lib/calendar";
 import { formatInr, parseEventPrice, ticketHoldEndsAt } from "@/lib/pricing";
 import type { TicketTier } from "@/lib/ticket-tiers";
 import { CHECKOUT_OPEN_EVENT } from "./LaserBurst";
+import { trackMetric } from "@/components/analytics/PageBeacon";
 
 export interface EventBookingInput {
   eventId: string;
@@ -144,6 +145,7 @@ export function useEventBooking({ eventId, date, startTime, price, payOnline = f
 
   /** Holds the seat, then hands the browser to PayU. Stays pending while the page unloads. */
   async function pay(phone: string): Promise<void> {
+    trackMetric("event", eventId, "pay");
     setPending(true);
     setCheckoutError(null);
     try {
@@ -176,6 +178,7 @@ export function useEventBooking({ eventId, date, startTime, price, payOnline = f
 
   /** Books the spot to pay later: the payment link goes to the WhatsApp number given. The page then celebrates the confirmed spot. */
   async function reserve({ name, phone }: TicketContact): Promise<void> {
+    trackMetric("event", eventId, "pay");
     setPending(true);
     setCheckoutError(null);
     try {
@@ -237,6 +240,8 @@ export function useEventBooking({ eventId, date, startTime, price, payOnline = f
 
   /** The one button: sign in, RSVP, open the ticket summary (to pay or book), or (on a second tap) cancel. */
   function act(): void {
+    // Get ticket / RSVP taps, signed in or not (signing in is a step of the same intent).
+    if (!booking && !started && !confirmCancel) trackMetric("event", eventId, "cta");
     if (!state.authenticated && !state.error) { router.push(loginUrl()); return; }
     if (booking) {
       if (!confirmCancel) { setConfirmCancel(true); return; }

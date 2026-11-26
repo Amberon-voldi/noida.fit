@@ -52,7 +52,7 @@ export default function PrivacyPage() {
               <li><strong className="text-white">Technical information:</strong> a session cookie that keeps you signed in, and ordinary server request information used to protect the service and diagnose failures.</li>
               <li><strong className="text-white">Camera input:</strong> if you are an organizer, your browser may ask for camera access so you can scan a participant QR code. Camera frames are processed on your device for scanning and are not stored by us.</li>
               <li>We do not use browser geolocation.</li>
-              <li>We do not use advertising or cross-site tracking tools. We count visits with Cloudflare Web Analytics, which sets no cookies, does not identify you and does not follow you across sites; it records pages viewed, referrer, country and device type.</li>
+              <li>We do not use advertising or cross-site tracking tools. We count visits to event and club pages, and taps on their Get ticket, RSVP, Pay and Follow buttons, as daily totals on our own servers. This uses no cookies and keeps no IP address or profile: to count each person once a day we keep a one-way code made from your connection and browser with a key that changes daily, deleted within two days. Browsers sending Do Not Track are not counted.</li>
             </ul>
           </section>
 

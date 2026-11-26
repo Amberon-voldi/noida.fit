@@ -4,6 +4,7 @@ import { Bookmark, Check, LoaderCircle, UserPlus } from "lucide-react";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { loginUrl, refreshParticipation, useParticipation } from "./useParticipation";
+import { trackMetric } from "@/components/analytics/PageBeacon";
 
 interface Props { itemId: string; itemType: "event" | "place" | "community"; action: "saved" | "follow"; compact?: boolean; refreshPage?: boolean }
 
@@ -19,6 +20,7 @@ export function EntityToggleButton({ itemId, itemType, action, compact = false, 
   const label = action === "saved" ? selected ? "Saved" : "Save" : selected ? "Following" : "Follow";
 
   async function toggle() {
+    if (action === "follow" && itemType === "community" && !selected) trackMetric("community", itemId, "cta");
     if (!state.authenticated && !state.error) { router.push(loginUrl()); return; }
     setPending(true); setMessage(""); setError(false);
     try {

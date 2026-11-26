@@ -5,6 +5,9 @@ import { requireAdminPage } from "@/lib/admin/auth";
 import { getSalesAnalytics, type DaySales, type EventSales, type SalesBreakdown } from "@/lib/admin/analytics";
 import { formatDate } from "@/lib/config";
 import { formatInr } from "@/lib/pricing";
+import { getCommunities } from "@/lib/data";
+import { pruneSeen, readMetrics, type MetricTotals } from "@/lib/metrics";
+import { MetricsSetupButton } from "@/components/admin/MetricsSetupButton";
 
 export const metadata: Metadata = { title: "Admin · Analytics", robots: { index: false, follow: false } };
 
@@ -53,7 +56,29 @@ function Breakdown({ title, rows, empty, total }: { title: string; rows: SalesBr
   </section>;
 }
 
-function EventDetail({ event }: { event: EventSales }) {
+const METRIC_DAYS = 30;
+
+/** Each step's people, as a bar against the first step, with the share kept from the step before. */
+function Funnel({ steps }: { steps: Array<{ label: string; people: number; note?: string }> }) {
+  const top = Math.max(1, steps[0]?.people ?? 0);
+  return <section className="admin-section" aria-label="Steps">
+    <div className="admin-section-heading"><h2>Steps, last {METRIC_DAYS} days</h2><span className="admin-note">People, counted once a day per page</span></div>
+    <ol className="admin-panel" style={{ margin: 0, listStyle: "none", display: "grid", gap: 12 }}>
+      {steps.map((step, index) => <li key={step.label}>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, fontSize: ".8125rem" }}>
+          <span><strong>{step.label}</strong>{step.note && <span className="admin-note"> · {step.note}</span>}</span>
+          <span><strong>{step.people}</strong>{index > 0 && <span className="admin-note"> · {percent(step.people, steps[index - 1].people)} of previous</span>}</span>
+        </div>
+        <div aria-hidden="true" style={{ marginTop: 6, height: 10, borderRadius: 999, background: "var(--surface-elevated)" }}>
+          <div style={{ width: `${Math.min(100, (step.people / top) * 100)}%`, minWidth: step.people ? 4 : 0, height: "100%", borderRadius: 999, background: "var(--accent-velocity)" }} />
+        </div>
+      </li>)}
+    </ol>
+  </section>;
+}
+
+function EventDetail({ event, metrics }: { event: EventSales; metrics?: MetricTotals | null }) {
+  const m = metrics ?? undefined;
   return <>
     <section className="admin-metric-strip" aria-label={`${event.title} sales`}>
       <Metric label="Revenue" value={formatInr(event.revenue)} note={`${event.paidTickets} paid ticket${event.paidTickets === 1 ? "" : "s"}`} />
@@ -61,6 +86,16 @@ function EventDetail({ event }: { event: EventSales }) {
       {event.paid && <Metric label="Checkout → paid" value={percent(event.paidOnline, event.checkouts)} note={`${event.checkouts} checkouts · ${event.payingNow} paying now · ${event.abandoned} not completed`} />}
       <Metric label="Checked in" value={String(event.checkedIn)} note={event.going ? `${percent(event.checkedIn, event.going)} of guests` : "No guests yet"} />
     </section>
+    {metrics !== null && <Funnel steps={event.paid ? [
+      { label: "Visited the page", people: m?.view_people ?? 0, note: `${m?.view ?? 0} views` },
+      { label: "Tapped Get ticket", people: m?.cta_people ?? 0, note: `${m?.cta ?? 0} taps` },
+      { label: "Tapped Pay", people: m?.pay_people ?? 0, note: `${m?.pay ?? 0} taps` },
+      { label: "Paid", people: event.paidTickets },
+    ] : [
+      { label: "Visited the page", people: m?.view_people ?? 0, note: `${m?.view ?? 0} views` },
+      { label: "Tapped RSVP", people: m?.cta_people ?? 0, note: `${m?.cta ?? 0} taps` },
+      { label: "Going", people: event.going },
+    ]} />}
     {event.paid && <DailyChart days={event.daily} />}
     {event.paid && <Breakdown title="Ticket types" rows={event.tiers} empty="No paid tickets yet." total={event.revenue} />}
     {event.paid && <Breakdown title="Discount codes" rows={event.coupons} empty="No paid tickets used a discount code." total={event.revenue} />}
@@ -70,7 +105,9 @@ function EventDetail({ event }: { event: EventSales }) {
 export default async function AnalyticsPage({ searchParams }: Props) {
   const user = await requireAdminPage("/admin/analytics");
   const { event: selectedId } = await searchParams;
-  const data = await getSalesAnalytics(user.id);
+  const [data, eventMetrics, clubMetrics, clubs] = await Promise.all([getSalesAnalytics(user.id), readMetrics("event", METRIC_DAYS), readMetrics("community", METRIC_DAYS), getCommunities()]);
+  void pruneSeen();
+  const metricsOn = eventMetrics !== null && clubMetrics !== null;
   const today = new Date(Date.parse(data.generatedAt) + 330 * 60_000).toISOString().slice(0, 10);
   // Default: the soonest upcoming paid event, else the most recent one.
   const selected = data.events.find(event => event.id === selectedId)
@@ -92,10 +129,11 @@ export default async function AnalyticsPage({ searchParams }: Props) {
     <section className="admin-section" aria-labelledby="by-event-heading">
       <div className="admin-section-heading"><h2 id="by-event-heading">By event</h2></div>
       <div className="admin-table-wrap"><table className="admin-table">
-        <thead><tr><th scope="col">Event</th><th scope="col">Date</th><th scope="col">Going</th><th scope="col">Paid</th><th scope="col">Revenue</th><th scope="col">Gifts</th><th scope="col">Checked in</th></tr></thead>
+        <thead><tr><th scope="col">Event</th><th scope="col">Date</th><th scope="col">Visitors ({METRIC_DAYS}d)</th><th scope="col">Going</th><th scope="col">Paid</th><th scope="col">Revenue</th><th scope="col">Gifts</th><th scope="col">Checked in</th></tr></thead>
         <tbody>{data.events.map(event => <tr key={event.id} aria-current={event.id === selected?.id ? "true" : undefined}>
           <th scope="row"><Link href={`/admin/analytics?event=${encodeURIComponent(event.id)}`} className="admin-text-link">{event.title}</Link>{event.status !== "published" && <span className="admin-note"> · {event.status}</span>}</th>
           <td>{formatDate(event.date)}</td>
+          <td>{metricsOn ? eventMetrics.get(event.id)?.view_people ?? 0 : "—"}</td>
           <td>{event.capacity ? `${event.going}/${event.capacity}` : event.going}</td>
           <td>{event.paid ? event.paidTickets : "Free"}</td>
           <td>{event.paid ? formatInr(event.revenue) : "—"}</td>
@@ -107,13 +145,18 @@ export default async function AnalyticsPage({ searchParams }: Props) {
 
     {selected && <section className="admin-section" aria-labelledby="event-heading">
       <div className="admin-section-heading"><h2 id="event-heading">{selected.title}</h2><Link href={`/event/${selected.slug}`} className="admin-text-link">Event page <ArrowUpRight size={14} aria-hidden="true" /></Link></div>
-      <EventDetail event={selected} />
+      <EventDetail event={selected} metrics={metricsOn ? eventMetrics.get(selected.id) : null} />
     </section>}
 
-    <section className="admin-section" aria-labelledby="traffic-heading">
-      <div className="admin-section-heading"><h2 id="traffic-heading">Site traffic</h2>
-        <a href="https://dash.cloudflare.com/?to=/:account/web-analytics" target="_blank" rel="noopener noreferrer" className="admin-text-link">Cloudflare Web Analytics <ArrowUpRight size={14} aria-hidden="true" /></a></div>
-      <p className="admin-note">Visitors, page views, top pages, referrers, countries and devices are in Cloudflare Web Analytics (cookie-free).</p>
+    <section className="admin-section" aria-labelledby="clubs-heading">
+      <div className="admin-section-heading"><h2 id="clubs-heading">Club pages, last {METRIC_DAYS} days</h2><span className="admin-note">Cookie-free, counted on this site</span></div>
+      {metricsOn ? <div className="admin-table-wrap"><table className="admin-table" style={{ minWidth: 520 }}>
+        <thead><tr><th scope="col">Club</th><th scope="col">Visitors</th><th scope="col">Views</th><th scope="col">Tapped Follow</th><th scope="col">Follow rate</th></tr></thead>
+        <tbody>{clubs.filter(club => !club.demo).map(club => ({ club, m: clubMetrics.get(club.id) })).sort((a, b) => (b.m?.view_people ?? 0) - (a.m?.view_people ?? 0)).map(({ club, m }) => <tr key={club.id}>
+          <th scope="row"><Link href={`/community/${club.slug}`} className="admin-text-link">{club.name}</Link></th>
+          <td>{m?.view_people ?? 0}</td><td>{m?.view ?? 0}</td><td>{m?.cta_people ?? 0}</td><td>{percent(m?.cta_people ?? 0, m?.view_people ?? 0)}</td>
+        </tr>)}</tbody>
+      </table></div> : <div className="admin-panel"><p className="admin-note" style={{ marginBottom: 12 }}>Page analytics isn’t on yet. It counts event and club page visitors and taps on Get ticket, RSVP, Pay and Follow, without cookies.</p><MetricsSetupButton /></div>}
     </section>
   </div>;
 }

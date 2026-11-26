@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { getCommunityBySlug, getDirectory } from "@/lib/data";
 import { EventCard } from "@/components/cards/EventCard";
 import { FollowButton } from "@/components/participation/FollowButton";
+import { PageBeacon } from "@/components/analytics/PageBeacon";
 import { SaveButton } from "@/components/participation/SaveButton";
 import { ShareButton } from "@/components/ui/ShareButton";
 import { StructuredData } from "@/components/discovery/DetailPrimitives";
@@ -45,6 +46,7 @@ export default async function CommunityPage({ params }: Props) {
   return (
     <div className="pb-16">
       {!community.demo && <StructuredData data={jsonLd} />}
+      {!community.demo && <PageBeacon kind="community" target={community.id} />}
       <BioIntro kind="club" id={community.slug} name={community.name} initials={initials(community.name)} crest={listingPhoto(community.crestUrl)} subtitle={`${activity?.name ?? CATEGORY_LABELS[community.category]} · ${community.baseLocation}`} />
       <DetailHero image={community.bannerUrl} category={community.category} title={community.name} logo={community.crestUrl} logoAlt={`${community.name} logo`} verified={community.verified && !community.demo} verifiedLabel="Verified community">
           <div className="flex flex-wrap items-center gap-2">
