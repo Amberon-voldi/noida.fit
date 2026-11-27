@@ -129,7 +129,7 @@ export default async function AnalyticsPage({ searchParams }: Props) {
 
     <section className="admin-section" aria-labelledby="settle-heading">
       <div className="admin-section-heading"><h2 id="settle-heading">Paid but no ticket?</h2></div>
-      <SettlePaymentForm />
+      <SettlePaymentForm events={data.events.filter(event => event.paid).map(event => ({ id: event.id, title: event.title, priceRupees: event.priceRupees, ticketTypes: event.ticketTypes }))} />
     </section>
 
     <section className="admin-section" aria-labelledby="by-event-heading">

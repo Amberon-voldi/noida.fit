@@ -43,6 +43,10 @@ export interface EventSales {
   checkedIn: number;
   tiers: SalesBreakdown[];
   coupons: SalesBreakdown[];
+  /** The ticket types on sale (whole rupees), for issuing a ticket by hand. */
+  ticketTypes: { id: string; name: string; price: number }[];
+  /** The single price in whole rupees, for events without ticket types. */
+  priceRupees: number;
   daily: DaySales[];
 }
 
@@ -120,6 +124,8 @@ export async function getSalesAnalytics(adminId: string, days = 14): Promise<Sal
       tiers: [...tiers.values()].sort((a, b) => b.revenue - a.revenue),
       coupons: [...coupons.values()].sort((a, b) => b.tickets - a.tickets),
       daily: [...daily.values()],
+      ticketTypes: (event.tiers ?? []).map(tier => ({ id: tier.id, name: tier.name, price: tier.price })),
+      priceRupees: Math.round((parseEventPrice(event.price).amount || 0) / 100),
     };
   }).sort((a, b) => b.date.localeCompare(a.date));
 
