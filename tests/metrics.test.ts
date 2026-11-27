@@ -26,8 +26,8 @@ before(async () => {
       return Response.json(rows.get(key), { status: 201 });
     }
     const queries = [...url.searchParams.values()].map(value => JSON.parse(value));
-    const kind = queries.find(query => query.method === "equal")?.values[0];
-    const documents = [...rows.entries()].filter(([key, row]) => key.startsWith(`${match[1]}/`) && (!kind || row.kind === kind)).map(([, row]) => row);
+    const equals = queries.filter(query => query.method === "equal");
+    const documents = [...rows.entries()].filter(([key, row]) => key.startsWith(`${match[1]}/`) && equals.every(query => query.values.includes(row[query.attribute]))).map(([, row]) => row);
     return Response.json({ total: documents.length, documents });
   };
   metrics = await import("../lib/metrics");
@@ -47,6 +47,14 @@ test("page views and taps are counted, and each person once a day per page", asy
   assert.deepEqual(events.get("ev1"), { view: 3, view_people: 2, cta: 1, cta_people: 1, pay: 0, pay_people: 0 });
   assert.equal((await metrics.readMetrics("community"))!.get("club1")!.cta_people, 1);
   assert.ok(![...rows.values()].some(row => JSON.stringify(row).includes("1.1.1.1")), "no address is stored");
+});
+
+test("one page's totals are read on their own", async () => {
+  rows = new Map(); missing = false;
+  await metrics.recordMetric(visit("4.4.4.4"), "event", "ev2", "view");
+  await metrics.recordMetric(visit("4.4.4.4"), "event", "ev2", "pay");
+  await metrics.recordMetric(visit("5.5.5.5"), "event", "other", "view");
+  assert.deepEqual(await metrics.readPageMetrics("event", "ev2"), { view: 1, view_people: 1, cta: 0, cta_people: 0, pay: 1, pay_people: 1 });
 });
 
 test("without the metrics tables nothing fails, and reads say so", async () => {

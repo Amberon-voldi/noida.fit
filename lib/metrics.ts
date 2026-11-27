@@ -105,6 +105,26 @@ export async function readMetrics(kind: MetricKind, days = 30): Promise<Map<stri
   return totals;
 }
 
+/** One page's totals over the last `days` days (IST), or null when the metrics tables aren't set up. */
+export async function readPageMetrics(kind: MetricKind, target: string, days = 30): Promise<MetricTotals | null> {
+  const { databases } = getAdminServices();
+  const { databaseId } = getAppwriteDatabaseConfig();
+  const since = istDate(Date.now() - (days - 1) * 86_400_000);
+  const totals = empty();
+  try {
+    const page = await databases.listDocuments<{ metric: string; count: number } & import("node-appwrite").Models.Document>({
+      databaseId, collectionId: METRICS_COLLECTION,
+      // One row per metric a day: 6 metrics × 30 days fits one page.
+      queries: [Query.equal("kind", kind), Query.equal("target", target), Query.greaterThanEqual("date", since), Query.limit(500)],
+    });
+    for (const row of page.documents) if (row.metric in totals) totals[row.metric as keyof MetricTotals] += row.count;
+  } catch (error) {
+    if (code(error) === 404) return null;
+    throw error;
+  }
+  return totals;
+}
+
 /** Drops dedupe rows older than yesterday: they only tell people apart within a day. Best effort. */
 export async function pruneSeen(): Promise<void> {
   const { databases } = getAdminServices();
@@ -138,5 +158,7 @@ export async function setupMetrics(): Promise<void> {
   }
   await ignoreExists(() => databases.createIndex({ databaseId, collectionId: METRICS_COLLECTION, key: "metrics_kind_date", type: IndexType.Key, attributes: ["kind", "date"] }));
   await ignoreExists(() => databases.createIndex({ databaseId, collectionId: SEEN_COLLECTION, key: "seen_date", type: IndexType.Key, attributes: ["date"] }));
+  // One page's totals (the organizer's session dashboard).
+  await ignoreExists(() => databases.createIndex({ databaseId, collectionId: METRICS_COLLECTION, key: "metrics_target_date", type: IndexType.Key, attributes: ["target", "date"] }));
   missingUntil = 0;
 }

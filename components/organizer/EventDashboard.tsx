@@ -14,6 +14,7 @@ import { checkInLabel, type DashboardTab } from "./labels";
 import { GiftLinks } from "./GiftLinks";
 import { CouponManager } from "./CouponManager";
 import type { EditableCoupon } from "@/lib/coupon-schema";
+import type { MetricTotals } from "@/lib/metrics";
 
 const tabs: Array<{ id: DashboardTab; label: string; Icon: LucideIcon }> = [
   { id: "overview", label: "Overview", Icon: LayoutDashboard },
@@ -37,7 +38,7 @@ function Stat({ label, value, detail, accent = false, percent }: { label: string
 
 /** One session, everything an organizer runs it with: numbers, guests, the check-in desk and gift links. */
 /** `guestPasses`: gift links can let people claim without an account (the gift guest table is set up). */
-export function EventDashboard({ summary, giftLinks, guestPasses, coupons, initialTab }: { summary: OrganizerEventSummary; giftLinks: GiftLink[] | null; guestPasses: boolean; coupons: EditableCoupon[]; initialTab: DashboardTab }) {
+export function EventDashboard({ summary, giftLinks, guestPasses, coupons, activity, initialTab }: { summary: OrganizerEventSummary; giftLinks: GiftLink[] | null; guestPasses: boolean; coupons: EditableCoupon[]; activity: MetricTotals | null; initialTab: DashboardTab }) {
   const { event, attendees } = summary;
   const router = useRouter();
   const [tab, setTab] = useState(initialTab);
@@ -171,6 +172,35 @@ export function EventDashboard({ summary, giftLinks, guestPasses, coupons, initi
         <Stat label="Gifted spots" value={String(summary.giftsClaimed)} detail={giftLinks === null ? "Gift links are off" : `${activeGiftLinks} active link${activeGiftLinks === 1 ? "" : "s"}`} />
       </dl>
       {summary.payingNow > 0 && <p className="text-xs text-text-secondary">{summary.payingNow} seat{summary.payingNow === 1 ? " is" : "s are"} held for people paying right now. A hold lasts {TICKET_HOLD_MINUTES} minutes and only counts as going once the payment goes through.</p>}
+
+      {activity && <section className="rounded-xl border border-border-subtle bg-surface p-5" aria-labelledby="activity-heading">
+        <div className="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 id="activity-heading" className="text-lg font-bold text-white">Page activity</h2>
+          <p className="text-xs text-text-secondary">Last 30 days · people counted once a day</p>
+        </div>
+        <ol className="mt-4 space-y-3">
+          {(pricing.kind === "paid" ? [
+            { label: "Visited the page", people: activity.view_people, detail: `${activity.view} view${activity.view === 1 ? "" : "s"}` },
+            { label: "Tapped Get ticket", people: activity.cta_people, detail: `${activity.cta} tap${activity.cta === 1 ? "" : "s"}` },
+            { label: "Tapped Pay", people: activity.pay_people, detail: `${activity.pay} tap${activity.pay === 1 ? "" : "s"}` },
+            { label: "Paid", people: paidCount, detail: formatInr(summary.revenue) },
+          ] : [
+            { label: "Visited the page", people: activity.view_people, detail: `${activity.view} view${activity.view === 1 ? "" : "s"}` },
+            { label: "Tapped RSVP", people: activity.cta_people, detail: `${activity.cta} tap${activity.cta === 1 ? "" : "s"}` },
+            { label: "Going", people: summary.confirmedRsvps, detail: summary.giftsClaimed ? `${summary.giftsClaimed} gifted` : "" },
+          ]).map((step, index, steps) => {
+            const top = Math.max(1, steps[0].people);
+            const previous = index ? steps[index - 1].people : 0;
+            return <li key={step.label}>
+              <div className="flex items-baseline justify-between gap-3 text-sm">
+                <span className="text-white">{step.label}{step.detail && <span className="text-text-secondary"> · {step.detail}</span>}</span>
+                <span className="shrink-0 font-mono font-bold text-white">{step.people}{index > 0 && <span className="ml-1.5 font-sans text-xs font-normal text-text-secondary">{previous ? `${Math.round((step.people / previous) * 100)}%` : "—"}</span>}</span>
+              </div>
+              <div className="mt-1.5 h-2 overflow-hidden rounded-full bg-white/10" aria-hidden="true"><div className="h-full rounded-full bg-velocity" style={{ width: `${Math.min(100, (step.people / top) * 100)}%`, minWidth: step.people ? 4 : 0 }} /></div>
+            </li>;
+          })}
+        </ol>
+      </section>}
 
       <section className="rounded-xl border border-border-subtle bg-surface p-5" aria-labelledby="share-heading">
         <h2 id="share-heading" className="text-lg font-bold text-white">Share this session</h2>
