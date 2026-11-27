@@ -8,6 +8,7 @@ import { formatInr } from "@/lib/pricing";
 import { getCommunities } from "@/lib/data";
 import { pruneSeen, readMetrics, type MetricTotals } from "@/lib/metrics";
 import { MetricsSetupButton } from "@/components/admin/MetricsSetupButton";
+import { SettlePaymentForm } from "@/components/admin/SettlePaymentForm";
 
 export const metadata: Metadata = { title: "Admin · Analytics", robots: { index: false, follow: false } };
 
@@ -124,6 +125,11 @@ export default async function AnalyticsPage({ searchParams }: Props) {
       <Metric label="Going, all events" value={String(data.totals.going)} note={`${data.totals.gifts} gifted`} />
       <Metric label="Paying now" value={String(data.totals.payingNow)} note="Seats held at checkout" />
       <Metric label="Checked in" value={String(data.totals.checkedIn)} />
+    </section>
+
+    <section className="admin-section" aria-labelledby="settle-heading">
+      <div className="admin-section-heading"><h2 id="settle-heading">Paid but no ticket?</h2></div>
+      <SettlePaymentForm />
     </section>
 
     <section className="admin-section" aria-labelledby="by-event-heading">

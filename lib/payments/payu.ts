@@ -134,6 +134,29 @@ export interface PayuTransaction {
   tags?: string;
 }
 
+/**
+ * Our transaction id (txnid) for a PayU ID (mihpayid), from PayU's check_payment command, server to server.
+ * For settling a payment by hand when only the PayU ID is known (the dashboard shows it first).
+ */
+export async function payuTxnIdFor(mihpayid: string): Promise<string | null> {
+  const { key, salt, mode } = requireConfig();
+  const command = "check_payment";
+  const response = await fetch(ENDPOINTS[mode].verify, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
+    body: new URLSearchParams({ key, command, var1: mihpayid, hash: sha512([key, command, mihpayid, salt].join("|")) }),
+    cache: "no-store",
+    signal: AbortSignal.timeout(10_000),
+  }).catch(() => null);
+  const data = response?.ok ? await response.json().catch(() => null) as { transaction_details?: { txnid?: unknown } | Record<string, { txnid?: unknown }> } | null : null;
+  if (!data) throw new HttpError(503, "PAYMENT_VERIFY_FAILED", "We couldn’t reach PayU to look up this payment");
+  const details = data.transaction_details as Record<string, unknown> | undefined;
+  const direct = details?.txnid;
+  const nested = details && Object.values(details).find(value => typeof value === "object" && value !== null && "txnid" in value) as { txnid?: unknown } | undefined;
+  const txnid = String(direct ?? nested?.txnid ?? "");
+  return txnIdSchema.safeParse(txnid).success ? txnid : null;
+}
+
 /** PayU's own record of a transaction, fetched server to server. Null when PayU has no such txnid. */
 export async function verifyPayuTransaction(txnid: string): Promise<PayuTransaction | null> {
   const { key, salt, mode } = requireConfig();
