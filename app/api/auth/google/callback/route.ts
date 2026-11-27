@@ -2,13 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { safeCallbackUrl } from "@/app/api/auth/_security";
 import { APPWRITE_SESSION_COOKIE, sessionCookieOptions } from "@/lib/appwrite/auth";
 import { reportAppwriteFailure } from "@/lib/appwrite/errors";
-import { appRedirect, completeGoogle, OAUTH_PENDING_COOKIE } from "@/lib/appwrite/oauth";
+import { acceptGoogleConsent, appRedirect, completeGoogle } from "@/lib/appwrite/oauth";
 import { siteOrigin } from "@/lib/http";
 
 /**
  * Back from Google. For the app: hand the single-use token to its link; the app exchanges it itself. For the
- * website: members who agreed before are signed in; someone new goes to /welcome to agree first, with their
- * session held in a short-lived cookie that signs nobody in.
+ * website: one step. Tapping "Continue with Google" under "By continuing, you agree to the Terms and the
+ * Privacy Policy" is the agreement, so someone new has it recorded and their .fit ID created here, and is
+ * signed in and sent back to the page they came from, like a returning member.
  */
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
@@ -30,11 +31,7 @@ export async function GET(request: NextRequest) {
   if (failed) return NextResponse.redirect(login);
   try {
     const session = await completeGoogle(userId!, secret!);
-    if (session.needsConsent) {
-      const response = NextResponse.redirect(new URL(`/welcome?next=${encodeURIComponent(next)}`, origin));
-      response.cookies.set(OAUTH_PENDING_COOKIE, session.secret, { ...sessionCookieOptions(session.expire), expires: new Date(Date.now() + 30 * 60_000) });
-      return response;
-    }
+    if (session.needsConsent) await acceptGoogleConsent(session.secret);
     const response = NextResponse.redirect(new URL(next, origin));
     response.cookies.set(APPWRITE_SESSION_COOKIE, session.secret, sessionCookieOptions(session.expire));
     return response;
