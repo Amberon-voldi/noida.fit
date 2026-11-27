@@ -6,7 +6,8 @@ import { HttpError } from "@/lib/http";
 import { normalizeIndianMobile } from "@/lib/phone";
 import { MAX_TICKET_RUPEES, PAID_TICKET_BOOKING } from "@/lib/pricing";
 import { assertPayableEmail, assertPayuConfigured, newTxnId, payuCheckoutForm, verifyPayuTransaction, type PayuCheckoutForm } from "@/lib/payments/payu";
-import { sendSpotConfirmedEmail } from "@/lib/services/booking-emails";
+import { sendSpotConfirmedEmail, sendTicketPaidEmail } from "@/lib/services/booking-emails";
+import { after } from "next/server";
 import { couponIdOf } from "@/lib/coupons";
 import { tierIdOf } from "@/lib/ticket-tiers";
 import { confirmTicketPayment, documentIdSchema, getTicketEvent, getUserRsvp, holdTicket, reserveTicket, type RSVP } from "@/lib/services/participation";
@@ -94,7 +95,10 @@ export async function settlePayuTransaction(txnid: string): Promise<{ outcome: P
   if (transaction.status !== "success") return { outcome: transaction.status === "failure" ? "failed" : "pending", eventId };
   try {
     if (!eventId || !userId) throw new HttpError(404, "TICKET_NOT_FOUND", "The payment names no ticket");
-    await confirmTicketPayment(eventId, userId, transaction.amount, `payu:${txnid}:${mihpayid}`, transaction.tags);
+    const before = await getUserRsvp(eventId, userId).catch(() => null);
+    const ticket = await confirmTicketPayment(eventId, userId, transaction.amount, `payu:${txnid}:${mihpayid}`, transaction.tags);
+    // The ticket email goes once, when this payment first confirms it (the return page and webhook both settle).
+    if (before?.paymentStatus !== "paid") emailAfterResponse(() => sendTicketPaidEmail(userId, ticket));
     return { outcome: "paid", eventId };
   } catch (error) {
     // 404/409: the money arrived but no ticket can take it. Anything else is transient; let the caller retry.
@@ -104,4 +108,9 @@ export async function settlePayuTransaction(txnid: string): Promise<{ outcome: P
     console.error("[PayU] Captured payment has no ticket to settle; refund it from the PayU dashboard", { txnid, mihpayid, eventId, code: error instanceof HttpError ? error.code : "INVALID_TICKET_REFERENCE" });
     return { outcome: "refund", eventId };
   }
+}
+
+/** Sends after the response where the request allows it (the buyer isn't kept waiting), else now. */
+export function emailAfterResponse(task: () => Promise<unknown>): void {
+  try { after(task); } catch { void task(); }
 }

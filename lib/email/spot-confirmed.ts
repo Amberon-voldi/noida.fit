@@ -6,13 +6,17 @@ import type { Event } from "@/types/event";
 
 /** What the spot-confirmed email shows: the session, and the spot the member booked to pay on WhatsApp. */
 export interface SpotConfirmedInput {
-  event: Pick<Event, "slug" | "title" | "date" | "startTime" | "endTime" | "venueName" | "sector" | "communityName" | "coverImageUrl" | "imageUrl" | "whatToBring">;
+  event: Pick<Event, "slug" | "title" | "date" | "startTime" | "endTime" | "venueName" | "sector" | "communityName" | "coverImageUrl" | "imageUrl" | "whatToBring" | "openEnded">;
   seatNumber?: number;
   /** The name and WhatsApp number the member booked with. */
   name: string;
   phone: string;
-  /** Paise due, paid through the link sent on WhatsApp. */
+  /** Paise: due through the WhatsApp link, or paid online. */
   amount: number;
+  /** "paid": the ticket was paid online (PayU) and is confirmed; the default is a spot to pay on WhatsApp. */
+  paid?: boolean;
+  /** The ticket type's name, for events that sell several. */
+  tierName?: string;
 }
 
 const ESCAPES: Record<string, string> = { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" };
@@ -83,9 +87,10 @@ function step(number: number, text: string, last = false): string {
  * details are coming on WhatsApp; then the ticket and what to do on the day. Table layout and inline styles
  * so it holds together in Gmail, Outlook and Apple Mail, and still reads with images blocked.
  */
-export function spotConfirmedEmail({ event, seatNumber, name, phone, amount }: SpotConfirmedInput): { subject: string; preheader: string; html: string } {
+export function spotConfirmedEmail({ event, seatNumber, name, phone, amount, paid = false, tierName }: SpotConfirmedInput): { subject: string; preheader: string; html: string } {
   const price = formatInr(amount);
-  const number = `+91 ${formatIndianMobile(phone)}`;
+  const number = phone ? `+91 ${formatIndianMobile(phone)}` : "";
+  const time = event.openEnded ? `${escape(event.startTime)} onwards` : `${escape(event.startTime)} – ${escape(event.endTime)}`;
   const firstName = name.trim().split(/\s+/)[0] || "there";
   const times = sessionTimes(event);
   const day = times ? new Intl.DateTimeFormat("en-IN", { weekday: "long", day: "numeric", month: "long", timeZone: "Asia/Kolkata" }).format(times.start) : event.date;
@@ -94,8 +99,10 @@ export function spotConfirmedEmail({ event, seatNumber, name, phone, amount }: S
   const spot = seatNumber ? `Spot #${seatNumber}` : "Your spot";
   const bring = (event.whatToBring ?? []).filter(Boolean).slice(0, 6);
 
-  const subject = `You’re in! ${spot} confirmed for ${event.title}`;
-  const preheader = `Your ${price} payment link is coming on WhatsApp to ${number}. ${day} · ${event.startTime}.`;
+  const subject = paid ? `Ticket confirmed! ${spot} for ${event.title}` : `You’re in! ${spot} confirmed for ${event.title}`;
+  const preheader = paid
+    ? `Payment of ${price} received${tierName ? ` for ${tierName}` : ""}. ${day} · ${event.startTime}. Show your .fit ID at check-in.`
+    : `Your ${price} payment link is coming on WhatsApp to ${number}. ${day} · ${event.startTime}.`;
 
   const html = `<!doctype html>
 <html lang="en">
@@ -127,20 +134,23 @@ export function spotConfirmedEmail({ event, seatNumber, name, phone, amount }: S
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#ffffff" style="background:#ffffff;border:1px solid ${LINE};border-radius:20px;">
 
     <tr><td align="center" class="nf-pad" style="padding:36px 40px 4px;">
-      <span style="display:inline-block;padding:7px 14px;border-radius:999px;background:${LIME};font-family:${MONO};font-size:11px;font-weight:800;letter-spacing:1.8px;text-transform:uppercase;color:${INK};">&#10003;&nbsp; Spot confirmed</span>
+      <span style="display:inline-block;padding:7px 14px;border-radius:999px;background:${LIME};font-family:${MONO};font-size:11px;font-weight:800;letter-spacing:1.8px;text-transform:uppercase;color:${INK};">&#10003;&nbsp; ${paid ? "Ticket confirmed" : "Spot confirmed"}</span>
       <h1 class="nf-h1" style="margin:18px 0 0;font-family:${SANS};font-size:36px;font-weight:900;line-height:1.1;letter-spacing:-0.8px;color:${INK};">You’re in, ${escape(firstName)}! 🎉</h1>
-      <p style="margin:12px 0 0;font-family:${SANS};font-size:16px;line-height:1.6;color:${BODY};">Congratulations, your spot for <strong style="color:${INK};">${escape(event.title)}</strong> is locked in. See you on ${escape(day)} at ${escape(event.startTime)}.</p>
+      <p style="margin:12px 0 0;font-family:${SANS};font-size:16px;line-height:1.6;color:${BODY};">${paid ? "Your ticket" : "Congratulations, your spot"} for <strong style="color:${INK};">${escape(event.title)}</strong> is locked in. See you on ${escape(day)} at ${escape(event.startTime)}.</p>
     </td></tr>
 
     <tr><td class="nf-pad" style="padding:28px 40px 0;">
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="${INK}" style="background:${INK};border-radius:16px;">
         <tr>
           <td width="64" valign="top" style="padding:20px 0 20px 20px;">
-            <div style="width:44px;height:44px;border-radius:22px;background:${LIME};font-size:22px;line-height:44px;text-align:center;">💬</div>
+            <div style="width:44px;height:44px;border-radius:22px;background:${LIME};font-size:22px;line-height:44px;text-align:center;">${paid ? "✅" : "💬"}</div>
           </td>
           <td valign="top" style="padding:19px 22px 20px 14px;">
-            <div style="font-family:${SANS};font-size:17px;font-weight:800;line-height:1.3;color:#ffffff;">Payment details coming on WhatsApp</div>
-            <div style="margin-top:6px;font-family:${SANS};font-size:15px;line-height:1.55;color:#c7ccd4;">We’ll send your <strong style="color:#ffffff;">${price}</strong> payment link to <strong style="color:#ffffff;white-space:nowrap;">${escape(number)}</strong> on WhatsApp. Keep an eye on your chats and pay through that link.</div>
+            ${paid
+              ? `<div style="font-family:${SANS};font-size:17px;font-weight:800;line-height:1.3;color:#ffffff;">Payment received</div>
+            <div style="margin-top:6px;font-family:${SANS};font-size:15px;line-height:1.55;color:#c7ccd4;">We’ve received your <strong style="color:#ffffff;">${price}</strong>${tierName ? ` for <strong style="color:#ffffff;">${escape(tierName)}</strong>` : ""}. Your ticket is confirmed: nothing more to pay.</div>`
+              : `<div style="font-family:${SANS};font-size:17px;font-weight:800;line-height:1.3;color:#ffffff;">Payment details coming on WhatsApp</div>
+            <div style="margin-top:6px;font-family:${SANS};font-size:15px;line-height:1.55;color:#c7ccd4;">We’ll send your <strong style="color:#ffffff;">${price}</strong> payment link to <strong style="color:#ffffff;white-space:nowrap;">${escape(number)}</strong> on WhatsApp. Keep an eye on your chats and pay through that link.</div>`}
           </td>
         </tr>
       </table>
@@ -155,8 +165,8 @@ export function spotConfirmedEmail({ event, seatNumber, name, phone, amount }: S
         </td></tr>
         <tr><td style="padding:16px 22px 0;">
           <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-            <tr>${detail("Date", escape(day))}${detail("Time · IST", `${escape(event.startTime)} – ${escape(event.endTime)}`)}</tr>
-            <tr>${detail("Where", `${escape(event.venueName)}, ${escape(event.sector)}`)}${detail("To pay", `${price} <span style="font-weight:500;color:${MUTED};">· WhatsApp link</span>`)}</tr>
+            <tr>${detail("Date", escape(day))}${detail("Time · IST", time)}</tr>
+            <tr>${detail("Where", `${escape(event.venueName)}, ${escape(event.sector)}`)}${paid ? detail("Paid", `${price}${tierName ? ` <span style="font-weight:500;color:${MUTED};">· ${escape(tierName)}</span>` : ""}`) : detail("To pay", `${price} <span style="font-weight:500;color:${MUTED};">· WhatsApp link</span>`)}</tr>
           </table>
         </td></tr>
         <tr><td style="padding:0 22px;"><div style="border-top:2px dashed ${LINE};font-size:0;line-height:0;">&nbsp;</div></td></tr>
@@ -182,9 +192,9 @@ export function spotConfirmedEmail({ event, seatNumber, name, phone, amount }: S
     <tr><td class="nf-pad" style="padding:30px 40px 36px;">
       <div style="border-top:1px solid ${LINE};padding-top:24px;font-family:${SANS};font-size:16px;font-weight:800;color:${INK};">On the day</div>
       <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:14px;">
-        ${step(1, "Pay through the link we send on WhatsApp.")}
-        ${step(2, `Open your <a href="${SITE_CONFIG.url}/account" style="color:${INK};font-weight:700;">.fit ID</a> and flip it to the check-in QR.`)}
-        ${step(3, `Show it at the desk at ${escape(event.venueName)}.${bring.length ? ` Bring: ${bring.map(escape).join(", ")}.` : ""}`, true)}
+        ${paid ? "" : step(1, "Pay through the link we send on WhatsApp.")}
+        ${step(paid ? 1 : 2, `Open your <a href="${SITE_CONFIG.url}/account" style="color:${INK};font-weight:700;">.fit ID</a> and flip it to the check-in QR.`)}
+        ${step(paid ? 2 : 3, `Show it at the desk at ${escape(event.venueName)}.${bring.length ? ` Bring: ${bring.map(escape).join(", ")}.` : ""}`, true)}
       </table>
     </td></tr>
 

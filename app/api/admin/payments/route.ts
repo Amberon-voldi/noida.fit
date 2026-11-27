@@ -7,6 +7,7 @@ import { getAdminServices } from "@/lib/appwrite/server";
 import { payuTxnIdFor, txnIdSchema } from "@/lib/payments/payu";
 import { confirmTicketPayment, documentIdSchema } from "@/lib/services/participation";
 import { settlePayuTransaction } from "@/lib/services/ticket-payments";
+import { sendTicketPaidEmail } from "@/lib/services/booking-emails";
 
 export const runtime = "nodejs";
 
@@ -38,7 +39,9 @@ export async function POST(request: Request) {
       const ref = `payu:manual:${body.payment.replace(/[^A-Za-z0-9]/g, "").slice(0, 40)}`;
       const ticket = await runAdminMutation(user, "payment.manual-ticket", `${body.eventId}:${member.$id}`, body.reason, () =>
         confirmTicketPayment(body.eventId, member.$id, body.rupees * 100, ref, body.tier ? `;t=${body.tier}` : ""));
-      return jsonOk({ outcome: "paid", seatNumber: ticket.seatNumber, name: member.name });
+      // Sent (again) on every issue, so running it for a ticket already issued resends its email.
+      const emailed = await sendTicketPaidEmail(member.$id, ticket);
+      return jsonOk({ outcome: "paid", seatNumber: ticket.seatNumber, name: member.name, emailed });
     }
     const txnid = txnIdSchema.safeParse(body.payment).success ? body.payment : /^\d{5,20}$/.test(body.payment) ? await payuTxnIdFor(body.payment) : null;
     if (!txnid) throw new HttpError(404, "PAYMENT_NOT_FOUND", "PayU didn’t find that payment by its ID. Enter the buyer’s email and the ticket to issue it from the PayU dashboard instead.");

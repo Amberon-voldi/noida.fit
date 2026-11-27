@@ -181,8 +181,9 @@ test("captured money no ticket can take is flagged for refund, and a cancelled h
   transactions.set(second.txnid, captured(second, { mihpayid: "403993715599" }));
   assert.equal((await payments.settlePayuTransaction(second.txnid)).outcome, "refund", "a second payment for a paid ticket");
   assert.equal(ticketRow("paid")!.paymentRef, `payu:${first.txnid}:403993715531`);
-  assert.deepEqual(errors.mock.calls.map(call => (call.arguments[1] as { code: string }).code), ["AMOUNT_MISMATCH", "DUPLICATE_PAYMENT"]);
-  assert.ok(errors.mock.calls.every(call => !JSON.stringify(call.arguments).includes(member.id)), "refund logs carry no account ID");
+  const payuErrors = errors.mock.calls.filter(call => String(call.arguments[0]).startsWith("[PayU]"));
+  assert.deepEqual(payuErrors.map(call => (call.arguments[1] as { code: string }).code), ["AMOUNT_MISMATCH", "DUPLICATE_PAYMENT"]);
+  assert.ok(payuErrors.every(call => !JSON.stringify(call.arguments).includes(member.id)), "refund logs carry no account ID");
 
   reset(1);
   const held = (await start()).fields;

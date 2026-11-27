@@ -46,3 +46,12 @@ test("names and titles typed by members and organizers are escaped, never run as
   assert.match(email.html, /Run &lt;b&gt;&amp;&lt;\/b&gt; &quot;Rave&quot;/);
   assert.match(email.html, /&lt;img src=x onerror=alert\(1\)&gt; Rao/);
 });
+
+test("a ticket paid online is emailed as confirmed, with its type and nothing left to pay", () => {
+  const email = spotConfirmedEmail({ ...booking, phone: "", paid: true, tierName: "General Ticket", event: { ...booking.event, openEnded: true } });
+  assert.match(email.subject, /^Ticket confirmed! Spot #3 for /);
+  assert.match(email.preheader, /^Payment of ₹99 received for General Ticket\./);
+  assert.match(email.html, /Payment received/);
+  assert.match(email.html, /onwards/);
+  assert.doesNotMatch(email.html, /WhatsApp/);
+});
