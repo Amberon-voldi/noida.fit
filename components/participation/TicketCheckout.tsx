@@ -4,7 +4,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { LoaderCircle, X } from "lucide-react";
 import { normalizeIndianMobile } from "@/lib/phone";
 import { formatInr, parseEventPrice } from "@/lib/pricing";
-import type { AppliedCoupon, TicketContact } from "./useEventBooking";
+import type { AppliedCoupon, CouponResult, TicketContact } from "./useEventBooking";
 import type { TicketTier } from "@/lib/ticket-tiers";
 
 interface Props {
@@ -26,10 +26,11 @@ interface Props {
   /** The ticket's price before a discount, shown struck through once a code is applied. */
   fullPriceLabel?: string;
   /** Discount codes, when this checkout takes them. */
-  coupons?: { applied: AppliedCoupon | null; apply: (code: string) => Promise<string | null>; remove: () => void };
+  coupons?: { applied: AppliedCoupon | null; apply: (code: string) => Promise<CouponResult>; remove: () => void };
   /** The ticket types to pick from, when the event sells several. */
   tiers?: { list: TicketTier[]; selected?: string; choose: (id: string) => void };
-  onConfirm: (contact: TicketContact) => void;
+  /** `coupon`: a code typed and applied by the Pay tap itself. */
+  onConfirm: (contact: TicketContact, coupon?: AppliedCoupon) => void;
   onClose: () => void;
 }
 
@@ -53,13 +54,15 @@ export function TicketCheckout({ open, title, when, venueName, priceLabel, mode,
   const [couponError, setCouponError] = useState<string | null>(null);
   const [applying, setApplying] = useState(false);
   const applied = coupons?.applied ?? null;
+  // A discount code is optional: the field stays behind a link until someone has one.
+  const [showCoupon, setShowCoupon] = useState(false);
 
   async function applyCoupon(): Promise<void> {
     if (!coupons || applying) return;
     const code = couponCode.trim();
-    if (!code) { setCouponError("Enter a discount code"); return; }
+    if (!code) { setShowCoupon(false); setCouponError(null); return; }
     setApplying(true);
-    setCouponError(await coupons.apply(code));
+    setCouponError((await coupons.apply(code)).error);
     setApplying(false);
   }
   const whatsapp = mode === "whatsapp";
@@ -77,19 +80,30 @@ export function TicketCheckout({ open, title, when, venueName, priceLabel, mode,
     };
   }, [open]);
 
-  function submit(event: React.FormEvent<HTMLFormElement>): void {
+  async function submit(event: React.FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
+    if (applying) return;
     const nameMissing = whatsapp && name.trim().length < 2;
     const phoneInvalid = !normalizeIndianMobile(phone);
     setNameError(nameMissing ? "Enter your name" : null);
     setPhoneError(phoneInvalid ? `Enter a 10-digit Indian ${whatsapp ? "WhatsApp" : "mobile"} number` : null);
     if (nameMissing || phoneInvalid) return;
+    // A code typed but not applied is applied now, so nobody pays full price by missing the Apply button.
+    const typed = couponCode.trim();
+    if (coupons && !applied && typed) {
+      setApplying(true);
+      const result = await coupons.apply(typed);
+      setApplying(false);
+      if (result.error) { setCouponError(`${result.error}. Clear the code to pay without it.`); setShowCoupon(true); return; }
+      onConfirm({ name: name.trim(), phone }, result.coupon);
+      return;
+    }
     onConfirm({ name: name.trim(), phone });
   }
 
   return (
     <dialog ref={dialogRef} aria-labelledby={titleId} className="filter-dialog" onCancel={onClose} onClose={onClose} onClick={event => { if (event.target === event.currentTarget) onClose(); }}>
-      <form className="filter-dialog-panel" onSubmit={submit} noValidate>
+      <form className="filter-dialog-panel" onSubmit={event => void submit(event)} noValidate>
         <div className="mx-auto mt-3 h-1 w-9 rounded-full bg-border-strong sm:hidden" aria-hidden="true" />
         <header className="flex items-center justify-between gap-4 border-b border-border-subtle p-4 sm:p-6">
           <div className="min-w-0"><p className="eyebrow">Your ticket</p><h2 id={titleId} className="mt-1 text-xl font-bold">{title}</h2></div>
@@ -117,11 +131,12 @@ export function TicketCheckout({ open, title, when, venueName, priceLabel, mode,
             </> : <div className="flex items-center justify-between gap-3 px-4 py-3"><dt className="text-sm text-text-secondary">1 ticket</dt><dd className="font-mono text-lg font-bold text-white">{priceLabel}</dd></div>}
           </dl>
           {coupons && (applied
-            ? <p className="flex items-center justify-between gap-3 text-sm text-text-secondary"><span className="font-semibold text-white">{applied.code}</span><button type="button" onClick={() => { coupons.remove(); setCouponCode(""); setCouponError(null); }} className="min-h-11 px-2 text-sm font-semibold text-text-secondary underline hover:text-white">Remove</button></p>
+            ? <p className="flex items-center justify-between gap-3 text-sm text-text-secondary"><span className="font-semibold text-white">{applied.code}</span><button type="button" onClick={() => { coupons.remove(); setCouponCode(""); setCouponError(null); setShowCoupon(false); }} className="min-h-11 px-2 text-sm font-semibold text-text-secondary underline hover:text-white">Remove</button></p>
+            : !showCoupon ? <button type="button" onClick={() => setShowCoupon(true)} className="min-h-11 self-start text-sm font-semibold text-text-secondary underline underline-offset-2 hover:text-white">Have a discount code?</button>
             : <div>
-              <label htmlFor={couponId} className="text-sm font-semibold text-white">Discount code</label>
+              <label htmlFor={couponId} className="text-sm font-semibold text-white">Discount code <span className="font-normal text-text-secondary">(optional)</span></label>
               <div className="mt-1.5 flex gap-2">
-                <input id={couponId} type="text" autoCapitalize="characters" autoComplete="off" spellCheck={false} maxLength={20} value={couponCode} onChange={event => { setCouponCode(event.target.value.toUpperCase()); setCouponError(null); }} onKeyDown={event => { if (event.key === "Enter") { event.preventDefault(); void applyCoupon(); } }} placeholder="CODE" aria-invalid={Boolean(couponError)} aria-describedby={couponError ? `${couponId}-error` : undefined} className={`${inputClass.replace("mt-1.5 ", "")} font-mono uppercase`} />
+                <input id={couponId} type="text" autoCapitalize="characters" autoComplete="off" spellCheck={false} maxLength={20} value={couponCode} onChange={event => { setCouponCode(event.target.value.toUpperCase()); setCouponError(null); }} onKeyDown={event => { if (event.key === "Enter" && couponCode.trim()) { event.preventDefault(); void applyCoupon(); } }} autoFocus placeholder="CODE" aria-invalid={Boolean(couponError)} aria-describedby={couponError ? `${couponId}-error` : undefined} className={`${inputClass.replace("mt-1.5 ", "")} font-mono uppercase`} />
                 <button type="button" onClick={() => void applyCoupon()} disabled={applying || pending} className="button-secondary shrink-0">{applying ? <LoaderCircle className="h-4 w-4 animate-spin" aria-label="Checking" /> : "Apply"}</button>
               </div>
               {couponError && <p id={`${couponId}-error`} role="alert" className="mt-1.5 text-xs text-rose-200">{couponError}</p>}
@@ -142,8 +157,8 @@ export function TicketCheckout({ open, title, when, venueName, priceLabel, mode,
         </div>
         <div className="filter-dialog-actions flex gap-3 border-t border-border-subtle p-4 sm:p-6">
           <button type="button" onClick={onClose} className="button-secondary">Not now</button>
-          <button type="submit" disabled={pending} className="button-primary flex-1">
-            {pending && <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />}
+          <button type="submit" disabled={pending || applying} className="button-primary flex-1">
+            {(pending || applying) && <LoaderCircle className="h-4 w-4 animate-spin" aria-hidden="true" />}
             {whatsapp ? "Confirm my spot" : `Pay ${priceLabel}`}
           </button>
         </div>

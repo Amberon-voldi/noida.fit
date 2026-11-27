@@ -34,6 +34,9 @@ export interface AppliedCoupon {
   priceLabel: string;
 }
 
+/** What applying a code came to: the message to show, or the code as priced. */
+export interface CouponResult { error: string | null; coupon?: AppliedCoupon }
+
 /** Contact details from the ticket summary: the name on the ticket and the mobile number. */
 export interface TicketContact {
   name: string;
@@ -80,7 +83,8 @@ export function useEventBooking({ eventId, date, startTime, price, payOnline = f
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [checkoutOpen, setCheckoutOpen] = useState(false);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
-  const [coupon, setCoupon] = useState<AppliedCoupon | null>(null);
+  const [appliedCoupon, setCoupon] = useState<AppliedCoupon | null>(null);
+  const coupon = appliedCoupon;
   const [chosenTier, setChosenTier] = useState<string | undefined>(undefined);
   /** The ticket type being bought: the one picked, else the held one, else the first. */
   const tier = tiers.find(item => item.id === chosenTier) ?? tiers.find(item => item.id === hold?.ticketTier) ?? tiers[0];
@@ -144,7 +148,9 @@ export function useEventBooking({ eventId, date, startTime, price, payOnline = f
   }
 
   /** Holds the seat, then hands the browser to PayU. Stays pending while the page unloads. */
-  async function pay(phone: string): Promise<void> {
+  /** `applied`: a code applied in the same tap as Pay, before its state has landed. */
+  async function pay(phone: string, applied?: AppliedCoupon): Promise<void> {
+    const coupon = applied ?? appliedCoupon;
     trackMetric("event", eventId, "pay");
     setPending(true);
     setCheckoutError(null);
@@ -213,7 +219,7 @@ export function useEventBooking({ eventId, date, startTime, price, payOnline = f
   }
 
   /** Checks a discount code with the server and, if it works, shows the discounted price. Returns an error message, or null. */
-  async function applyCoupon(code: string): Promise<string | null> {
+  async function applyCoupon(code: string): Promise<CouponResult> {
     try {
       const response = await fetch("/api/payments/coupon", {
         method: "POST",
@@ -221,13 +227,14 @@ export function useEventBooking({ eventId, date, startTime, price, payOnline = f
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ eventId, code, ...(tier ? { tier: tier.id } : {}) }),
       });
-      if (response.status === 401) { router.push(loginUrl()); return null; }
+      if (response.status === 401) { router.push(loginUrl()); return { error: "Sign in to use a discount code" }; }
       const data = await response.json().catch(() => null) as (Partial<AppliedCoupon> & { error?: string }) | null;
-      if (!response.ok || !data?.code || typeof data.amount !== "number") return data?.error || "That discount code couldn’t be applied";
-      setCoupon({ code: data.code, amount: data.amount, label: data.label ?? "Discount", priceLabel: data.priceLabel ?? formatInr(data.amount) });
-      return null;
+      if (!response.ok || !data?.code || typeof data.amount !== "number") return { error: data?.error || "That discount code couldn’t be applied" };
+      const applied = { code: data.code, amount: data.amount, label: data.label ?? "Discount", priceLabel: data.priceLabel ?? formatInr(data.amount) };
+      setCoupon(applied);
+      return { error: null, coupon: applied };
     } catch {
-      return "That discount code couldn’t be checked. Try again.";
+      return { error: "That discount code couldn’t be checked. Try again." };
     }
   }
 
@@ -279,7 +286,7 @@ export function useEventBooking({ eventId, date, startTime, price, payOnline = f
       coupons: payOnline && !due ? { applied: coupon, apply: applyCoupon, remove: () => setCoupon(null) } : undefined,
       mode: payOnWhatsapp && !due ? "whatsapp" as const : "online" as const,
       close: () => setCheckoutOpen(false),
-      confirm: (contact: TicketContact) => void (payOnWhatsapp && !due ? reserve(contact) : pay(contact.phone)),
+      confirm: (contact: TicketContact, applied?: AppliedCoupon) => void (payOnWhatsapp && !due ? reserve(contact) : pay(contact.phone, applied)),
     },
   };
 }
