@@ -148,13 +148,23 @@ export async function payuTxnIdFor(mihpayid: string): Promise<string | null> {
     cache: "no-store",
     signal: AbortSignal.timeout(10_000),
   }).catch(() => null);
-  const data = response?.ok ? await response.json().catch(() => null) as { transaction_details?: { txnid?: unknown } | Record<string, { txnid?: unknown }> } | null : null;
+  const data = response?.ok ? await response.json().catch(() => null) as unknown : null;
   if (!data) throw new HttpError(503, "PAYMENT_VERIFY_FAILED", "We couldn’t reach PayU to look up this payment");
-  const details = data.transaction_details as Record<string, unknown> | undefined;
-  const direct = details?.txnid;
-  const nested = details && Object.values(details).find(value => typeof value === "object" && value !== null && "txnid" in value) as { txnid?: unknown } | undefined;
-  const txnid = String(direct ?? nested?.txnid ?? "");
-  return txnIdSchema.safeParse(txnid).success ? txnid : null;
+  // PayU's reply nests the transaction differently by account and version: take our txnid wherever it sits.
+  const found: string[] = [];
+  const scan = (value: unknown, depth: number): void => {
+    if (depth > 6 || found.length) return;
+    if (typeof value === "string") { if (txnIdSchema.safeParse(value).success) found.push(value); return; }
+    if (Array.isArray(value)) { value.forEach(item => scan(item, depth + 1)); return; }
+    if (value && typeof value === "object") {
+      const record = value as Record<string, unknown>;
+      if (typeof record.txnid === "string") scan(record.txnid, depth + 1);
+      Object.values(record).forEach(item => scan(item, depth + 1));
+    }
+  };
+  scan(data, 0);
+  if (!found.length) console.info("[PayU] check_payment found no txnid", { status: (data as { status?: unknown }).status, msg: (data as { msg?: unknown }).msg });
+  return found[0] ?? null;
 }
 
 /** PayU's own record of a transaction, fetched server to server. Null when PayU has no such txnid. */
