@@ -163,8 +163,41 @@ export async function payuTxnIdFor(mihpayid: string): Promise<string | null> {
     }
   };
   scan(data, 0);
-  if (!found.length) console.info("[PayU] check_payment found no txnid", { status: (data as { status?: unknown }).status, msg: (data as { msg?: unknown }).msg });
-  return found[0] ?? null;
+  if (found.length) return found[0];
+  // Not every account answers check_payment: find it in the last week's transaction report instead.
+  return payuTxnIdFromReport(mihpayid);
+}
+
+/** Our txnid for a PayU ID, from PayU's transaction report (get_Transaction_Details) over the last 7 days. */
+async function payuTxnIdFromReport(mihpayid: string): Promise<string | null> {
+  const { key, salt, mode } = requireConfig();
+  const command = "get_Transaction_Details";
+  const day = (offset: number) => new Date(Date.now() + 330 * 60_000 + offset * 86_400_000).toISOString().slice(0, 10);
+  const from = day(-6), to = day(1);
+  const response = await fetch(ENDPOINTS[mode].verify, {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" },
+    body: new URLSearchParams({ key, command, var1: from, var2: to, hash: sha512([key, command, from, salt].join("|")) }),
+    cache: "no-store",
+    signal: AbortSignal.timeout(15_000),
+  }).catch(() => null);
+  const data = response?.ok ? await response.json().catch(() => null) as unknown : null;
+  if (!data) throw new HttpError(503, "PAYMENT_VERIFY_FAILED", "We couldn’t reach PayU to look up this payment");
+  // The row whose values include this PayU ID carries our txnid.
+  let txnid: string | null = null;
+  const visit = (value: unknown, depth: number): void => {
+    if (txnid || depth > 6 || !value || typeof value !== "object") return;
+    const record = value as Record<string, unknown>;
+    const values = Object.values(record);
+    if (values.some(item => String(item) === mihpayid)) {
+      const candidate = values.find(item => typeof item === "string" && txnIdSchema.safeParse(item).success) as string | undefined;
+      if (candidate) { txnid = candidate; return; }
+    }
+    values.forEach(item => visit(item, depth + 1));
+  };
+  visit(data, 0);
+  if (!txnid) console.info("[PayU] transaction report found no txnid", { status: (data as { status?: unknown }).status, msg: (data as { msg?: unknown }).msg });
+  return txnid;
 }
 
 /** PayU's own record of a transaction, fetched server to server. Null when PayU has no such txnid. */
